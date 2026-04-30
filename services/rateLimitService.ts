@@ -72,14 +72,29 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
 
     if (serverRes.ok) {
       const data = await serverRes.json();
-      // Sync local state with server truth
       const today = todayStr();
-      const count = (data.limit ?? DAILY_LIMIT) - (data.remaining ?? DAILY_LIMIT);
-      saveState({ date: today, count, limit: data.limit ?? DAILY_LIMIT });
+      
+      // Sync local state ONLY if server provides a real count
+      if (data.remaining !== null && data.remaining !== undefined) {
+        const count = (data.limit ?? DAILY_LIMIT) - (data.remaining ?? DAILY_LIMIT);
+        saveState({ date: today, count, limit: data.limit ?? DAILY_LIMIT });
+        return {
+          allowed: data.allowed,
+          remaining: data.remaining,
+          limit: data.limit ?? DAILY_LIMIT,
+          resetsAt: 'midnight tonight',
+        };
+      }
+      
+      // If server returns null count (stateless mode), use local state but respect server's 'allowed' flag
+      const localState = loadState();
+      const localCount = (localState && localState.date === today) ? localState.count : 0;
+      const remaining = Math.max(0, DAILY_LIMIT - localCount);
+      
       return {
-        allowed: data.allowed,
-        remaining: data.remaining,
-        limit: data.limit ?? DAILY_LIMIT,
+        allowed: data.allowed && remaining > 0,
+        remaining,
+        limit: DAILY_LIMIT,
         resetsAt: 'midnight tonight',
       };
     }

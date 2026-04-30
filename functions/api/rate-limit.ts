@@ -12,13 +12,12 @@ export const onRequest = async (context: any) => {
     });
   }
 
-  // Without KV or Durable Objects, server-side tracking is limited to the current edge node.
-  // We'll return the default limit for now to ensure the UI doesn't break.
-  // Production suggestion: Connect a Cloudflare KV namespace.
+  // Without Cloudflare KV, we cannot track IP-based limits persistently across different edge nodes.
+  // We return null for counts to tell the client: "Use your local localStorage for tracking, but I'll still proxy the requests."
   
   return new Response(JSON.stringify({
     allowed: true,
-    remaining: 15,
+    remaining: null, // Signals client to use local state
     limit: 15,
     resetsAt: 'midnight'
   }), {
