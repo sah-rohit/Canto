@@ -62,6 +62,17 @@ export interface RateLimitStatus {
 
 /** Check whether the current user may perform another search (server-side IP check). */
 export async function checkRateLimit(): Promise<RateLimitStatus> {
+  const today = todayStr();
+
+  // Calculate time until midnight
+  const now = new Date();
+  const midnight = new Date();
+  midnight.setHours(24, 0, 0, 0);
+  const diffMs = midnight.getTime() - now.getTime();
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const timeUntilReset = `${hours}h ${minutes}m`;
+
   // Try server-side IP-based check
   try {
     const serverRes = await fetch('/api/rate-limit', {
@@ -72,7 +83,6 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
 
     if (serverRes.ok) {
       const data = await serverRes.json();
-      const today = todayStr();
       
       // Sync local state ONLY if server provides a real count
       if (data.remaining !== null && data.remaining !== undefined) {
@@ -83,6 +93,7 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
           remaining: data.remaining,
           limit: data.limit ?? DAILY_LIMIT,
           resetsAt: 'midnight tonight',
+          timeUntilReset
         };
       }
       
@@ -96,23 +107,14 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
         remaining,
         limit: DAILY_LIMIT,
         resetsAt: 'midnight tonight',
+        timeUntilReset
       };
     }
   } catch {
     // Server unreachable — use client fallback
   }
 
-  const today = todayStr();
   const state = loadState();
-
-  // Calculate time until midnight
-  const now = new Date();
-  const midnight = new Date();
-  midnight.setHours(24, 0, 0, 0);
-  const diffMs = midnight.getTime() - now.getTime();
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  const timeUntilReset = `${hours}h ${minutes}m`;
 
   if (!state || state.date !== today) {
     saveState({ date: today, count: 0, limit: DAILY_LIMIT });
