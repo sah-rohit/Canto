@@ -17,6 +17,7 @@
 # CANTO
 
 ### The Infinite AI Encyclopedia
+**Live Site:** [https://canto-1r3.pages.dev/](https://canto-1r3.pages.dev/)
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Built with](https://img.shields.io/badge/Built_with-React_+_Vite-61DAFB.svg)](https://vitejs.dev/)

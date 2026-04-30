@@ -40,6 +40,13 @@ const asciiArtMap: Record<string, string> = {
       / ___)(  _ \\(  )(  )(  _ \\/ __)(  __)
       \\___ \\ ) _ < )(__)(  )   (( (__  ) _) 
       (____/(____/(______)(__\\_)\\___)(____)
+  `,
+  library: `
+       .      .           .
+         .      .     .     .
+      .    .  ( ★ ) .    .
+         .      .     .     .
+       .      .           .
   `
 };
 
@@ -308,17 +315,6 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
           <div>npm run dev</div>
         </div>
 
-        <h3 style={{ marginTop: '2rem' }}>🔑 Required API Keys</h3>
-        <p>
-          You'll need to obtain your own API keys for the following services:
-        </p>
-        <ul style={{ lineHeight: '2' }}>
-          <li><strong>Groq:</strong> <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>console.groq.com</a></li>
-          <li><strong>Ollama Cloud:</strong> <a href="https://ollama.com/cloud" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>ollama.com/cloud</a></li>
-          <li><strong>NASA:</strong> <a href="https://api.nasa.gov" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>api.nasa.gov</a></li>
-          <li><strong>CORE:</strong> <a href="https://core.ac.uk/services/api" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>core.ac.uk</a></li>
-        </ul>
-
         <h3 style={{ marginTop: '2rem' }}>🤝 Contributing</h3>
         <p>I welcome contributions! Here's how to get involved:</p>
         <ul style={{ lineHeight: '2' }}>
@@ -326,37 +322,6 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
           <li><strong>Feature Requests:</strong> Open a discussion on the repo</li>
           <li><strong>Pull Requests:</strong> Fork the repo and submit a PR</li>
         </ul>
-
-        <h3 style={{ marginTop: '2rem' }}>🏗️ Architecture</h3>
-        <div style={{ 
-          background: 'var(--input-bg)', border: '1px solid var(--border-color)', 
-          borderRadius: '6px', padding: '1.5rem', fontFamily: 'monospace', fontSize: '0.8em',
-          lineHeight: '1.4', margin: '1rem 0', overflowX: 'auto', whiteSpace: 'pre'
-        }}>
-{`┌──────────────────────────────────────────────────┐
-│                   CLIENT (React)                  │
-│                                                    │
-│  Search ──► Knowledge Service ──► AI Service      │
-│              │                     │               │
-│              ▼                     ▼               │
-│         /api/knowledge        /api/ai              │
-└──────────┬──────────────────────┬─────────────────┘
-           │                      │
-┌──────────▼──────────────────────▼─────────────────┐
-│              SERVER (Vite Middleware)               │
-│                                                    │
-│  ┌─────────┐ ┌──────┐ ┌─────┐ ┌──────┐           │
-│  │Wikipedia│ │ NASA │ │CORE │ │OpenLib│           │
-│  └────┬────┘ └──┬───┘ └──┬──┘ └──┬───┘           │
-│       └─────────┴────────┴───────┘                │
-│                     │                              │
-│  ┌──────┐ ┌────────▼───────┐                     │
-│  │ Groq │ │  Ollama Cloud  │                     │
-│  └──────┘ └────────────────┘                     │
-│                                                    │
-│  IP-based Rate Limiting (15/day)                  │
-└──────────────────────────────────────────────────┘`}
-        </div>
       </div>
     )
   }
@@ -364,11 +329,67 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
 
 interface StaticPageProps {
   pageId: string;
+  history?: string[];
+  favorites?: string[];
+  onTopicClick?: (topic: string) => void;
 }
 
-const StaticPage: React.FC<StaticPageProps> = ({ pageId }) => {
-  const page = pagesData[pageId] || { title: 'Page Not Found', content: <p>I could not find the page you are looking for.</p> };
+const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites = [], onTopicClick }) => {
+  const page = pagesData[pageId];
   const art = asciiArtMap[pageId] || '';
+
+  if (pageId === 'library') {
+    return (
+      <div style={{ paddingBottom: '2rem' }}>
+        <h2 style={{ marginBottom: '1rem', letterSpacing: '0.1em' }}>My Local Library</h2>
+        {art && (
+          <pre className="ascii-art living-ascii" style={{ color: '#555', marginBottom: '2rem', overflowX: 'auto' }}>
+            {art}
+          </pre>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem', marginTop: '2rem' }}>
+          <section>
+            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>★ Favorites</h3>
+            {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                {favorites.map(t => (
+                  <li key={t} style={{ marginBottom: '0.6rem' }}>
+                    <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section>
+            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>🕒 Recent History</h3>
+            {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
+              <ul style={{ listStyle: 'none', padding: 0 }}>
+                {history.map(t => (
+                  <li key={t} style={{ marginBottom: '0.6rem' }}>
+                    <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+        <div style={{ marginTop: '4rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px' }}>
+          <p style={{ fontSize: '0.85em', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
+            ℹ️ <strong>Privacy Note:</strong> All library data (history and favorites) is stored exclusively in your browser's local storage. Clearing your site data or cache will remove these records permanently.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!page) {
+    return (
+      <div style={{ paddingBottom: '2rem' }}>
+        <h2>Page Not Found</h2>
+        <p>I could not find the page you are looking for.</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ paddingBottom: '2rem' }}>

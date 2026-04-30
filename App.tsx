@@ -146,6 +146,18 @@ const App: React.FC = () => {
     });
   }, [showToast]);
 
+  const handleRegenerate = useCallback(() => {
+    const normalized = currentTopic.toLowerCase().trim();
+    setCache(prev => {
+      const newCache = { ...prev };
+      delete newCache[normalized];
+      try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
+      return newCache;
+    });
+    setRetryTrigger(prev => prev + 1);
+    showToast('Regenerating content...', 'info');
+  }, [currentTopic, showToast]);
+
   const navigateToPage = useCallback((page: string) => {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('page', page);
@@ -479,9 +491,21 @@ const App: React.FC = () => {
                   <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
                   </div>
-                  <h2 style={{ marginBottom: '2rem', textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
+                  <h2 style={{ marginBottom: '0.5rem', textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
                     {currentTopic}
                   </h2>
+                  {!isLoading && !error && content.length > 0 && (
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                      <button 
+                        onClick={handleRegenerate}
+                        style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.3rem 0.8rem', borderRadius: '4px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8em', fontFamily: 'monospace' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        ⟳ Regenerate (Uses 1 Credit)
+                      </button>
+                    </div>
+                  )}
 
                   {error && (
                     <div style={{ border: '1px solid #cc0000', padding: '1rem', color: '#cc0000', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -525,45 +549,15 @@ const App: React.FC = () => {
                   )}
                 </div>
               </div>
-            ) : currentPage === 'library' ? (
-              <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                <h2 style={{ marginBottom: '2rem', letterSpacing: '0.1em' }}>My Local Library</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '2rem' }}>
-                  <section>
-                    <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--accent-color)', fontFamily: 'monospace' }}>★ Favorites</h3>
-                    {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
-                      <ul style={{ listStyle: 'none', padding: 0 }}>
-                        {favorites.map(t => (
-                          <li key={t} style={{ marginBottom: '0.5rem' }}>
-                            <button onClick={() => navigateToTopic(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1em', textDecoration: 'underline', fontFamily: 'monospace' }}>{t}</button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                  <section>
-                    <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>🕒 Recent History</h3>
-                    {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
-                      <ul style={{ listStyle: 'none', padding: 0 }}>
-                        {history.map(t => (
-                          <li key={t} style={{ marginBottom: '0.5rem' }}>
-                            <button onClick={() => navigateToTopic(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1em', textDecoration: 'underline', fontFamily: 'monospace' }}>{t}</button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                </div>
-                <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px' }}>
-                  <p style={{ fontSize: '0.85em', color: 'var(--text-muted)', margin: 0 }}>
-                    ℹ️ All library data is stored locally in your browser. Clearing your site data will reset these lists.
-                  </p>
-                </div>
-              </div>
             ) : currentPage === 'landing' ? (
               <LandingPage onWordClick={handleWordClick} />
             ) : (
-              <StaticPage pageId={currentPage} />
+              <StaticPage 
+                pageId={currentPage} 
+                history={history} 
+                favorites={favorites} 
+                onTopicClick={handleWordClick} 
+              />
             )}
           </ErrorBoundary>
         </main>
@@ -579,6 +573,7 @@ const App: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', marginTop: '1rem', flexWrap: 'wrap' }}>
             <button onClick={() => navigateToPage('about')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>About</button>
             <button onClick={() => navigateToPage('library')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Library</button>
+            <button onClick={() => navigateToPage('pricing')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Pricing</button>
             <button onClick={() => navigateToPage('opensource')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Open Source</button>
             <button onClick={() => navigateToPage('faq')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>FAQ</button>
             <button onClick={() => navigateToPage('privacy')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Privacy</button>
