@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <link rel="icon" type="image/svg+xml" href="/canto-icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Canto — An infinite, AI-powered encyclopedia. Search any topic and watch its definition materialize in real time." />
+    <title>Canto</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kosugi&display=swap" rel="stylesheet">
+    <style>
+      @keyframes blink {
+        from, to { opacity: 1 }
+        50% { opacity: 0; }
+      }
+
+      :root {
+        --bg-color: #ffffff;
+        --text-color: #000000;
+        --text-muted: #888888;
+        --accent-color: #0000ff;
+        --border-color: #eeeeee;
+        --ascii-glow: none;
+        --input-bg: transparent;
+      }
+      
+      [data-theme='dark'] {
+        --bg-color: #050505;
+        --text-color: #00ff41;
+        --text-muted: #008f11;
+        --accent-color: #ff00ff;
+        --border-color: #1a1a1a;
+        --ascii-glow: 0 0 5px rgba(0, 255, 65, 0.5);
+        --input-bg: #0a0a0a;
+      }
+
+      [data-theme='obsidian'] {
+        --bg-color: #0b0f19;
+        --text-color: #e2e8f0;
+        --text-muted: #94a3b8;
+        --accent-color: #38bdf8;
+        --border-color: #1e293b;
+        --ascii-glow: 0 0 8px rgba(56, 189, 248, 0.2);
+        --input-bg: #0f172a;
+      }
+      
+      [data-theme='vintage'] {
+        --bg-color: #f4f1ea;
+        --text-color: #3d332b;
+        --text-muted: #8b7d6b;
+        --accent-color: #c0392b;
+        --border-color: #d5d0c5;
+        --ascii-glow: none;
+        --input-bg: transparent;
+      }
+
+      html, body {
+        height: 100%;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: 'Kosugi', sans-serif;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        transition: background-color 0.4s ease, color 0.4s ease;
+      }
+
+      #root {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        width: 100%;
+        max-width: 1400px; /* Full screen wide max */
+        margin: 0 auto;
+        padding: 2vw 5vw; /* Using viewport relative padding */
+        box-sizing: border-box;
+      }
+      
+      .main-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      }
+      
+      @media (min-width: 1000px) {
+        .main-layout {
+           flex-direction: row;
+           align-items: flex-start;
+           justify-content: space-between;
+           gap: 3rem;
+        }
+        .main-content {
+           flex: 1;
+           max-width: 800px;
+        }
+        .side-art {
+           width: 300px;
+           flex-shrink: 0;
+           position: sticky;
+           top: 2rem;
+        }
+      }
+
+      /* Reset headers/buttons */
+      h1, h2, h3, h4, h5, h6 { font-size: 1em; margin: 0; font-weight: normal; }
+      button { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+      
+      .interactive-word {
+        color: var(--text-color);
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+      }
+      .interactive-word:hover {
+        color: var(--accent-color);
+        text-decoration: underline;
+        text-shadow: var(--ascii-glow);
+      }
+      .footer-text { font-size: 0.9em; color: var(--text-muted); }
+      .footer-text a { color: inherit; text-decoration: none; transition: color 0.2s ease-in-out; }
+      .footer-text a:hover { color: var(--accent-color); text-decoration: underline; }
+      
+      .ascii-art {
+        font-family: monospace;
+        text-align: left;
+        white-space: pre;
+        color: var(--text-muted);
+        margin: 2rem 0;
+        line-height: 1.1;
+        font-size: 0.85em;
+        text-shadow: var(--ascii-glow);
+      }
+      
+      .ascii-breathing {
+         animation: breathing 4s infinite ease-in-out;
+      }
+      
+      @keyframes breathing {
+         0% { opacity: 0.9; transform: scale(1); }
+         50% { opacity: 1; transform: scale(1.02); }
+         100% { opacity: 0.9; transform: scale(1); }
+      }
+      
+      .interactive-char {
+         transition: all 0.2s;
+         display: inline-block;
+      }
+      .interactive-char:hover {
+         color: var(--accent-color);
+         transform: scale(1.5) rotate(15deg);
+         text-shadow: 0 0 8px var(--accent-color);
+      }
+      .char-clicked {
+         color: var(--text-color) !important;
+         transform: scale(0.8) rotate(-15deg) !important;
+         text-shadow: none !important;
+      }
+      
+      /* Kinetic Typography */
+      .text-glow {
+        color: var(--text-color);
+        text-shadow: 0 0 10px var(--accent-color), 0 0 20px var(--accent-color);
+        animation: pulseGlow 2s infinite alternate;
+      }
+      
+      @keyframes pulseGlow {
+        from { text-shadow: 0 0 5px var(--accent-color); }
+        to { text-shadow: 0 0 15px var(--accent-color), 0 0 30px var(--accent-color); }
+      }
+      
+      .text-outline {
+        color: transparent;
+        -webkit-text-stroke: 1px var(--text-color);
+        letter-spacing: 0.05em;
+        font-weight: bold;
+      }
+      
+      .text-distort {
+        display: inline-block;
+        animation: glitch 3s infinite;
+        position: relative;
+      }
+      @keyframes glitch {
+        0% { transform: skew(0deg); opacity: 1; }
+        5% { transform: skew(15deg); opacity: 0.8; }
+        10% { transform: skew(-15deg); opacity: 1; }
+        15% { transform: skew(0deg); }
+        100% { transform: skew(0deg); }
+      }
+      
+      .blinking-cursor { animation: blink 1s step-end infinite; }
+      
+      /* Search Bar */
+      .search-container { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2rem; width: 100%; }
+      .search-form { flex-grow: 1; position: relative; display: flex; align-items: center; width: 100%; }
+      .search-input {
+        width: 100%; padding: 0.8rem 1rem; font: inherit; color: inherit;
+        border: 2px solid var(--border-color); border-radius: 8px;
+        background-color: var(--input-bg); box-sizing: border-box; outline: none; transition: border-color 0.2s ease-in-out;
+      }
+      .search-input:focus { border-color: var(--accent-color); }
+      .search-input:disabled { color: var(--text-muted); border-color: var(--border-color); opacity: 0.7; }
+      .search-input::placeholder { color: var(--text-muted); }
+      
+      .random-button { background: none; border: none; padding: 0.5rem 0; font: inherit; color: var(--text-color); cursor: pointer; white-space: nowrap; transition: color 0.2s; }
+      .random-button:hover:not(:disabled) { color: var(--accent-color); text-shadow: var(--ascii-glow); }
+      .random-button:disabled { color: var(--text-muted); cursor: not-allowed; }
+
+
+      @media (max-width: 600px) {
+        .hide-on-mobile {
+          display: none !important;
+        }
+      }
+
+      .progress-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: transparent;
+        overflow: hidden;
+        z-index: 9999;
+      }
+      .progress-bar::after {
+        content: '';
+        display: block;
+        position: absolute;
+        height: 100%;
+        top: 0;
+        left: 0;
+        background: var(--text-color);
+        animation: loading-progress 2s infinite ease-in-out;
+      }
+      @keyframes loading-progress {
+        0% { transform: translateX(-100%); width: 30%; }
+        50% { width: 50%; }
+        100% { transform: translateX(350%); width: 30%; }
+      }
+      
+      @keyframes eclipse-pulse {
+        0% { opacity: 0.8; transform: rotate(0deg) scale(1); filter: drop-shadow(0 0 2px rgba(100,100,150,0.5)); color: var(--text-muted); }
+        50% { opacity: 1; transform: rotate(4deg) scale(1.05); filter: drop-shadow(0 0 8px var(--accent-color)); color: var(--text-color); }
+        100% { opacity: 0.8; transform: rotate(0deg) scale(1); filter: drop-shadow(0 0 2px rgba(100,100,150,0.5)); color: var(--text-muted); }
+      }
+      .moon-animated {
+        animation: eclipse-pulse 5s infinite ease-in-out;
+      }
+
+      @keyframes twinkle {
+        0% { opacity: 0.2; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1.2); text-shadow: var(--ascii-glow); }
+        100% { opacity: 0.2; transform: scale(0.8); }
+      }
+      .star-twinkle {
+        animation: twinkle linear infinite;
+      }
+
+      @keyframes meteor {
+        0% { transform: translate(100vw, -20vh) rotate(-45deg); opacity: 1; }
+        100% { transform: translate(-20vw, 100vh) rotate(-45deg); opacity: 0; }
+      }
+      .meteor {
+        position: absolute;
+        top: 0;
+        left: 0;
+        color: var(--text-color);
+        opacity: 0;
+        font-family: inherit;
+        pointer-events: none;
+        z-index: 10;
+        animation: meteor 4s linear infinite;
+        text-shadow: 0 0 5px var(--text-muted);
+      }
+
+      @keyframes living-ascii {
+        0% { opacity: 0.9; text-shadow: 0 0 1px var(--border-color); transform: scale(1); }
+        50% { opacity: 1; text-shadow: 0 0 2px var(--border-color); transform: scale(1.002); }
+        100% { opacity: 0.9; text-shadow: 0 0 1px var(--border-color); transform: scale(1); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .fade-in {
+        animation: fadeIn 0.6s ease-out forwards;
+      }
+      
+      .living-ascii {
+        animation: living-ascii 3s infinite ease-in-out;
+      }
+
+      .sticky-footer {
+        width: 100%;
+        text-align: center;
+        padding: 1.5rem 0;
+        background-color: transparent;
+        position: relative;
+        z-index: 10;
+        margin-top: auto; /* Push footer to the bottom of the flex container */
+      }
+    </style>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
