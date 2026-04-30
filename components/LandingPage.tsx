@@ -68,6 +68,32 @@ const PLANET = `
           ╰─┤ ▒░░▒▒▒ ├─╯
             ╰────────╯`;
 
+const SATELLITE = `
+     📡
+    /  \\
+   | [] |
+  /|____|\\
+ [_|____|_]
+   |    |
+   |____|`;
+
+const ASTRONAUT = `
+     .  .
+     |--|
+    /|__|\\
+   / |  | \\
+     |__|
+     /  \\
+    |    |`;
+
+const ALIEN_SHIP = `
+     .  .
+   .      .
+ .__________.
+ |  ░░░░░░  |
+ '----------'
+    /    \\`;
+
 const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWordClick }) => {
   const exampleTopics = [
     "Quantum Entanglement", "Cyberpunk", "Stoicism",
@@ -75,50 +101,54 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
     "Dark Matter", "Philosophy", "Renaissance"
   ];
 
+  // Using a slightly higher opacity (0.2 - 0.3) for better visibility
+  const artStyle: React.CSSProperties = {
+    position: 'absolute',
+    pointerEvents: 'none',
+    zIndex: 0,
+    opacity: 0.25, // Increased from 0.1
+    color: 'var(--text-muted)',
+    fontFamily: 'monospace',
+    lineHeight: '1.2'
+  };
+
   return (
-    <div className="fade-in" style={{ position: 'relative', textAlign: 'center', padding: '2rem 0', overflow: 'hidden' }}>
+    <div className="fade-in" style={{ position: 'relative', textAlign: 'center', padding: '2rem 0', overflow: 'hidden', minHeight: '80vh' }}>
 
       {/* ── Large Moon ── */}
-      <div style={{
-        position: 'absolute', top: '-40px', right: '-5%', opacity: 0.12,
-        pointerEvents: 'none', zIndex: 0, fontSize: '0.5em'
-      }} className="hide-on-mobile">
-        <pre style={{ fontFamily: 'monospace', lineHeight: '1', color: 'var(--text-muted)', margin: 0 }}>
-          {LARGE_MOON}
-        </pre>
+      <div style={{ ...artStyle, top: '-40px', right: '-5%', fontSize: '0.55em' }} className="hide-on-mobile">
+        <pre>{LARGE_MOON}</pre>
       </div>
 
       {/* ── Galaxy ── */}
-      <div style={{
-        position: 'absolute', top: '60px', left: '2%', opacity: 0.08,
-        pointerEvents: 'none', zIndex: 0
-      }} className="hide-on-mobile">
-        <pre className="ascii-breathing" style={{ fontFamily: 'monospace', lineHeight: '1.3', color: 'var(--text-muted)', margin: 0, fontSize: '0.65em' }}>
-          {GALAXY}
-        </pre>
+      <div style={{ ...artStyle, top: '60px', left: '2%', fontSize: '0.7em' }} className="hide-on-mobile">
+        <pre className="ascii-breathing">{GALAXY}</pre>
       </div>
 
       {/* ── Planet ── */}
-      <div style={{
-        position: 'absolute', bottom: '60px', left: '5%', opacity: 0.1,
-        pointerEvents: 'none', zIndex: 0
-      }} className="hide-on-mobile">
-        <pre style={{ fontFamily: 'monospace', lineHeight: '1.2', color: 'var(--text-muted)', margin: 0, fontSize: '0.6em' }}>
-          {PLANET}
-        </pre>
+      <div style={{ ...artStyle, bottom: '60px', left: '5%', fontSize: '0.65em' }} className="hide-on-mobile">
+        <pre>{PLANET}</pre>
       </div>
 
       {/* ── Rocket ── */}
-      <div style={{
-        position: 'absolute', bottom: '30px', right: '8%', opacity: 0.1,
-        pointerEvents: 'none', zIndex: 0
-      }} className="hide-on-mobile">
-        <pre style={{ fontFamily: 'monospace', lineHeight: '1.1', color: 'var(--text-muted)', margin: 0, fontSize: '0.45em' }}>
-          {ROCKET}
-        </pre>
+      <div style={{ ...artStyle, bottom: '30px', right: '8%', fontSize: '0.5em' }} className="hide-on-mobile">
+        <pre>{ROCKET}</pre>
       </div>
 
-      {/* ── Logo with proper spacing ── */}
+      {/* ── Additional Space Objects ── */}
+      <div style={{ ...artStyle, top: '25%', left: '15%', fontSize: '0.6em', transform: 'rotate(-15deg)' }} className="hide-on-mobile">
+        <pre>{SATELLITE}</pre>
+      </div>
+
+      <div style={{ ...artStyle, bottom: '15%', left: '25%', fontSize: '0.5em', animation: 'float 6s ease-in-out infinite' }} className="hide-on-mobile">
+        <pre>{ASTRONAUT}</pre>
+      </div>
+
+      <div style={{ ...artStyle, top: '15%', right: '15%', fontSize: '0.6em' }} className="hide-on-mobile">
+        <pre>{ALIEN_SHIP}</pre>
+      </div>
+
+      {/* ── Logo ── */}
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem', position: 'relative', zIndex: 5 }}>
         <svg width="100%" height="130" viewBox="0 0 700 130" style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.1))', maxWidth: '700px' }}>
           <defs>
@@ -131,7 +161,6 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
             </pattern>
           </defs>
           
-          {/* Moon icon — positioned with gap */}
           <g transform="translate(160, 15) scale(0.9)">
             <path d="M 30 0 A 30 30 0 1 0 60 30 A 20 20 0 1 1 30 0 Z" fill="none" stroke="url(#cantoHolo)" strokeWidth="3" />
             <circle cx="20" cy="15" r="2" fill="var(--accent-color)" />
@@ -139,7 +168,6 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
             <circle cx="15" cy="35" r="1.5" fill="var(--accent-color)" />
           </g>
 
-          {/* CANTO text — shifted right for spacing */}
           <text x="420" y="65" dominantBaseline="middle" textAnchor="middle" fill="url(#cantoHolo)" fontSize="72" fontFamily="Inter, sans-serif" fontWeight="900" letterSpacing="0.2em">
             CANTO
           </text>
@@ -156,7 +184,7 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
         Welcome to Canto
       </h2>
       <p style={{ maxWidth: '500px', margin: '0 auto 2rem auto', color: 'var(--text-muted)', lineHeight: '1.8', position: 'relative', zIndex: 5 }}>
-        The infinite AI encyclopedia powered by real knowledge sources.
+        An infinite AI encyclopedia powered by real knowledge sources.
         Search any topic and watch a comprehensive, fact-checked article materialize in real time.
       </p>
 
@@ -196,6 +224,13 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
           </div>
         </div>
       )}
+      <style>{`
+        @keyframes float {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+      `}</style>
     </div>
   );
 };

@@ -11,6 +11,8 @@ interface ContentDisplayProps {
   isLoading: boolean;
   onWordClick: (word: string) => void;
   topic?: string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const InteractiveContent: React.FC<{
@@ -18,7 +20,9 @@ const InteractiveContent: React.FC<{
   onWordClick: (word: string) => void;
   isStreaming?: boolean;
   topic?: string;
-}> = ({ content, onWordClick, isStreaming, topic }) => {
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+}> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
@@ -280,6 +284,12 @@ const InteractiveContent: React.FC<{
             {isSpeaking ? 'Stop TTS' : 'Listen TTS'}
           </button>
           <button 
+            onClick={onToggleFavorite}
+            style={{ textDecoration: 'underline', color: isFavorite ? 'var(--accent-color)' : 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
+          >
+            {isFavorite ? '★ Unstar' : '☆ Star'}
+          </button>
+          <button 
             onClick={handleShare}
             style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
           >
@@ -341,9 +351,9 @@ const InteractiveContent: React.FC<{
   );
 };
 
-const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onWordClick, topic }) => {
+const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onWordClick, topic, isFavorite, onToggleFavorite }) => {
   if (!content) return null;
-  return <InteractiveContent content={content} onWordClick={onWordClick} isStreaming={isLoading} topic={topic} />;
+  return <InteractiveContent content={content} onWordClick={onWordClick} isStreaming={isLoading} topic={topic} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} />;
 };
 
 export default ContentDisplay;

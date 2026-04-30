@@ -48,35 +48,35 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
     title: 'About Canto',
     content: (
       <div>
-        <p>Welcome to <strong>Canto</strong> — the infinite, AI-powered encyclopedia.</p>
+        <p>Welcome to <strong>Canto</strong> — an infinite, AI-powered encyclopedia.</p>
         <p>
-          We believe in a world where curiosity never hits a dead end. Our mission is to provide an
+          I believe in a world where curiosity never hits a dead end. My mission is to provide an
           infinite, real-time generated encyclopedia where every word is a doorway to new knowledge.
         </p>
         <h3 style={{ marginTop: '2rem' }}>How It Works</h3>
         <p>
           Unlike traditional encyclopedias that rely on pre-written articles, Canto uses a multi-source 
-          knowledge pipeline. When you search for a topic, we simultaneously fetch verified information from
+          knowledge pipeline. When you search for a topic, I simultaneously fetch verified information from
           <strong> Wikipedia</strong>, <strong>Internet Archive</strong>, <strong>NASA</strong>, and <strong>CORE Academic</strong> databases.
-          This context is then fed into our AI engine (powered by Groq, Ollama Cloud, and other providers) which 
+          This context is then fed into the AI engine (powered by Groq and Ollama Cloud) which 
           synthesizes a rich, encyclopedia-style article in real time.
         </p>
-        <h3 style={{ marginTop: '2rem' }}>Our Technology Stack</h3>
+        <h3 style={{ marginTop: '2rem' }}>Technology Stack</h3>
         <ul style={{ lineHeight: '2' }}>
-          <li>🧠 <strong>AI Providers:</strong> Groq (Llama 3.1), Ollama Cloud (Qwen 3.5, Kimi K2.5)</li>
-          <li>📚 <strong>Knowledge Sources:</strong> Wikipedia API, Internet Archive / Open Library, NASA Image & Data API, CORE Academic Papers</li>
+          <li>🧠 <strong>AI Providers:</strong> Groq (Llama 3.1), Ollama Cloud (DeepSeek v3.2, Kimi K2.5)</li>
+          <li>📚 <strong>Knowledge Sources:</strong> Wikipedia API, Internet Archive, NASA API, CORE Academic Papers</li>
           <li>🎨 <strong>ASCII Art:</strong> AI-generated visual representations for every topic</li>
           <li>⚡ <strong>Streaming:</strong> Real-time content generation with Server-Sent Events</li>
-          <li>🔒 <strong>Privacy-First:</strong> IP+fingerprint rate limiting with no personal data stored</li>
+          <li>🔒 <strong>Privacy-First:</strong> IP-based rate limiting with no personal data stored</li>
         </ul>
-        <h3 style={{ marginTop: '2rem' }}>Our Vision</h3>
+        <h3 style={{ marginTop: '2rem' }}>My Vision</h3>
         <p>
           To map out the entirety of human curiosity, making learning an endless, interactive journey.
           No bounds, no missing pages — just pure exploration enriched by verified sources.
         </p>
         <h3 style={{ marginTop: '2rem' }}>Built By</h3>
         <p>
-          Canto is crafted by <strong>Sonata Interactive</strong> — a team passionate about making knowledge 
+          Canto is crafted by <strong>Sonata Interactive</strong> — a solo endeavor passionate about making knowledge 
           beautiful, accessible, and infinite.
         </p>
       </div>
@@ -89,7 +89,7 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         <p>Canto is designed to be accessible to everyone.</p>
         <h3 style={{ marginTop: '2rem' }}>🆓 Free Tier — Always Free</h3>
         <ul style={{ lineHeight: '2' }}>
-          <li>Up to <strong>30 searches per day</strong> per device</li>
+          <li>Up to <strong>15 searches per day</strong> per device</li>
           <li>Full encyclopedia articles with AI synthesis</li>
           <li>Multi-source knowledge integration (Wikipedia, NASA, CORE, Internet Archive)</li>
           <li>ASCII art generation for every topic</li>
@@ -99,8 +99,8 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         </ul>
         <h3 style={{ marginTop: '2rem' }}>Why Free?</h3>
         <p>
-          We believe knowledge should be universal. Canto is open source and community-driven.
-          Our daily search limit exists to prevent API abuse, not to restrict learning.
+          I believe knowledge should be universal. Canto is open source and independently developed.
+          The daily search limit exists to prevent API abuse, not to restrict learning.
         </p>
         <h3 style={{ marginTop: '2rem' }}>💡 Want More?</h3>
         <p>
@@ -123,7 +123,7 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         
         <h3 style={{ marginTop: '2rem' }}>How is it different from ChatGPT or Wikipedia?</h3>
         <p>
-          Canto combines the best of both worlds. Like Wikipedia, it uses verified sources (we query Wikipedia, 
+          Canto combines the best of both worlds. Like Wikipedia, it uses verified sources (I query Wikipedia, 
           NASA, Internet Archive, and CORE Academic). Like ChatGPT, it generates natural, engaging prose.
           The result is factually grounded articles written in a compelling style — an AI encyclopedia, not a chatbot.
         </p>
@@ -137,14 +137,14 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         
         <h3 style={{ marginTop: '2rem' }}>Is the content accurate?</h3>
         <p>
-          We fetch real-time context from Wikipedia, NASA, Internet Archive, and CORE Academic before 
+          I fetch real-time context from Wikipedia, NASA, Internet Archive, and CORE Academic before 
           generating each article. This dramatically improves accuracy compared to pure AI generation.
           However, AI-generated content may still contain errors — always verify critical facts with primary sources.
         </p>
 
-        <h3 style={{ marginTop: '2rem' }}>Why do I have a daily search limit?</h3>
+        <h3 style={{ marginTop: '2rem' }}>Why is there a daily search limit?</h3>
         <p>
-          Each search costs API credits across multiple providers. The daily limit (30 searches) prevents 
+          Each search costs API credits across multiple providers. The daily limit (15 searches) prevents 
           abuse while keeping the service free for everyone. The limit resets at midnight local time.
         </p>
 
@@ -154,11 +154,11 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
           your own instance. Visit the <a href="?page=opensource" style={{ color: 'var(--accent-color)' }}>Open Source</a> page for details.
         </p>
 
-        <h3 style={{ marginTop: '2rem' }}>What data do you collect?</h3>
+        <h3 style={{ marginTop: '2rem' }}>What data is collected?</h3>
         <p>
-          We do not require accounts. Rate limiting uses a hashed browser fingerprint (never stored raw) 
-          combined with your IP address. No personal information is collected or sold. 
-          See our <a href="?page=privacy" style={{ color: 'var(--accent-color)' }}>Privacy Policy</a> for full details.
+          Canto does not require accounts. Rate limiting uses your IP address to prevent abuse. 
+          No personal information is collected or sold. 
+          See the <a href="?page=privacy" style={{ color: 'var(--accent-color)' }}>Privacy Policy</a> for full details.
         </p>
       </div>
     )
@@ -167,29 +167,27 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
     title: 'Privacy Policy',
     content: (
       <div>
-        <p>Your privacy matters to us. Here's a simple, jargon-free breakdown of how we handle your data.</p>
-        <h3 style={{ marginTop: '2rem' }}>1. What We Collect</h3>
+        <p>Your privacy matters. Here's a simple, jargon-free breakdown of how data is handled.</p>
+        <h3 style={{ marginTop: '2rem' }}>1. Data Collection</h3>
         <p>
-          We collect the search queries you enter to generate the content you request. We do not require you
+          I collect the search queries you enter to generate the content you request. I do not require you
           to create an account. Your searches are not tied to your personal identity.
         </p>
         <p>
-          For rate limiting, we collect a <strong>hashed browser fingerprint</strong> (derived from non-personal 
-          browser properties like screen resolution and timezone) and your <strong>IP address</strong>. The raw 
-          fingerprint data is never stored — only its one-way hash.
+          For rate limiting, your <strong>IP address</strong> is used solely to prevent API abuse. 
+          This data is not stored permanently.
         </p>
-        <h3 style={{ marginTop: '2rem' }}>2. How We Use It</h3>
+        <h3 style={{ marginTop: '2rem' }}>2. Data Usage</h3>
         <p>
           Your queries are used to fetch context from knowledge APIs (Wikipedia, NASA, Internet Archive, CORE) 
-          and to generate AI content via our providers (Groq, Ollama Cloud). The fingerprint hash and IP are 
-          used solely for rate limiting to prevent abuse.
+          and to generate AI content via providers (Groq, Ollama Cloud).
         </p>
-        <h3 style={{ marginTop: '2rem' }}>3. What We Don't Do</h3>
+        <h3 style={{ marginTop: '2rem' }}>3. What is NOT done</h3>
         <ul style={{ lineHeight: '2' }}>
-          <li>We do <strong>not</strong> sell your personal data to third parties.</li>
-          <li>We do <strong>not</strong> track your browsing outside of this application.</li>
-          <li>We do <strong>not</strong> use cookies for advertising or tracking.</li>
-          <li>We do <strong>not</strong> store search history on our servers.</li>
+          <li>I do <strong>not</strong> sell your data to third parties.</li>
+          <li>I do <strong>not</strong> track your browsing outside of this application.</li>
+          <li>I do <strong>not</strong> use cookies for advertising or tracking.</li>
+          <li>I do <strong>not</strong> store search history on servers.</li>
         </ul>
         <h3 style={{ marginTop: '2rem' }}>4. Third-Party Services</h3>
         <p>
@@ -197,7 +195,7 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         </p>
         <ul style={{ lineHeight: '2' }}>
           <li><strong>Groq API</strong> — AI text generation</li>
-          <li><strong>Ollama Cloud</strong> — AI text generation (fallback)</li>
+          <li><strong>Ollama Cloud</strong> — AI text generation</li>
           <li><strong>Wikipedia REST API</strong> — Factual context</li>
           <li><strong>NASA API</strong> — Space and science data</li>
           <li><strong>Internet Archive / Open Library</strong> — Book references</li>
@@ -208,7 +206,7 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         </p>
         <h3 style={{ marginTop: '2rem' }}>5. Data Retention</h3>
         <p>
-          Rate limit data is held in-memory during the server session and resets on server restart.
+          Rate limit data is held in-memory during the server session.
           Client-side search history is stored in your browser's localStorage and can be cleared at any time.
         </p>
       </div>
@@ -222,35 +220,33 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
         <h3 style={{ marginTop: '2rem' }}>1. Usage</h3>
         <p>
           Canto is provided for educational, informational, and entertainment purposes. 
-          Content is generated by AI using multiple knowledge sources. While we strive for accuracy 
+          Content is generated by AI using multiple knowledge sources. While I strive for accuracy 
           by using verified sources, generated content may sometimes be inaccurate, incomplete, or contain errors.
         </p>
         <h3 style={{ marginTop: '2rem' }}>2. No Warranties</h3>
         <p>
-          We provide the service "as is." We don't guarantee that the service will always be up, 
-          nor do we guarantee the factual accuracy of any AI-generated article. Always verify important facts 
+          I provide the service "as is." I don't guarantee that the service will always be up, 
+          nor do I guarantee the factual accuracy of any AI-generated article. Always verify important facts 
           with trusted primary sources.
         </p>
         <h3 style={{ marginTop: '2rem' }}>3. Rate Limits</h3>
         <p>
-          Each user is limited to 30 searches per day, enforced at the IP and device level.
-          Attempting to circumvent rate limits (e.g., using proxies, VPNs, or browser automation) may 
-          result in temporary or permanent blocking.
+          Each user is limited to 15 searches per day, enforced at the IP level.
+          Attempting to circumvent rate limits may result in temporary or permanent blocking.
         </p>
         <h3 style={{ marginTop: '2rem' }}>4. Acceptable Use</h3>
         <p>
-          Do not use the platform to generate illegal, harmful, or grossly offensive content. We reserve the 
-          right to block requests or IP addresses that abuse the system limits or attempt to compromise our infrastructure.
+          Do not use the platform to generate illegal, harmful, or offensive content. I reserve the 
+          right to block requests or IP addresses that abuse the system limits.
         </p>
         <h3 style={{ marginTop: '2rem' }}>5. Open Source License</h3>
         <p>
           Canto's source code is available under the Apache 2.0 License. You may use, modify, and distribute 
-          the code in accordance with the license terms. API keys and credentials are not included in the 
-          open source distribution.
+          the code in accordance with the license terms.
         </p>
         <h3 style={{ marginTop: '2rem' }}>6. Changes to Terms</h3>
         <p>
-          We may update these terms as the platform evolves. Continued use of the platform implies acceptance 
+          I may update these terms as the platform evolves. Continued use of the platform implies acceptance 
           of the current terms.
         </p>
       </div>
@@ -261,7 +257,7 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
     content: (
       <div>
         <p>
-          Canto is proudly <strong>open source</strong>. We believe knowledge tools should be transparent, 
+          Canto is proudly <strong>open source</strong>. I believe knowledge tools should be transparent, 
           auditable, and community-driven.
         </p>
         
@@ -314,22 +310,21 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
 
         <h3 style={{ marginTop: '2rem' }}>🔑 Required API Keys</h3>
         <p>
-          You'll need to obtain your own API keys for the following services (all have free tiers):
+          You'll need to obtain your own API keys for the following services:
         </p>
         <ul style={{ lineHeight: '2' }}>
-          <li><strong>Groq:</strong> <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>console.groq.com</a> — AI model access</li>
-          <li><strong>Ollama Cloud:</strong> <a href="https://ollama.com/cloud" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>ollama.com/cloud</a> — AI model access</li>
-          <li><strong>NASA:</strong> <a href="https://api.nasa.gov" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>api.nasa.gov</a> — Space data</li>
-          <li><strong>CORE:</strong> <a href="https://core.ac.uk/services/api" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>core.ac.uk</a> — Academic papers</li>
+          <li><strong>Groq:</strong> <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>console.groq.com</a></li>
+          <li><strong>Ollama Cloud:</strong> <a href="https://ollama.com/cloud" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>ollama.com/cloud</a></li>
+          <li><strong>NASA:</strong> <a href="https://api.nasa.gov" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>api.nasa.gov</a></li>
+          <li><strong>CORE:</strong> <a href="https://core.ac.uk/services/api" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>core.ac.uk</a></li>
         </ul>
 
         <h3 style={{ marginTop: '2rem' }}>🤝 Contributing</h3>
-        <p>We welcome contributions! Here's how to get involved:</p>
+        <p>I welcome contributions! Here's how to get involved:</p>
         <ul style={{ lineHeight: '2' }}>
-          <li><strong>Bug Reports:</strong> Open an issue on GitHub with reproduction steps</li>
-          <li><strong>Feature Requests:</strong> Open a discussion on the GitHub repo</li>
-          <li><strong>Pull Requests:</strong> Fork the repo, create a branch, and submit a PR</li>
-          <li><strong>Documentation:</strong> Help improve docs, guides, and README</li>
+          <li><strong>Bug Reports:</strong> Open an issue on GitHub</li>
+          <li><strong>Feature Requests:</strong> Open a discussion on the repo</li>
+          <li><strong>Pull Requests:</strong> Fork the repo and submit a PR</li>
         </ul>
 
         <h3 style={{ marginTop: '2rem' }}>🏗️ Architecture</h3>
@@ -355,11 +350,11 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
 │  └────┬────┘ └──┬───┘ └──┬──┘ └──┬───┘           │
 │       └─────────┴────────┴───────┘                │
 │                     │                              │
-│  ┌──────┐ ┌────────▼───────┐ ┌─────┐             │
-│  │ Groq │ │  Ollama Cloud  │ │ HF  │             │
-│  └──────┘ └────────────────┘ └─────┘             │
+│  ┌──────┐ ┌────────▼───────┐                     │
+│  │ Groq │ │  Ollama Cloud  │                     │
+│  └──────┘ └────────────────┘                     │
 │                                                    │
-│  IP + Fingerprint Rate Limiting (30/day)          │
+│  IP-based Rate Limiting (15/day)                  │
 └──────────────────────────────────────────────────┘`}
         </div>
       </div>
@@ -372,7 +367,7 @@ interface StaticPageProps {
 }
 
 const StaticPage: React.FC<StaticPageProps> = ({ pageId }) => {
-  const page = pagesData[pageId] || { title: 'Page Not Found', content: <p>We could not find the page you are looking for.</p> };
+  const page = pagesData[pageId] || { title: 'Page Not Found', content: <p>I could not find the page you are looking for.</p> };
   const art = asciiArtMap[pageId] || '';
 
   return (

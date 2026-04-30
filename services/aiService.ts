@@ -105,7 +105,7 @@ async function callServerAI(
 
 const PROVIDERS: Array<{ provider: 'ollama' | 'groq'; model: string; name: string }> = [
   { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama (Groq)' },
-  { provider: 'ollama', model: 'qwen3.5:397b-cloud', name: 'Qwen 3.5' },
+  { provider: 'ollama', model: 'deepseek-v3.2:cloud', name: 'DeepSeek v3.2' },
   { provider: 'ollama', model: 'kimi-k2.5:cloud', name: 'Kimi' },
 ];
 

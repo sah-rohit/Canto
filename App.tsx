@@ -49,7 +49,7 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const p = params.get('page');
     if (!p && !params.get('topic')) return 'landing';
-    return p && ['about', 'privacy', 'terms', 'landing', 'faq', 'pricing', 'opensource'].includes(p) ? p : 'wiki';
+    return p && ['about', 'privacy', 'terms', 'landing', 'faq', 'pricing', 'opensource', 'library'].includes(p) ? p : 'wiki';
   };
 
   const [currentTopic, setCurrentTopic] = useState<string>(getTopicFromURL());
@@ -67,10 +67,12 @@ const App: React.FC = () => {
   // Rate limit state
   const [searchesRemaining, setSearchesRemaining] = useState<number | null>(null);
   const [searchesLimit, setSearchesLimit] = useState<number>(15);
+  const [cache, setCache] = useState<Record<string, { content: string, asciiArt: AsciiArtData | null, timestamp: number }>>({});
+  const [favorites, setFavorites] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
 
-  // Initialise rate limiter and load persisted prefs on mount
+  // Load persisted state on mount
   useEffect(() => {
     initRateLimit().then(() => {
       getRemainingSearches().then(({ remaining, limit }) => {
@@ -82,6 +84,13 @@ const App: React.FC = () => {
     try {
       const savedHistory = localStorage.getItem('canto_history');
       if (savedHistory) setHistory(JSON.parse(savedHistory));
+      
+      const savedCache = localStorage.getItem('canto_cache');
+      if (savedCache) setCache(JSON.parse(savedCache));
+
+      const savedFavs = localStorage.getItem('canto_favs');
+      if (savedFavs) setFavorites(JSON.parse(savedFavs));
+
       const savedTheme = localStorage.getItem('canto_theme');
       if (savedTheme) {
         setTheme(savedTheme as 'classic' | 'dark' | 'vintage' | 'obsidian');
@@ -127,6 +136,16 @@ const App: React.FC = () => {
     }
   }, [currentTopic, currentPage]);
 
+  const toggleFavorite = useCallback((topic: string) => {
+    setFavorites(prev => {
+      const isFav = prev.includes(topic);
+      const newFavs = isFav ? prev.filter(t => t !== topic) : [...prev, topic];
+      try { localStorage.setItem('canto_favs', JSON.stringify(newFavs)); } catch(e) {}
+      showToast(isFav ? 'Removed from favorites' : 'Added to favorites', 'success');
+      return newFavs;
+    });
+  }, [showToast]);
+
   const navigateToPage = useCallback((page: string) => {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('page', page);
@@ -168,10 +187,22 @@ const App: React.FC = () => {
     let isCancelled = false;
 
     const fetchContentAndArt = async () => {
+      const normalizedTopic = currentTopic.toLowerCase().trim();
+      
+      // ── Check Cache First ──────────────────────────────────────────────────
+      if (cache[normalizedTopic]) {
+        setIsLoading(false);
+        setError(null);
+        setContent(cache[normalizedTopic].content);
+        setAsciiArt(cache[normalizedTopic].asciiArt);
+        setGenerationTime(null);
+        return;
+      }
+
       // ── Rate limit check ──────────────────────────────────────────────────
       const rlStatus = await checkRateLimit();
       if (!rlStatus.allowed) {
-        setError(`You've reached your daily search limit of ${rlStatus.limit} searches. Your limit resets at midnight tonight. Come back tomorrow to keep exploring!`);
+        setError(`Daily search limit reached (${rlStatus.limit} searches). My API quotas reset at midnight. Come back tomorrow to keep exploring!`);
         setIsLoading(false);
         return;
       }
@@ -194,10 +225,15 @@ const App: React.FC = () => {
       }
 
       // ASCII art — fire and forget
+      let finalArt: AsciiArtData | null = null;
       generateAsciiArt(currentTopic)
-        .then(art => { if (!isCancelled) setAsciiArt(art); })
+        .then(art => { 
+          finalArt = art;
+          if (!isCancelled) setAsciiArt(art); 
+        })
         .catch(err => {
-          if (!isCancelled) setAsciiArt(createFallbackArt(currentTopic));
+          finalArt = createFallbackArt(currentTopic);
+          if (!isCancelled) setAsciiArt(finalArt);
         });
 
       // Stream definition
@@ -208,6 +244,27 @@ const App: React.FC = () => {
           if (chunk.startsWith('Error:')) throw new Error(chunk.replace('Error:', '').trim());
           accumulatedContent += chunk;
           if (!isCancelled) setContent(accumulatedContent);
+        }
+
+        // Save to cache on success
+        if (!isCancelled && accumulatedContent.length > 50) {
+          setCache(prev => {
+            const newCache = { 
+              ...prev, 
+              [normalizedTopic]: { 
+                content: accumulatedContent, 
+                asciiArt: finalArt, 
+                timestamp: Date.now() 
+              } 
+            };
+            // Keep cache size reasonable (~30 entries)
+            const keys = Object.keys(newCache);
+            if (keys.length > 30) {
+              delete newCache[keys[0]];
+            }
+            try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
+            return newCache;
+          });
         }
       } catch (e: unknown) {
         if (!isCancelled) {
@@ -353,6 +410,29 @@ const App: React.FC = () => {
                       ))}
                     </ul>
                   )}
+                  {favorites.length > 0 && (
+                    <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border-color)' }}>
+                      <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase' }}>★ Favorites</span>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: '0.4rem 0 0 0' }}>
+                        {favorites.slice(0, 5).map((t, i) => (
+                          <li key={i}>
+                            <button onClick={() => navigateToTopic(t)} style={{ width: '100%', textAlign: 'left', padding: '0.3rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-color)', fontFamily: 'monospace' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              {t}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => { setIsHistoryOpen(false); navigateToPage('library'); }} 
+                    style={{ width: '100%', marginTop: '0.8rem', padding: '0.4rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px', cursor: 'pointer', fontSize: '0.8em', fontFamily: 'monospace', color: 'var(--text-color)' }}
+                  >
+                    View Local Library
+                  </button>
                 </div>
               )}
             </div>
@@ -421,7 +501,14 @@ const App: React.FC = () => {
 
                   {content.length > 0 && !error && (
                     <>
-                      <ContentDisplay content={content} isLoading={isLoading} onWordClick={handleWordClick} topic={currentTopic} />
+                      <ContentDisplay 
+                        content={content} 
+                        isLoading={isLoading} 
+                        onWordClick={handleWordClick} 
+                        topic={currentTopic}
+                        isFavorite={favorites.includes(currentTopic)}
+                        onToggleFavorite={() => toggleFavorite(currentTopic)}
+                      />
                       {!isLoading && (
                         <>
                           <DidYouKnow topic={currentTopic} />
@@ -438,6 +525,41 @@ const App: React.FC = () => {
                   )}
                 </div>
               </div>
+            ) : currentPage === 'library' ? (
+              <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                <h2 style={{ marginBottom: '2rem', letterSpacing: '0.1em' }}>My Local Library</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '2rem' }}>
+                  <section>
+                    <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--accent-color)', fontFamily: 'monospace' }}>★ Favorites</h3>
+                    {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
+                      <ul style={{ listStyle: 'none', padding: 0 }}>
+                        {favorites.map(t => (
+                          <li key={t} style={{ marginBottom: '0.5rem' }}>
+                            <button onClick={() => navigateToTopic(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1em', textDecoration: 'underline', fontFamily: 'monospace' }}>{t}</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                  <section>
+                    <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>🕒 Recent History</h3>
+                    {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
+                      <ul style={{ listStyle: 'none', padding: 0 }}>
+                        {history.map(t => (
+                          <li key={t} style={{ marginBottom: '0.5rem' }}>
+                            <button onClick={() => navigateToTopic(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1em', textDecoration: 'underline', fontFamily: 'monospace' }}>{t}</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </div>
+                <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px' }}>
+                  <p style={{ fontSize: '0.85em', color: 'var(--text-muted)', margin: 0 }}>
+                    ℹ️ All library data is stored locally in your browser. Clearing your site data will reset these lists.
+                  </p>
+                </div>
+              </div>
             ) : currentPage === 'landing' ? (
               <LandingPage onWordClick={handleWordClick} />
             ) : (
@@ -446,25 +568,27 @@ const App: React.FC = () => {
           </ErrorBoundary>
         </main>
 
-        <footer className="sticky-footer" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem', marginTop: '3rem' }}>
+        <footer style={{ marginTop: '4rem', padding: '2rem 0', borderTop: '1px solid var(--border-color)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85em', fontFamily: 'monospace' }}>
           <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
-            <button onClick={() => changeTheme('classic')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', borderColor: theme === 'classic' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'classic' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Classic</button>
-            <button onClick={() => changeTheme('obsidian')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', borderColor: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Obsidian</button>
-            <button onClick={() => changeTheme('dark')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', borderColor: theme === 'dark' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'dark' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Dark Neon</button>
-            <button onClick={() => changeTheme('vintage')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', borderColor: theme === 'vintage' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'vintage' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Vintage</button>
+            <button onClick={() => changeTheme('classic')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'classic' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'classic' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Classic</button>
+            <button onClick={() => changeTheme('obsidian')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Obsidian</button>
+            <button onClick={() => changeTheme('dark')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'dark' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'dark' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Dark Neon</button>
+            <button onClick={() => changeTheme('vintage')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'vintage' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'vintage' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Vintage</button>
           </div>
-          <p className="footer-text" style={{ margin: '0 0 0.5rem 0', display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <button onClick={() => navigateToPage('about')} style={{ textDecoration: 'underline' }}>About</button>
-            <button onClick={() => navigateToPage('pricing')} style={{ textDecoration: 'underline' }}>Pricing</button>
-            <button onClick={() => navigateToPage('privacy')} style={{ textDecoration: 'underline' }}>Privacy Policy</button>
-            <button onClick={() => navigateToPage('terms')} style={{ textDecoration: 'underline' }}>Terms & Conditions</button>
-            <button onClick={() => navigateToPage('faq')} style={{ textDecoration: 'underline' }}>FAQ</button>
-            <button onClick={() => navigateToPage('opensource')} style={{ textDecoration: 'underline' }}>Open Source</button>
-          </p>
-          <p className="footer-text" style={{ margin: 0 }}>
-            Canto by Sonata Interactive
-            {generationTime && currentPage === 'wiki' && ` · generated in ${Math.round(generationTime)}ms`}
-          </p>
+          <p>© {new Date().getFullYear()} Canto · Crafted by Sonata Interactive as a solo project</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+            <button onClick={() => navigateToPage('about')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>About</button>
+            <button onClick={() => navigateToPage('library')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Library</button>
+            <button onClick={() => navigateToPage('opensource')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Open Source</button>
+            <button onClick={() => navigateToPage('faq')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>FAQ</button>
+            <button onClick={() => navigateToPage('privacy')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Privacy</button>
+            <button onClick={() => navigateToPage('terms')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Terms</button>
+          </div>
+          {generationTime && currentPage === 'wiki' && (
+            <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>
+              Generated in {Math.round(generationTime)}ms
+            </p>
+          )}
         </footer>
       </div>
     </>
