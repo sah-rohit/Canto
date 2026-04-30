@@ -49,7 +49,7 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const p = params.get('page');
     if (!p && !params.get('topic')) return 'landing';
-    return p && ['about', 'privacy', 'terms', 'landing', 'faq', 'pricing'].includes(p) ? p : 'wiki';
+    return p && ['about', 'privacy', 'terms', 'landing', 'faq', 'pricing', 'opensource'].includes(p) ? p : 'wiki';
   };
 
   const [currentTopic, setCurrentTopic] = useState<string>(getTopicFromURL());
@@ -421,7 +421,7 @@ const App: React.FC = () => {
 
                   {content.length > 0 && !error && (
                     <>
-                      <ContentDisplay content={content} isLoading={isLoading} onWordClick={handleWordClick} />
+                      <ContentDisplay content={content} isLoading={isLoading} onWordClick={handleWordClick} topic={currentTopic} />
                       {!isLoading && (
                         <>
                           <DidYouKnow topic={currentTopic} />
@@ -459,6 +459,7 @@ const App: React.FC = () => {
             <button onClick={() => navigateToPage('privacy')} style={{ textDecoration: 'underline' }}>Privacy Policy</button>
             <button onClick={() => navigateToPage('terms')} style={{ textDecoration: 'underline' }}>Terms & Conditions</button>
             <button onClick={() => navigateToPage('faq')} style={{ textDecoration: 'underline' }}>FAQ</button>
+            <button onClick={() => navigateToPage('opensource')} style={{ textDecoration: 'underline' }}>Open Source</button>
           </p>
           <p className="footer-text" style={{ margin: 0 }}>
             Canto by Sonata Interactive

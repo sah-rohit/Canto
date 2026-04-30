@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Canto AI Service - Client-side wrapper for server-side API
- * All requests go through /api/ai which handles CORS and API key security
+ * All requests go through /api/ai which handles CORS and API key security.
+ * Knowledge context is fetched from /api/knowledge to improve accuracy.
  */
 
-import { GoogleGenAI } from '@google/genai';
+import { fetchKnowledgeContext, buildContextBlock } from './knowledgeService';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -25,12 +26,13 @@ interface ChatMessage {
 const SYSTEM_PERSONA = `You are Canto, an infinite AI encyclopedia with a poetic, precise voice.
 Your responses are encyclopedic yet evocative — factual but never dry.
 You always write in plain text / Markdown. Never use HTML tags.
-Keep a consistent tone: concise, insightful, slightly literary.`;
+Keep a consistent tone: concise, insightful, slightly literary.
+When reference context is provided, use it to ensure factual accuracy and cite specific details.`;
 
 // ─── Server API client ───────────────────────────────────────────────────────
 
 async function callServerAI(
-  provider: 'ollama' | 'groq' | 'huggingface',
+  provider: 'ollama' | 'groq',
   model: string,
   messages: ChatMessage[],
   stream: boolean = false
@@ -101,16 +103,16 @@ async function callServerAI(
 
 // ─── Unified fallback wrapper ────────────────────────────────────────────────
 
+const PROVIDERS: Array<{ provider: 'ollama' | 'groq'; model: string; name: string }> = [
+  { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama (Groq)' },
+  { provider: 'ollama', model: 'qwen3.5:397b-cloud', name: 'Qwen 3.5' },
+  { provider: 'ollama', model: 'kimi-k2.5:cloud', name: 'Kimi' },
+];
+
 async function* streamWithFallback(
   messages: ChatMessage[],
 ): AsyncGenerator<string, void, undefined> {
-  const providers: Array<{ provider: 'ollama' | 'groq'; model: string; name: string }> = [
-    { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama (Groq)' },
-    { provider: 'ollama', model: 'qwen3.5:397b-cloud', name: 'Qwen 3.5' },
-    { provider: 'ollama', model: 'kimi-k2.5:cloud', name: 'Kimi' },
-  ];
-
-  for (const p of providers) {
+  for (const p of PROVIDERS) {
     try {
       let gotAny = false;
       const stream = await callServerAI(p.provider, p.model, messages, true) as AsyncGenerator<string, void, undefined>;
@@ -130,14 +132,8 @@ async function* streamWithFallback(
 async function callWithFallback(
   messages: ChatMessage[],
 ): Promise<string> {
-  const providers: Array<{ provider: 'ollama' | 'groq'; model: string; name: string }> = [
-    { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama (Groq)' },
-    { provider: 'ollama', model: 'qwen3.5:397b-cloud', name: 'Qwen 3.5' },
-    { provider: 'ollama', model: 'kimi-k2.5:cloud', name: 'Kimi' },
-  ];
-
   let lastErr: Error = new Error('No providers configured');
-  for (const p of providers) {
+  for (const p of PROVIDERS) {
     try {
       const result = await callServerAI(p.provider, p.model, messages, false) as string;
       return result;
@@ -153,11 +149,23 @@ async function callWithFallback(
 
 /**
  * Streams an encyclopedia-style definition for a topic.
+ * First fetches context from Wikipedia, NASA, CORE, Internet Archive
+ * to improve factual accuracy.
  */
 export async function* streamDefinition(
   topic: string,
 ): AsyncGenerator<string, void, undefined> {
+  // Fetch knowledge context in parallel with starting the stream
+  let contextBlock = '';
+  try {
+    const ctx = await fetchKnowledgeContext(topic);
+    contextBlock = buildContextBlock(ctx);
+  } catch {
+    // Continue without context if knowledge fetch fails
+  }
+
   const prompt = `Provide a rich, encyclopedia-style entry for: "${topic}".
+${contextBlock}
 
 FORMATTING RULES:
 1. Identify key terms and format them as Markdown links: [Key Term](Key Term)
@@ -166,6 +174,7 @@ FORMATTING RULES:
 3. Use bullet lists (* item) or numbered lists (1. item) for enumerations.
 4. Use Markdown tables when comparing multiple items.
 5. Do NOT use headers (no # ## ###).
+6. When reference context is provided, weave verified facts naturally into your response for accuracy.
 
 VISUAL ENRICHMENT — include at least one ASCII visual per response inside a fenced code block tagged \`\`\`ascii:
 Choose the type that best fits the concept:
@@ -212,32 +221,41 @@ export async function getRandomWord(): Promise<string> {
 
 /**
  * Generates ASCII art for a topic.
+ * Uses a much more specific prompt to generate RECOGNIZABLE art,
+ * not just random symbols.
  */
 export async function generateAsciiArt(topic: string): Promise<AsciiArtData> {
-  const prompt = `For the concept "${topic}", create a JSON object with one key "art".
+  const prompt = `Create ASCII art that VISUALLY REPRESENTS "${topic}".
 
-"art" must be a creative ASCII visualization that embodies the word's essence:
-- Use characters: │─┌┐└┘├┤┬┴┼►◄▲▼○●◐◑░▒▓█▀▄■□▪▫★☆♦♠♣♥⟨⟩/\\_|.,:;!?*+=-~^
-- The shape should MIRROR the concept
-- 8–20 lines tall, 20–50 chars wide
-- Use \\n for line breaks inside the JSON string
+CRITICAL RULES:
+1. The art must be RECOGNIZABLE as "${topic}" — a viewer should be able to identify it.
+2. Use standard ASCII characters: letters, numbers, symbols like / \\ | _ - = + ( ) [ ] { } < > . , : ; ! @ # $ % ^ & *
+3. Also use box-drawing: │ ─ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼ and blocks: ░ ▒ ▓ █ ▀ ▄
+4. Size: 10-18 lines tall, 25-45 characters wide
+5. Use \\n for newlines inside the JSON string
 
-Return ONLY the raw JSON object. Start with { end with }. No markdown fences.
-Example: {"art": "  *\\n * *\\n*   *"}`;
+EXAMPLES of what RECOGNIZABLE means:
+- "Cat" → draw a cat face/body shape
+- "Tree" → draw a tree with trunk and branches
+- "Computer" → draw a monitor/laptop shape
+- "Heart" → draw a heart shape
+- "Sun" → draw a sun with rays
+- "Mountain" → draw a mountain peak shape
+- "Microsoft" → draw the Windows logo (4 squares grid)
+- "Guitar" → draw the silhouette of a guitar
+
+For "${topic}", think about its most ICONIC VISUAL FORM and draw THAT shape.
+
+Return ONLY a JSON object: {"art": "your_ascii_art_here"}
+No markdown fences. Start with { end with }.`;
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: 'You are an ASCII art generator. Return only valid JSON with one key "art".' },
+    { role: 'system', content: 'You are a skilled ASCII artist. You create recognizable visual art using text characters. Return only valid JSON with one key "art". The art MUST be visually recognizable as the topic.' },
     { role: 'user', content: prompt },
   ];
 
-  const providers: Array<{ provider: 'ollama' | 'groq'; model: string; name: string }> = [
-    { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama (Groq)' },
-    { provider: 'ollama', model: 'qwen3.5:397b-cloud', name: 'Qwen 3.5' },
-    { provider: 'ollama', model: 'kimi-k2.5:cloud', name: 'Kimi' },
-  ];
-
   let lastErr: Error = new Error('No providers');
-  for (const p of providers) {
+  for (const p of PROVIDERS) {
     try {
       const raw = await callServerAI(p.provider, p.model, messages, false) as string;
       let cleaned = raw.trim();

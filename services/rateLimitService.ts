@@ -1,22 +1,18 @@
 /**
- * Client-side daily rate limiter.
+ * Client + Server hybrid rate limiter.
  *
  * Strategy:
  *  - Build a stable browser fingerprint from non-PII signals (no external requests).
- *  - Hash it with SHA-256 before storing — raw fingerprint never persisted.
- *  - Store { fpHash, date, count, limit } in localStorage.
- *  - Allow 10–20 searches per fingerprint per calendar day (resets at 00:00 local).
- *  - Randomised daily limit makes automated circumvention harder.
- *
- * Why no IP lookup:
- *  - IP lookup services are blocked by tracking-prevention in Edge/Safari/Firefox.
- *  - They add latency and can fail due to CORS or rate limits.
- *  - A browser fingerprint is sufficient for casual abuse prevention.
+ *  - Hash it with SHA-256 before sending — raw fingerprint never leaves the client.
+ *  - Send fingerprint hash to server along with each rate-limit check.
+ *  - Server tracks limits by IP + fingerprint hash combo.
+ *  - This prevents abuse across browsers on the same device (same IP, different fp)
+ *    AND across devices on same network (same IP, same fp won't exist).
+ *  - Falls back to client-only localStorage if server is unreachable.
  */
 
 const STORAGE_KEY = 'canto_rl';
-const DAILY_LIMIT_MIN = 10;
-const DAILY_LIMIT_MAX = 20;
+const DAILY_LIMIT = 30;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -46,7 +42,7 @@ async function hashString(s: string): Promise<string> {
 
 /**
  * Build a stable, non-PII browser fingerprint from passive signals.
- * No network requests — works offline and behind tracking prevention.
+ * Includes extra entropy to differentiate browsers on same device.
  */
 function buildFingerprint(): string {
   const parts: string[] = [
@@ -58,7 +54,24 @@ function buildFingerprint(): string {
     String(screen.colorDepth ?? 0),
     Intl.DateTimeFormat().resolvedOptions().timeZone ?? '',
     String(new Date().getTimezoneOffset()),
+    navigator.userAgent ?? '',
+    String((navigator as any).deviceMemory ?? 0),
+    String(navigator.maxTouchPoints ?? 0),
   ];
+
+  // WebGL renderer fingerprint (differs across GPU drivers)
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+      const ext = (gl as any).getExtension('WEBGL_debug_renderer_info');
+      if (ext) {
+        parts.push((gl as any).getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? '');
+      }
+    }
+  } catch {
+    parts.push('no-webgl');
+  }
 
   // Canvas fingerprint (silent fail if blocked)
   try {
@@ -77,7 +90,7 @@ function buildFingerprint(): string {
   return parts.join('|');
 }
 
-// ─── Stored state ─────────────────────────────────────────────────────────────
+// ─── Stored state (client-side fallback) ──────────────────────────────────────
 
 interface RLState {
   fpHash: string;
@@ -132,18 +145,40 @@ export interface RateLimitStatus {
   resetsAt: string;
 }
 
-/** Check whether the current user may perform another search. */
+/** Check whether the current user may perform another search (server-side). */
 export async function checkRateLimit(): Promise<RateLimitStatus> {
   await initRateLimit();
   const fpHash = _fpHashCache!;
+
+  // Try server-side check first
+  try {
+    const serverRes = await fetch('/api/rate-limit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fpHash }),
+    });
+
+    if (serverRes.ok) {
+      const data = await serverRes.json();
+      // Sync client-side state with server
+      const today = todayStr();
+      const clientCount = DAILY_LIMIT - (data.remaining ?? DAILY_LIMIT);
+      saveState({ fpHash, date: today, count: clientCount, limit: data.limit ?? DAILY_LIMIT });
+      return {
+        allowed: data.allowed,
+        remaining: data.remaining,
+        limit: data.limit ?? DAILY_LIMIT,
+        resetsAt: 'midnight tonight',
+      };
+    }
+  } catch {
+    // Server unreachable — fall back to client-only
+  }
+
+  // Client-only fallback
   const today = todayStr();
   const state = loadState();
-
-  // Determine the daily limit — reuse existing if same day+fingerprint
-  const dailyLimit =
-    state && state.date === today && state.fpHash === fpHash
-      ? state.limit
-      : Math.floor(Math.random() * (DAILY_LIMIT_MAX - DAILY_LIMIT_MIN + 1)) + DAILY_LIMIT_MIN;
+  const dailyLimit = DAILY_LIMIT;
 
   if (!state || state.date !== today || state.fpHash !== fpHash) {
     const fresh: RLState = { fpHash, date: today, count: 0, limit: dailyLimit };
@@ -159,12 +194,24 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
 export async function recordSearch(): Promise<void> {
   await initRateLimit();
   const fpHash = _fpHashCache!;
+
+  // Record on server
+  try {
+    await fetch('/api/rate-limit-record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fpHash }),
+    });
+  } catch {
+    // Silent — fallback to client
+  }
+
+  // Also record client-side
   const today = todayStr();
   const state = loadState();
 
   if (!state || state.date !== today || state.fpHash !== fpHash) {
-    const limit = Math.floor(Math.random() * (DAILY_LIMIT_MAX - DAILY_LIMIT_MIN + 1)) + DAILY_LIMIT_MIN;
-    saveState({ fpHash, date: today, count: 1, limit });
+    saveState({ fpHash, date: today, count: 1, limit: DAILY_LIMIT });
   } else {
     saveState({ ...state, count: state.count + 1 });
   }
