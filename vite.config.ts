@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 import legacy from '@vitejs/plugin-legacy';
 
 // ─── Server-side IP rate limiting store ──────────────────────────────────────
-const ipRateLimits: Map<string, { count: number; date: string; fpHash?: string }> = new Map();
-const IP_DAILY_LIMIT = 30;
+// KEY: IP address only (cross-browser tracking — all browsers on same IP share the pool)
+const ipRateLimits: Map<string, { count: number; date: string }> = new Map();
+const IP_DAILY_LIMIT = 15;
 
 function todayStr(): string {
   const d = new Date();
@@ -20,13 +21,12 @@ function getClientIP(req: any): string {
     || '0.0.0.0';
 }
 
-function checkIPRateLimit(ip: string, fpHash?: string): { allowed: boolean; remaining: number; limit: number } {
+function checkIPRateLimit(ip: string): { allowed: boolean; remaining: number; limit: number } {
   const today = todayStr();
-  const key = fpHash ? `${ip}__${fpHash}` : ip;
-  const entry = ipRateLimits.get(key);
+  const entry = ipRateLimits.get(ip);
 
   if (!entry || entry.date !== today) {
-    ipRateLimits.set(key, { count: 0, date: today, fpHash });
+    ipRateLimits.set(ip, { count: 0, date: today });
     return { allowed: true, remaining: IP_DAILY_LIMIT, limit: IP_DAILY_LIMIT };
   }
 
@@ -34,13 +34,12 @@ function checkIPRateLimit(ip: string, fpHash?: string): { allowed: boolean; rema
   return { allowed: remaining > 0, remaining, limit: IP_DAILY_LIMIT };
 }
 
-function recordIPSearch(ip: string, fpHash?: string): void {
+function recordIPSearch(ip: string): void {
   const today = todayStr();
-  const key = fpHash ? `${ip}__${fpHash}` : ip;
-  const entry = ipRateLimits.get(key);
+  const entry = ipRateLimits.get(ip);
 
   if (!entry || entry.date !== today) {
-    ipRateLimits.set(key, { count: 1, date: today, fpHash });
+    ipRateLimits.set(ip, { count: 1, date: today });
   } else {
     entry.count++;
   }
@@ -55,11 +54,19 @@ async function readBody(req: any): Promise<string> {
   return body;
 }
 
-// ─── Helper: set CORS headers ─────────────────────────────────────────────────
+// ─── Helper: set CORS + security headers ──────────────────────────────────────
 function setCors(res: any): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+function setSecurityHeaders(res: any): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 }
 
 export default defineConfig(({ mode }) => {
@@ -81,43 +88,36 @@ export default defineConfig(({ mode }) => {
           name: 'canto-api-middleware',
           configureServer(server) {
 
+            // ── Security headers on all responses ──
+            server.middlewares.use((req, res, next) => {
+              setSecurityHeaders(res);
+              next();
+            });
+
             // ═══════════════════════════════════════════════════════════════════
-            //  /api/rate-limit — Server-side IP + fingerprint rate limiting
+            //  /api/rate-limit — Server-side IP-only rate limiting
+            //  IP is the sole key — switching browsers does NOT reset credits
             // ═══════════════════════════════════════════════════════════════════
             server.middlewares.use('/api/rate-limit', async (req, res) => {
               if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
               setCors(res);
 
               const ip = getClientIP(req);
-              const body = await readBody(req);
-              let fpHash: string | undefined;
-              try {
-                const data = JSON.parse(body);
-                fpHash = data.fpHash;
-              } catch {}
-
-              const status = checkIPRateLimit(ip, fpHash);
+              const status = checkIPRateLimit(ip);
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify(status));
             });
 
             // ═══════════════════════════════════════════════════════════════════
-            //  /api/rate-limit-record — Record a search
+            //  /api/rate-limit-record — Record a search (IP-keyed)
             // ═══════════════════════════════════════════════════════════════════
             server.middlewares.use('/api/rate-limit-record', async (req, res) => {
               if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
               setCors(res);
 
               const ip = getClientIP(req);
-              const body = await readBody(req);
-              let fpHash: string | undefined;
-              try {
-                const data = JSON.parse(body);
-                fpHash = data.fpHash;
-              } catch {}
-
-              recordIPSearch(ip, fpHash);
-              const status = checkIPRateLimit(ip, fpHash);
+              recordIPSearch(ip);
+              const status = checkIPRateLimit(ip);
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ ok: true, ...status }));
             });
@@ -144,7 +144,6 @@ export default defineConfig(({ mode }) => {
               const encoded = encodeURIComponent(topic);
               const results: Record<string, string> = {};
 
-              // Fetch all sources in parallel with timeouts
               const fetchWithTimeout = async (url: string, opts: RequestInit = {}, ms = 5000): Promise<Response> => {
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), ms);
@@ -197,11 +196,9 @@ export default defineConfig(({ mode }) => {
                   }
                 })(),
 
-                // ── NASA (images/data for space/science topics) ──────────────
+                // ── NASA ─────────────────────────────────────────────────────
                 (async () => {
                   try {
-                    const nasaKey = env.NASA_API_KEY || 'DEMO_KEY';
-                    // Try NASA image search first (works for any topic)
                     const nasaRes = await fetchWithTimeout(
                       `https://images-api.nasa.gov/search?q=${encoded}&media_type=image&page_size=3`
                     );
@@ -273,9 +270,6 @@ export default defineConfig(({ mode }) => {
 
               setCors(res);
 
-              // ── Server-side IP rate limit check ──
-              const ip = getClientIP(req);
-
               const body = await readBody(req);
               let data;
               try {
@@ -288,7 +282,6 @@ export default defineConfig(({ mode }) => {
 
               const { provider, model, messages, stream } = data;
 
-              // Map provider names to actual endpoints
               let endpoint = '';
               let apiKey = '';
               let headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -296,54 +289,27 @@ export default defineConfig(({ mode }) => {
 
               if (provider === 'ollama') {
                 endpoint = 'https://ollama.com/v1/chat/completions';
-                // Select the correct key based on the model
                 apiKey = model.includes('kimi') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
                 headers['Authorization'] = `Bearer ${apiKey}`;
-                requestBody = {
-                  model,
-                  messages,
-                  temperature: 0.7,
-                  max_tokens: 1024,
-                  stream,
-                };
+                requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
               } else if (provider === 'groq') {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 apiKey = env.GROQ_API_KEY;
                 headers['Authorization'] = `Bearer ${apiKey}`;
-                requestBody = {
-                  model,
-                  messages,
-                  temperature: 0.7,
-                  max_tokens: 1024,
-                  stream,
-                };
+                requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
               } else if (provider === 'huggingface') {
                 endpoint = `https://router.huggingface.co/hf-inference/models/${model}/v1/chat/completions`;
                 apiKey = env.HUGGINGFACE_KEY || '';
-                if (apiKey) {
-                  headers['Authorization'] = `Bearer ${apiKey}`;
-                }
-                requestBody = {
-                  model,
-                  messages,
-                  temperature: 0.7,
-                  max_tokens: 512,
-                  stream: false,
-                };
+                if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+                requestBody = { model, messages, temperature: 0.7, max_tokens: 512, stream: false };
               } else if (provider === 'gemini') {
                 endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${env.GEMINI_KEY || env.API_KEY}`;
                 apiKey = '';
                 headers = { 'Content-Type': 'application/json' };
                 const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop();
                 requestBody = {
-                  contents: [{
-                    role: 'user',
-                    parts: [{ text: lastUserMsg?.content || messages[messages.length - 1]?.content || '' }]
-                  }],
-                  generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1024,
-                  },
+                  contents: [{ role: 'user', parts: [{ text: lastUserMsg?.content || messages[messages.length - 1]?.content || '' }] }],
+                  generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
                 };
               }
 
@@ -354,11 +320,7 @@ export default defineConfig(({ mode }) => {
               }
 
               try {
-                const apiRes = await fetch(endpoint, {
-                  method: 'POST',
-                  headers,
-                  body: JSON.stringify(requestBody),
-                });
+                const apiRes = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestBody) });
 
                 if (!apiRes.ok) {
                   const errText = await apiRes.text();
@@ -370,7 +332,6 @@ export default defineConfig(({ mode }) => {
                 if (stream) {
                   const reader = apiRes.body?.getReader();
                   const decoder = new TextDecoder();
-                  
                   if (reader) {
                     let buffer = '';
                     while (true) {
@@ -387,16 +348,11 @@ export default defineConfig(({ mode }) => {
                   res.end();
                 } else {
                   const json = await apiRes.json();
-                  
-                  // Transform response to standard format
                   let transformed = json;
                   if (provider === 'huggingface') {
                     const content = json?.choices?.[0]?.message?.content;
-                    if (content) {
-                      transformed = { message: { content } };
-                    }
+                    if (content) transformed = { message: { content } };
                   }
-                  
                   res.end(JSON.stringify(transformed));
                 }
               } catch (err: any) {
@@ -407,8 +363,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       ],
-      // SECURITY: Do NOT expose API keys to the client bundle.
-      // All keys stay server-side in the middleware. Only expose non-secret values.
+      // SECURITY: No API keys exposed to client bundle
       define: {
         'process.env.API_KEY': JSON.stringify('SERVER_SIDE_ONLY'),
       },

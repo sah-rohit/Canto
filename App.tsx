@@ -15,7 +15,7 @@ import LandingPage from './components/LandingPage';
 import DidYouKnow from './components/DidYouKnow';
 import RelatedTopics from './components/RelatedTopics';
 import ErrorBoundary from './components/ErrorBoundary';
-import Starfield from './components/Starfield';
+// Starfield removed — replaced by static ASCII space art in LandingPage
 import { useToast } from './components/ToastContext';
 import { StartupAnimation } from './components/StartupAnimation';
 
@@ -301,7 +301,7 @@ const App: React.FC = () => {
     <>
       {showIntro && <StartupAnimation onComplete={() => setShowIntro(false)} />}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-        {currentPage === 'landing' && <Starfield topic={undefined} />}
+
 
         {/* ── Top nav ── */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative', zIndex: 10 }}>
@@ -368,23 +368,23 @@ const App: React.FC = () => {
         {currentPage !== 'landing' && (
           <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-              <svg width="100%" height="60" viewBox="0 0 500 60" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', maxWidth: '350px' }}>
+              <svg width="100%" height="60" viewBox="0 0 600 60" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', maxWidth: '420px' }}>
                 <defs>
                   <linearGradient id="cantoHolo" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="var(--text-color)" />
                     <stop offset="100%" stopColor="var(--text-muted)" />
                   </linearGradient>
                 </defs>
-                <g transform="translate(60, 5) scale(0.8)">
+                <g transform="translate(50, 5) scale(0.7)">
                   <path d="M 30 0 A 30 30 0 1 0 60 30 A 20 20 0 1 1 30 0 Z" fill="none" stroke="url(#cantoHolo)" strokeWidth="3" />
                   <circle cx="20" cy="15" r="2" fill="var(--accent-color)" />
                   <circle cx="35" cy="45" r="2" fill="var(--accent-color)" />
                 </g>
-                <text x="55%" y="45%" dominantBaseline="middle" textAnchor="middle" fill="url(#cantoHolo)" fontSize="48" fontFamily="Inter, sans-serif" fontWeight="900" letterSpacing="0.25em" style={{ textShadow: 'none' }}>
+                <text x="58%" y="45%" dominantBaseline="middle" textAnchor="middle" fill="url(#cantoHolo)" fontSize="48" fontFamily="Inter, sans-serif" fontWeight="900" letterSpacing="0.25em" style={{ textShadow: 'none' }}>
                   CANTO
                 </text>
-                <text x="55%" y="85%" dominantBaseline="middle" textAnchor="middle" fill="var(--text-muted)" fontSize="12" fontFamily="monospace" letterSpacing="0.4em">
-                  [ INFINITE ARCHIVE ]
+                <text x="58%" y="85%" dominantBaseline="middle" textAnchor="middle" fill="var(--text-muted)" fontSize="12" fontFamily="monospace" letterSpacing="0.4em">
+                  [ INFINITE ENCYCLOPEDIA ]
                 </text>
               </svg>
             </div>

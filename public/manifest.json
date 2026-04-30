@@ -1,0 +1,20 @@
+{
+  "name": "Canto — Infinite AI Encyclopedia",
+  "short_name": "Canto",
+  "description": "An infinite, AI-powered encyclopedia that generates rich articles on any topic in real time, powered by Wikipedia, NASA, and academic sources.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b0f19",
+  "orientation": "any",
+  "scope": "/",
+  "categories": ["education", "reference", "productivity"],
+  "icons": [
+    {
+      "src": "/canto-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
