@@ -57,6 +57,7 @@ export interface RateLimitStatus {
   remaining: number;
   limit: number;
   resetsAt: string;
+  timeUntilReset?: string; // e.g. "12h 30m"
 }
 
 /** Check whether the current user may perform another search (server-side IP check). */
@@ -86,17 +87,25 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
     // Server unreachable — use client fallback
   }
 
-  // Client-only fallback
   const today = todayStr();
   const state = loadState();
 
+  // Calculate time until midnight
+  const now = new Date();
+  const midnight = new Date();
+  midnight.setHours(24, 0, 0, 0);
+  const diffMs = midnight.getTime() - now.getTime();
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const timeUntilReset = `${hours}h ${minutes}m`;
+
   if (!state || state.date !== today) {
     saveState({ date: today, count: 0, limit: DAILY_LIMIT });
-    return { allowed: true, remaining: DAILY_LIMIT, limit: DAILY_LIMIT, resetsAt: 'midnight tonight' };
+    return { allowed: true, remaining: DAILY_LIMIT, limit: DAILY_LIMIT, resetsAt: 'midnight tonight', timeUntilReset };
   }
 
   const remaining = Math.max(0, DAILY_LIMIT - state.count);
-  return { allowed: remaining > 0, remaining, limit: DAILY_LIMIT, resetsAt: 'midnight tonight' };
+  return { allowed: remaining > 0, remaining, limit: DAILY_LIMIT, resetsAt: 'midnight tonight', timeUntilReset };
 }
 
 /** Record one search. */

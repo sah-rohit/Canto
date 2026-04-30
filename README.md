@@ -31,18 +31,37 @@
 
 Think of it as the love child of [Wikipedia](https://wikipedia.org) and [Grokipedia](https://grokipedia.com), but open source and self-hostable.
 
+## 🖼️ Screenshots
+
+<div align="center">
+  <img src="screenshots/Screenshot (562).png" width="800" alt="Canto Landing Page" />
+  <br/>
+  <em>Aesthetic ASCII Space Landing Page</em>
+  <br/><br/>
+  <img src="screenshots/Screenshot (563).png" width="800" alt="Canto Article View" />
+  <br/>
+  <em>Infinite AI-Generated Article with ASCII Representation</em>
+  <br/><br/>
+  <img src="screenshots/Screenshot (564).png" width="800" alt="Canto Local Library" />
+  <br/>
+  <em>Personalized Local Library & Favorites</em>
+</div>
+
 ## ✨ Features
 
-- 🧠 **Multi-AI Fallback** — Groq (Llama 3.1), Ollama Cloud (Qwen 3.5, Kimi K2.5) with automatic provider failover
+- 🧠 **Multi-AI Fallback** — Groq (Llama 3.1), Ollama Cloud (DeepSeek v3.2, Kimi K2.5) with automatic provider failover
 - 📚 **Knowledge-Enriched** — Every article is informed by Wikipedia, NASA, Internet Archive, and CORE Academic databases
-- 🎨 **ASCII Art Generation** — AI-generated visual representations for every topic
-- ⚡ **Real-Time Streaming** — Content appears word-by-word via Server-Sent Events
+- 🎨 **ASCII Art Generation** — Robust AI-generated visual representations for every topic
+- 🕒 **Rate Limit Timer** — Live countdown showing exactly when your credits reset
+- 📖 **Reading Mode** — Distraction-free, centered interface for deep learning
+- 📏 **Dynamic Font Scaling** — Custom slider for personalized accessibility
+- 📂 **Local Library** — Instant access to your search history and starred topics (No cloud storage)
 - 📥 **Download & Export** — Save articles as `.TXT` or `.PDF`
 - 🔊 **Text-to-Speech** — Listen to any article with browser TTS
 - 🔒 **IP-Based Rate Limiting** — Server-side abuse prevention (15 searches/day per IP)
-- 📱 **Progressive Web App** — Installable on mobile and desktop with offline support
-- 🎭 **4 Themes** — Classic, Obsidian, Dark Neon, Vintage
-- 🌐 **Cross-Browser** — Works on Chrome, Firefox, Safari, Edge (with legacy polyfills)
+- 🎭 **4 Rich Themes** — Classic, Obsidian, Dark Neon, and Vintage aesthetics
+- 📱 **Progressive Web App** — Installable on mobile and desktop
+- 🛡️ **Solo Project Tone** — All documentation and UI copy reflects single-author development
 
 ## 🏗️ Architecture
 

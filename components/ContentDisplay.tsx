@@ -13,6 +13,8 @@ interface ContentDisplayProps {
   topic?: string;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  fontSize?: number;
+  isReadingMode?: boolean;
 }
 
 const InteractiveContent: React.FC<{
@@ -22,7 +24,9 @@ const InteractiveContent: React.FC<{
   topic?: string;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
-}> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite }) => {
+  fontSize?: number;
+  isReadingMode?: boolean;
+}> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
@@ -351,9 +355,22 @@ const InteractiveContent: React.FC<{
   );
 };
 
-const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onWordClick, topic, isFavorite, onToggleFavorite }) => {
+const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onWordClick, topic, isFavorite, onToggleFavorite, fontSize, isReadingMode }) => {
   if (!content) return null;
-  return <InteractiveContent content={content} onWordClick={onWordClick} isStreaming={isLoading} topic={topic} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} />;
+  return (
+    <div className={`content-display ${isLoading ? 'loading' : ''} ${isReadingMode ? 'reading-mode' : ''}`} style={{ fontSize: `${fontSize}%` }}>
+      <InteractiveContent 
+        content={content} 
+        onWordClick={onWordClick} 
+        isStreaming={isLoading} 
+        topic={topic} 
+        isFavorite={isFavorite} 
+        onToggleFavorite={onToggleFavorite} 
+        fontSize={fontSize}
+        isReadingMode={isReadingMode}
+      />
+    </div>
+  );
 };
 
 export default ContentDisplay;

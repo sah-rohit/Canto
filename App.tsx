@@ -18,6 +18,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Starfield removed — replaced by static ASCII space art in LandingPage
 import { useToast } from './components/ToastContext';
 import { StartupAnimation } from './components/StartupAnimation';
+import { CantoDialog, CantoSlider } from './components/UIComponents';
 
 // A curated list of "banger" words and phrases for the random button.
 const PREDEFINED_WORDS = [
@@ -67,6 +68,11 @@ const App: React.FC = () => {
   // Rate limit state
   const [searchesRemaining, setSearchesRemaining] = useState<number | null>(null);
   const [searchesLimit, setSearchesLimit] = useState<number>(15);
+  const [resetTimer, setResetTimer] = useState<string>('');
+  const [readingTime, setReadingTime] = useState<number | null>(null);
+  const [isReadingMode, setIsReadingMode] = useState(false);
+  const [fontSize, setFontSize] = useState(100); // percentage
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [cache, setCache] = useState<Record<string, { content: string, asciiArt: AsciiArtData | null, timestamp: number }>>({});
   const [favorites, setFavorites] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
@@ -75,9 +81,10 @@ const App: React.FC = () => {
   // Load persisted state on mount
   useEffect(() => {
     initRateLimit().then(() => {
-      getRemainingSearches().then(({ remaining, limit }) => {
-        setSearchesRemaining(remaining);
-        setSearchesLimit(limit);
+      checkRateLimit().then((status) => {
+        setSearchesRemaining(status.remaining);
+        setSearchesLimit(status.limit);
+        setResetTimer(status.timeUntilReset || '');
       });
     });
 
@@ -103,7 +110,18 @@ const App: React.FC = () => {
       setCurrentPage(getPageFromURL());
     };
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+
+    // Update reset timer every minute
+    const timerInterval = setInterval(() => {
+      checkRateLimit().then((status) => {
+        setResetTimer(status.timeUntilReset || '');
+      });
+    }, 60000);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearInterval(timerInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -334,10 +352,16 @@ const App: React.FC = () => {
   }, [navigateToTopic, showToast]);
 
   const clearHistory = useCallback(() => {
+    setIsConfirmingClear(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
     setHistory([]);
     try { localStorage.removeItem('canto_history'); } catch(e) {}
     setIsHistoryOpen(false);
-  }, []);
+    setIsConfirmingClear(false);
+    showToast('Browsing history cleared', 'info');
+  }, [showToast]);
 
   const changeTheme = useCallback((newTheme: 'classic' | 'dark' | 'vintage' | 'obsidian') => {
     setTheme(newTheme);
@@ -349,7 +373,7 @@ const App: React.FC = () => {
 
   const searchLimitBadge = searchesRemaining !== null && (
     <span
-      title={`${searchesRemaining} of ${searchesLimit} daily searches remaining. Resets at midnight.`}
+      title={`${searchesRemaining} of ${searchesLimit} daily searches remaining. Resets in ${resetTimer}.`}
       style={{
         fontSize: '0.75em',
         fontFamily: 'monospace',
@@ -362,7 +386,7 @@ const App: React.FC = () => {
         userSelect: 'none',
       }}
     >
-      {searchesRemaining}/{searchesLimit} ✦
+      {searchesRemaining}/{searchesLimit} ✦ {resetTimer && `(Resets in ${resetTimer})`}
     </span>
   );
 
@@ -373,7 +397,8 @@ const App: React.FC = () => {
 
 
         {/* ── Top nav ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative', zIndex: 10 }}>
+        {!isReadingMode && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative', zIndex: 10 }}>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             {currentPage !== 'landing' && (
               <>
@@ -410,16 +435,19 @@ const App: React.FC = () => {
                     <p style={{ margin: 0, fontSize: '0.9em', color: 'var(--text-muted)', padding: '0.5rem', fontFamily: 'monospace' }}>No history yet.</p>
                   ) : (
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '250px', overflowY: 'auto' }}>
-                      {history.map((t, i) => (
-                        <li key={i}>
-                          <button onClick={() => navigateToTopic(t)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                          >
-                            {t}
-                          </button>
-                        </li>
-                      ))}
+                      {history.map((t, i) => {
+                        const topicStr = typeof t === 'object' ? (t as any).topic || JSON.stringify(t) : String(t);
+                        return (
+                          <li key={i}>
+                            <button onClick={() => navigateToTopic(topicStr)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', color: 'var(--text-color)', fontFamily: 'monospace' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              {topicStr}
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                   {favorites.length > 0 && (
@@ -453,11 +481,12 @@ const App: React.FC = () => {
               Share
             </button>
           </div>
-        </div>
+          </div>
+        )}
 
-        <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={UNIQUE_WORDS} />
+        <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
 
-        {currentPage !== 'landing' && (
+        {!isReadingMode && currentPage !== 'landing' && (
           <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
               <svg width="100%" height="60" viewBox="0 0 600 60" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', maxWidth: '420px' }}>
@@ -483,17 +512,31 @@ const App: React.FC = () => {
           </header>
         )}
 
-        <main className="fade-in" style={{ flex: 1, width: '100%' }} key={currentPage + currentTopic}>
+        <main className="fade-in" style={{ flex: 1, width: '100%', paddingTop: isReadingMode ? '4rem' : '0' }} key={currentPage + currentTopic}>
           <ErrorBoundary>
             {currentPage === 'wiki' ? (
               <div className="main-layout" style={{ display: 'block', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                 <div className="main-content" style={{ width: '100%' }}>
-                  <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
-                  </div>
+                  {!isReadingMode && (
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                      <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
+                    </div>
+                  )}
                   <h2 style={{ marginBottom: '0.5rem', textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
                     {currentTopic}
                   </h2>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                    {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>⏱ {readingTime} min read</span>}
+                    <button 
+                      onClick={() => setIsReadingMode(!isReadingMode)}
+                      style={{ background: 'transparent', border: '1px solid var(--border-color)', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.2rem 0.6rem', fontSize: '0.75em', borderRadius: '4px', cursor: 'pointer', fontFamily: 'monospace' }}
+                    >
+                      {isReadingMode ? '📖 Reading Mode: ON' : '📖 Reading Mode: OFF'}
+                    </button>
+                    <div style={{ width: '120px' }}>
+                      <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
+                    </div>
+                  </div>
                   {!isLoading && !error && content.length > 0 && (
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                       <button 
@@ -532,6 +575,8 @@ const App: React.FC = () => {
                         topic={currentTopic}
                         isFavorite={favorites.includes(currentTopic)}
                         onToggleFavorite={() => toggleFavorite(currentTopic)}
+                        fontSize={fontSize}
+                        isReadingMode={isReadingMode}
                       />
                       {!isLoading && (
                         <>
@@ -585,6 +630,17 @@ const App: React.FC = () => {
             </p>
           )}
         </footer>
+        
+        {isConfirmingClear && (
+          <CantoDialog 
+            title="Clear History"
+            message="Are you sure you want to delete all browsing history? This action cannot be undone."
+            type="confirm"
+            confirmLabel="Clear All"
+            onConfirm={handleConfirmClear}
+            onCancel={() => setIsConfirmingClear(false)}
+          />
+        )}
       </div>
     </>
   );

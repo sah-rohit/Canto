@@ -260,24 +260,52 @@ No markdown fences. Start with { end with }.`;
       const raw = await callServerAI(p.provider, p.model, messages, false) as string;
       let cleaned = raw.trim();
 
-      // Strip markdown fences
-      const fence = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
-      if (fence?.[1]) cleaned = fence[1].trim();
-
-      // Extract first {...} block
-      const objMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (objMatch) cleaned = objMatch[0];
-
-      const parsed = JSON.parse(cleaned) as AsciiArtData;
-      if (typeof parsed.art === 'string' && parsed.art.trim().length > 0) {
-        return { art: parsed.art };
+      // Robust extraction for malformed JSON or markdown fences
+      let artContent = '';
+      
+      // 1. Try JSON.parse (happy path)
+      try {
+        const objMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+          const parsed = JSON.parse(objMatch[0]);
+          if (parsed.art) artContent = parsed.art;
+        }
+      } catch {
+        // 2. Fallback: Manual string extraction if JSON is malformed
+        const artMatch = cleaned.match(/"art":\s*"([\s\S]*?)"\s*\}/);
+        if (artMatch) {
+          artContent = artMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+        } else {
+          // 3. Last resort: just use the whole string if it looks like art
+          if (cleaned.includes('\n') && cleaned.length > 20) artContent = cleaned;
+        }
       }
-      throw new Error('Empty art in response');
+
+      // Cleanup and Validation
+      artContent = artContent.trim();
+      
+      // Filter out model refusals or empty responses
+      const isRefusal = /cannot|sorry|unable|draw|generate/i.test(artContent.slice(0, 50)) && artContent.length < 100;
+      if (artContent.length > 10 && !isRefusal) {
+        return { art: artContent };
+      }
+      
+      throw new Error('Invalid or empty art content');
     } catch (err) {
       lastErr = err as Error;
       console.warn(`[Canto art] ${lastErr.message} — trying next provider`);
     }
   }
+
+  // Fallback: If all else fails, try one last time with a very simple text-only prompt
+  try {
+    const simpleMessages: ChatMessage[] = [
+      { role: 'user', content: `Draw a very simple, small ASCII art icon for "${topic}". Use only 5-8 lines. No explanation, just the art.` }
+    ];
+    const raw = await callWithFallback(simpleMessages);
+    if (raw && raw.length > 5 && !raw.includes('{')) return { art: raw.trim() };
+  } catch {}
+
   throw lastErr;
 }
 

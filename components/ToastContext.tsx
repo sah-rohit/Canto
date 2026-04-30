@@ -35,10 +35,19 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const getColors = (type: ToastType) => {
     switch (type) {
-      case 'success': return { border: '#10b981', bg: 'var(--input-bg)' };
-      case 'warning': return { border: '#f59e0b', bg: 'var(--input-bg)' };
-      case 'error': return { border: '#ef4444', bg: 'var(--input-bg)' };
-      default: return { border: 'var(--accent-color)', bg: 'var(--input-bg)' };
+      case 'success': return '#00ff88';
+      case 'warning': return '#ffcc00';
+      case 'error': return '#ff4444';
+      default: return 'var(--accent-color)';
+    }
+  };
+
+  const getIcon = (type: ToastType) => {
+    switch (type) {
+      case 'success': return '✓';
+      case 'warning': return '⚠';
+      case 'error': return '✖';
+      default: return '✦';
     }
   };
 
@@ -47,36 +56,42 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       {children}
       <div style={{
         position: 'fixed',
-        bottom: '20px',
-        right: '20px',
+        bottom: '2rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '0.8rem',
         zIndex: 9999,
         pointerEvents: 'none'
       }}>
         {toasts.map(toast => {
-          const colors = getColors(toast.type);
+          const color = getColors(toast.type);
           return (
             <div key={toast.id} style={{
-              background: colors.bg,
-              border: `1px solid ${colors.border}`,
-              color: 'var(--text-color)',
-              padding: '1rem 1.5rem',
+              background: 'var(--bg-color)',
+              border: `1px solid ${color}`,
+              color: color,
+              padding: '0.75rem 1.5rem',
               borderRadius: '2px',
               fontFamily: 'monospace',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              animation: 'fadeInUp 0.3s ease-out forwards',
-              pointerEvents: 'auto'
+              fontSize: '0.9em',
+              boxShadow: `0 0 15px ${color}33`,
+              animation: 'canto-toast-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+              pointerEvents: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.8rem'
             }}>
               <style>
                 {`
-                  @keyframes fadeInUp {
+                  @keyframes canto-toast-in {
                     from { opacity: 0; transform: translateY(20px); }
                     to { opacity: 1; transform: translateY(0); }
                   }
                 `}
               </style>
+              <span>{getIcon(toast.type)}</span>
               {toast.message}
             </div>
           );
