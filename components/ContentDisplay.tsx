@@ -30,8 +30,22 @@ const InteractiveContent: React.FC<{
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
+
+  const handleSelection = (e: React.MouseEvent) => {
+    const selection = window.getSelection();
+    if (!selection) return;
+    const text = selection.toString().trim();
+    if (text && text.length > 2) {
+      setSelectedText(text);
+      setPopupPos({ x: e.clientX, y: e.clientY - 40 });
+    } else {
+      setPopupPos(null);
+    }
+  };
 
   useEffect(() => {
     if (isStreaming && bottomRef.current) {
@@ -184,35 +198,111 @@ const InteractiveContent: React.FC<{
     setDownloadMenuOpen(false);
   };
 
+  const MULTI_WORD_CONCEPTS = [
+    'operating system', 'windows 11', 'artificial intelligence', 'computer science', 'united states', 'new york', 'web development',
+    'machine learning', 'data science', 'software engineering', 'world war', 'deep learning', 'general relativity', 'quantum mechanics',
+    'silicon valley', 'information technology', 'google chrome', 'macos sequoia', 'macos tahoe', 'apple silicon'
+  ];
+
+  const STOP_WORDS = new Set([
+    'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'were', 'was', 'are', 'is', 'a', 'an', 'to', 'in', 'on', 'of', 'it', 'be', 'by', 'as', 'at', 'or', 'an', 'not', 'but', 'if', 'then', 'else', 'they', 'them', 'their', 'our', 'your', 'his', 'her', 'its', 'about', 'more', 'some', 'any', 'all', 'can', 'will', 'would', 'could', 'should', 'has', 'had', 'been', 'do', 'does', 'did', 'which', 'who', 'whom', 'where', 'when', 'why', 'how'
+  ]);
+
   const renderClickableText = (text: string) => {
-    const words = text.split(/([a-zA-Z0-9]+)/);
-    return words.map((chunk, idx) => {
-      if (/^[a-zA-Z0-9]{3,}$/.test(chunk)) {
+    // 1. Identify all common multi-word concepts and proper nouns (Capitalized consecutive words)
+    const matches: { phrase: string; index: number }[] = [];
+    
+    // Check common multi-word concepts (case-insensitive)
+    for (const concept of MULTI_WORD_CONCEPTS) {
+      const regex = new RegExp(`\\b${concept}\\b`, 'gi');
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({ phrase: match[0], index: match.index });
+      }
+    }
+
+    // Check proper noun phrases (at least 2 capitalized words, e.g., Windows 11, Operating System)
+    const propNounRegex = /\b[A-Z][a-zA-Z0-9]*(?:\s+[A-Z][a-zA-Z0-9]*)+\b/g;
+    let propMatch;
+    while ((propMatch = propNounRegex.exec(text)) !== null) {
+      // Avoid duplicate or overlapping matches
+      if (!matches.some(m => m.index <= propMatch!.index && (m.index + m.phrase.length) >= propMatch!.index)) {
+        matches.push({ phrase: propMatch[0], index: propMatch.index });
+      }
+    }
+
+    // Sort matches by index descending so we can replace from end to start without breaking indices
+    matches.sort((a, b) => b.index - a.index);
+
+    // Create chunks using the found phrase indices
+    let processedText = text;
+    const phrasesById: Record<string, string> = {};
+    matches.forEach((m, idx) => {
+      const id = `__PHRASE_${idx}__`;
+      phrasesById[id] = m.phrase;
+      processedText = processedText.slice(0, m.index) + id + processedText.slice(m.index + m.phrase.length);
+    });
+
+    const chunks = processedText.split(/(__PHRASE_\d+__)/);
+
+    return chunks.map((chunk, idx) => {
+      if (phrasesById[chunk]) {
+        const phrase = phrasesById[chunk];
         return (
           <span
-            key={idx}
-            className="interactive-word clickable-any-word"
-            onClick={() => onWordClick(chunk)}
+            key={`p-${idx}`}
+            className="interactive-word clickable-any-word text-glow"
+            onClick={() => onWordClick(phrase)}
             style={{
               cursor: 'pointer',
               display: 'inline-block',
               borderBottom: '1px dotted transparent',
-              transition: 'all 0.15s ease'
+              transition: 'all 0.15s ease',
+              textShadow: '0 0 10px var(--accent-color)'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
-              e.currentTarget.style.color = 'var(--accent-color)';
+              e.currentTarget.style.textShadow = '0 0 15px var(--accent-color), 0 0 30px var(--accent-color)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.borderBottomColor = 'transparent';
-              e.currentTarget.style.color = 'inherit';
+              e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
             }}
           >
-            {chunk}
+            {phrase}
           </span>
         );
       }
-      return chunk;
+
+      const words = chunk.split(/([a-zA-Z0-9]+)/);
+      return words.map((wordChunk, wordIdx) => {
+        if (/^[a-zA-Z0-9]{4,}$/.test(wordChunk) && !STOP_WORDS.has(wordChunk.toLowerCase())) {
+          return (
+            <span
+              key={`w-${idx}-${wordIdx}`}
+              className="interactive-word clickable-any-word"
+              onClick={() => onWordClick(wordChunk)}
+              style={{
+                cursor: 'pointer',
+                display: 'inline-block',
+                borderBottom: '1px dotted transparent',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
+                e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderBottomColor = 'transparent';
+                e.currentTarget.style.textShadow = 'none';
+              }}
+            >
+              {wordChunk}
+            </span>
+          );
+        }
+        return wordChunk;
+      });
     });
   };
 
@@ -312,14 +402,70 @@ const InteractiveContent: React.FC<{
   };
 
   return (
-    <div>
-      <div className="markdown-body" style={{ lineHeight: '1.8' }}>
+    <div style={{ position: 'relative' }}>
+      <div className="markdown-body" onMouseUp={handleSelection} style={{ lineHeight: '1.8' }}>
         <Markdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
           {content + (isStreaming ? ' \u2588' : '')}
         </Markdown>
         <div ref={bottomRef} style={{ height: 1, padding: 0, margin: 0 }} />
       </div>
-      
+
+      {popupPos && (
+        <div style={{
+          position: 'fixed',
+          top: `${popupPos.y}px`,
+          left: `${popupPos.x}px`,
+          transform: 'translateX(-50%)',
+          background: 'var(--bg-color)',
+          border: '1px solid var(--accent-color)',
+          padding: '0.4rem 0.8rem',
+          borderRadius: '2px',
+          boxShadow: '0 0 15px rgba(var(--accent-color-rgb), 0.4)',
+          zIndex: 9999,
+          fontFamily: 'monospace',
+          fontSize: '0.8em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          animation: 'fade-in 0.15s ease-out',
+          pointerEvents: 'auto'
+        }}>
+          <span style={{ color: 'var(--text-muted)' }}>Search:</span>
+          <button 
+            onClick={() => {
+              onWordClick(selectedText);
+              setPopupPos(null);
+            }}
+            style={{
+              background: 'var(--accent-color)',
+              border: 'none',
+              color: 'var(--bg-color, #0b0f19)',
+              padding: '0.2rem 0.6rem',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '0.85em',
+              fontFamily: 'monospace'
+            }}
+          >
+            "{selectedText.length > 15 ? selectedText.slice(0, 15) + '...' : selectedText}"
+          </button>
+          <button 
+            onClick={() => setPopupPos(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '1em',
+              padding: '0 0.2rem'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {!isStreaming && content.length > 0 && (
         <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', alignItems: 'center' }}>
           <button 
