@@ -100,27 +100,25 @@ export const onRequest = async (context: any) => {
       } catch (e) {}
     })(),
 
-    // ── Web Crawler / Real-Time Parser with Dual Mode ─────────────────
+    // ── Crawl4AI Mode / Web Scraper with Dual Mode ─────────────────
     (async () => {
       try {
         const snippets: string[] = [];
-        // Try HTML mode first
+        // Try Crawl4AI via Jina's highly accessible Reader first
         try {
-          const ddgRes = await fetchWithTimeout(
-            `https://html.duckduckgo.com/html/?q=${encoded}`,
-            { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0' } }
+          const jinaRes = await fetchWithTimeout(
+            `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${encoded}`,
+            { headers: { 'Accept': 'text/plain' } }
           );
-          if (ddgRes.ok) {
-            const text = await ddgRes.text();
-            const matches = text.matchAll(/(?:class="result__snippet"|class="result-snippet")[^>]*>(.*?)<\/(?:a|td)>/gi);
-            for (const match of matches) {
-              let s = match[1].replace(/<[^>]*>/g, '').trim();
-              if (s) snippets.push(s);
-            }
+          if (jinaRes.ok) {
+            const text = await jinaRes.text();
+            // Extract lines or paragraphs matching snippets
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 20 && l.length < 500);
+            if (lines.length > 0) snippets.push(...lines.slice(0, 6));
           }
         } catch {}
 
-        // Fallback to Lite mode if no snippets found
+        // Fallback to DuckDuckGo direct parsing if Jina fails
         if (snippets.length === 0) {
           try {
             const liteRes = await fetchWithTimeout(
@@ -139,7 +137,7 @@ export const onRequest = async (context: any) => {
         }
 
         if (snippets.length > 0) {
-          results.crawler = snippets.slice(0, 5).join('\n\n');
+          results.crawler = snippets.slice(0, 6).join('\n\n');
         }
       } catch (e) {}
     })(),

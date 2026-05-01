@@ -65,34 +65,42 @@ export const CantoDialog: React.FC<AlertProps> = ({ title, message, confirmLabel
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(4px)'
+      background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(8px)'
     }}>
       <div className="fade-in" style={{
-        background: 'var(--bg-color)', border: '1px solid var(--accent-color)',
-        padding: '2rem', maxWidth: '400px', width: '90%', borderRadius: '2px',
-        boxShadow: '0 0 30px rgba(0,0,0,0.5)', textAlign: 'center'
+        background: 'var(--bg-color)', border: '2px solid var(--accent-color)',
+        padding: '2.5rem', maxWidth: '420px', width: '90%', borderRadius: '4px',
+        boxShadow: '0 0 30px rgba(var(--accent-color-rgb), 0.25), 0 0 100px rgba(0, 0, 0, 0.8)', 
+        textAlign: 'center', fontFamily: 'monospace'
       }}>
-        <h3 style={{ marginTop: 0, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent-color)' }}>
+        <h3 style={{ 
+          marginTop: 0, letterSpacing: '0.2em', textTransform: 'uppercase', 
+          color: 'var(--accent-color)', fontSize: '1.2em', borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '0.8rem', marginBottom: '1.5rem'
+        }}>
           {title}
         </h3>
-        <p style={{ margin: '1.5rem 0', lineHeight: '1.6', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+        <p style={{ margin: '1.5rem 0', lineHeight: '1.7', color: 'var(--text-muted)', fontSize: '0.95em' }}>
           {message}
         </p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2.5rem' }}>
           {type === 'confirm' && (
             <button onClick={onCancel} style={{
               background: 'transparent', border: '1px solid var(--border-color)',
-              color: 'var(--text-muted)', padding: '0.5rem 1.5rem', cursor: 'pointer',
-              fontFamily: 'monospace'
+              color: 'var(--text-muted)', padding: '0.6rem 1.8rem', cursor: 'pointer',
+              fontFamily: 'monospace', letterSpacing: '0.1em', fontSize: '0.85em',
+              textTransform: 'uppercase', transition: 'all 0.2s ease'
             }}>
               {cancelLabel}
             </button>
           )}
           <button onClick={onConfirm} style={{
             background: 'var(--accent-color)', border: '1px solid var(--accent-color)',
-            color: 'white', padding: '0.5rem 2rem', cursor: 'pointer',
-            fontFamily: 'monospace', fontWeight: 'bold'
+            color: 'var(--bg-color, #0b0f19)', padding: '0.6rem 2.2rem', cursor: 'pointer',
+            fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '0.1em', 
+            textTransform: 'uppercase', fontSize: '0.85em', transition: 'all 0.2s ease',
+            boxShadow: '0 0 10px rgba(var(--accent-color-rgb), 0.3)'
           }}>
             {confirmLabel}
           </button>

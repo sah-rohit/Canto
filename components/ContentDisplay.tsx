@@ -184,6 +184,53 @@ const InteractiveContent: React.FC<{
     setDownloadMenuOpen(false);
   };
 
+  const renderClickableText = (text: string) => {
+    const words = text.split(/([a-zA-Z0-9]+)/);
+    return words.map((chunk, idx) => {
+      if (/^[a-zA-Z0-9]{3,}$/.test(chunk)) {
+        return (
+          <span
+            key={idx}
+            className="interactive-word clickable-any-word"
+            onClick={() => onWordClick(chunk)}
+            style={{
+              cursor: 'pointer',
+              display: 'inline-block',
+              borderBottom: '1px dotted transparent',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
+              e.currentTarget.style.color = 'var(--accent-color)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderBottomColor = 'transparent';
+              e.currentTarget.style.color = 'inherit';
+            }}
+          >
+            {chunk}
+          </span>
+        );
+      }
+      return chunk;
+    });
+  };
+
+  const wrapClickable = (node: any): any => {
+    if (typeof node === 'string') {
+      return renderClickableText(node);
+    }
+    if (React.isValidElement(node)) {
+      return React.cloneElement(node as any, {
+        children: React.Children.map((node.props as any).children, wrapClickable)
+      });
+    }
+    if (Array.isArray(node)) {
+      return node.map(wrapClickable);
+    }
+    return node;
+  };
+
   const MarkdownComponents = {
     // Render ```ascii ... ``` blocks as styled ASCII diagrams
     code: ({ node, inline, className, children, ...props }: any) => {
@@ -253,15 +300,15 @@ const InteractiveContent: React.FC<{
         </button>
       );
     },
-    strong: ({ children }: any) => <strong style={{ fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: 'inherit' }}>【{children}】</strong>,
-    em: ({ children }: any) => <em style={{ fontStyle: 'italic', fontWeight: '200', letterSpacing: '0.05em' }}>/ {children} /</em>,
-    p: ({ children }: any) => <p style={{ margin: '0 0 1rem 0', lineHeight: '1.8' }}>{children}</p>,
+    strong: ({ children }: any) => <strong style={{ fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: 'inherit' }}>【{wrapClickable(children)}】</strong>,
+    em: ({ children }: any) => <em style={{ fontStyle: 'italic', fontWeight: '200', letterSpacing: '0.05em' }}>/ {wrapClickable(children)} /</em>,
+    p: ({ children }: any) => <p style={{ margin: '0 0 1rem 0', lineHeight: '1.8' }}>{wrapClickable(children)}</p>,
     ul: ({ children }: any) => <ul style={{ listStyleType: 'none', paddingLeft: '1rem', marginBottom: '1rem', lineHeight: '1.8', borderLeft: '1px solid var(--border-color)' }}>{children}</ul>,
     ol: ({ children }: any) => <ol style={{ listStyleType: 'decimal-leading-zero', paddingLeft: '2rem', marginBottom: '1rem', lineHeight: '1.8' }}>{children}</ol>,
-    li: ({ children }: any) => <li style={{ marginBottom: '0.5rem', position: 'relative' }}>{children}</li>,
+    li: ({ children }: any) => <li style={{ marginBottom: '0.5rem', position: 'relative' }}>{wrapClickable(children)}</li>,
     table: ({ children }: any) => <div style={{ overflowX: 'auto', marginBottom: '1rem' }}><table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border-color)', fontSize: '0.9em' }}>{children}</table></div>,
-    th: ({ children }: any) => <th style={{ borderBottom: '2px solid var(--border-color)', padding: '0.75rem', textAlign: 'left', fontWeight: 'bold', background: 'var(--input-bg)' }}>{children}</th>,
-    td: ({ children }: any) => <td style={{ borderBottom: '1px solid var(--border-color)', padding: '0.75rem' }}>{children}</td>,
+    th: ({ children }: any) => <th style={{ borderBottom: '2px solid var(--border-color)', padding: '0.75rem', textAlign: 'left', fontWeight: 'bold', background: 'var(--input-bg)' }}>{wrapClickable(children)}</th>,
+    td: ({ children }: any) => <td style={{ borderBottom: '1px solid var(--border-color)', padding: '0.75rem' }}>{wrapClickable(children)}</td>,
   };
 
   return (

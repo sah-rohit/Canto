@@ -168,7 +168,7 @@ export async function* streamDefinition(
 ${contextBlock}
 
 FORMATTING RULES:
-1. Identify key terms and format them as Markdown links: [Key Term](Key Term)
+1. Identify at least 15-20 relevant nouns, key concepts, technologies, terms, and topics, and format them as Markdown links: [Key Term](Key Term). This allows the user to click any of these words to instantly search them.
    Do NOT link the current topic "${topic}" itself.
 2. Use **bold** for critical concepts, *italic* for nuance or etymology.
 3. Use bullet lists (* item) or numbered lists (1. item) for enumerations.

@@ -76,10 +76,31 @@ const App: React.FC = () => {
   const [isReadingMode, setIsReadingMode] = useState(false);
   const [fontSize, setFontSize] = useState(100); // percentage
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [activeAlert, setActiveAlert] = useState<{ title: string; message: string; onConfirm?: () => void } | null>(null);
   const [cache, setCache] = useState<Record<string, { content: string, asciiArt: AsciiArtData | null, timestamp: number }>>({});
   const [favorites, setFavorites] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get('sharedData');
+    if (shared) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(shared))));
+        if (decoded && decoded.topic && decoded.content) {
+          setCurrentTopic(decoded.topic);
+          setCurrentPage('wiki');
+          setContent(decoded.content);
+          setAsciiArt(decoded.asciiArt || null);
+          setIsLoading(false);
+          setError(null);
+        }
+      } catch (e) {
+        console.error('Failed to parse shared data:', e);
+      }
+    }
+  }, []);
 
   // Load persisted state on mount
   useEffect(() => {
@@ -216,19 +237,28 @@ const App: React.FC = () => {
   };
 
   const handleShare = useCallback(() => {
-    const url = window.location.href;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        showToast('Link copied to clipboard!', 'success');
-      }).catch(() => {
-        fallbackCopyUrl(url);
-        showToast('Link copied to clipboard!', 'success');
-      });
-    } else {
-      fallbackCopyUrl(url);
-      showToast('Link copied to clipboard!', 'success');
+    if (!currentTopic || !content) return;
+    try {
+      const payload = JSON.stringify({ topic: currentTopic, content, asciiArt });
+      const encoded = btoa(unescape(encodeURIComponent(payload)));
+      const sharedUrl = `${window.location.origin}${window.location.pathname}?sharedData=${encodeURIComponent(encoded)}`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(sharedUrl).then(() => {
+          showToast('Share link copied! Can be viewed for free.', 'success');
+        }).catch(() => {
+          fallbackCopyUrl(sharedUrl);
+          showToast('Share link copied! Can be viewed for free.', 'success');
+        });
+      } else {
+        fallbackCopyUrl(sharedUrl);
+        showToast('Share link copied! Can be viewed for free.', 'success');
+      }
+    } catch (e) {
+      console.error('Failed to create shared link', e);
+      showToast('Error creating shared link', 'error');
     }
-  }, [showToast]);
+  }, [currentTopic, content, asciiArt, showToast]);
 
   useEffect(() => {
     if (currentPage !== 'wiki' || !currentTopic) return;
@@ -236,6 +266,27 @@ const App: React.FC = () => {
     let isCancelled = false;
 
     const fetchContentAndArt = async () => {
+      // ── Check Shared Data Parameter ──────────────────────────────────────
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('sharedData')) {
+        try {
+          const shared = params.get('sharedData');
+          if (shared) {
+            const decoded = JSON.parse(decodeURIComponent(escape(atob(shared))));
+            if (decoded && decoded.topic && decoded.content) {
+              setIsLoading(false);
+              setError(null);
+              setContent(decoded.content);
+              setAsciiArt(decoded.asciiArt || null);
+              setGenerationTime(null);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing shared data', e);
+        }
+      }
+
       const normalizedTopic = currentTopic.toLowerCase().trim();
       
       // ── Check Cache First ──────────────────────────────────────────────────
@@ -262,7 +313,10 @@ const App: React.FC = () => {
       // ── Rate limit check ──────────────────────────────────────────────────
       const rlStatus = await checkRateLimit();
       if (!rlStatus.allowed) {
-        setError(`Daily search limit reached (${rlStatus.limit} searches). My API quotas reset at midnight. Come back tomorrow to keep exploring!`);
+        setActiveAlert({
+          title: 'Limit Reached',
+          message: `Daily search limit reached (${rlStatus.limit} searches). API quotas reset at midnight. Come back tomorrow or reload previous queries to keep exploring!`
+        });
         setIsLoading(false);
         return;
       }
@@ -671,6 +725,19 @@ const App: React.FC = () => {
             confirmLabel="Clear All"
             onConfirm={handleConfirmClear}
             onCancel={() => setIsConfirmingClear(false)}
+          />
+        )}
+
+        {activeAlert && (
+          <CantoDialog 
+            title={activeAlert.title}
+            message={activeAlert.message}
+            type="alert"
+            confirmLabel="OK"
+            onConfirm={() => {
+              if (activeAlert.onConfirm) activeAlert.onConfirm();
+              setActiveAlert(null);
+            }}
           />
         )}
       </div>
