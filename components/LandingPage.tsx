@@ -113,7 +113,7 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
   };
 
   return (
-    <div className="fade-in" style={{ position: 'relative', textAlign: 'center', padding: '2rem 0', overflow: 'hidden', minHeight: '80vh' }}>
+    <div className="fade-in" style={{ position: 'relative', textAlign: 'center', padding: '1.5rem 0 2rem', overflow: 'hidden', minHeight: '70vh' }}>
 
       {/* ── Large Moon ── */}
       <div style={{ ...artStyle, top: '-40px', right: '-5%', fontSize: '0.55em' }} className="hide-on-mobile">
@@ -149,8 +149,8 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
       </div>
 
       {/* ── Logo ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem', position: 'relative', zIndex: 5 }}>
-        <svg width="100%" height="130" viewBox="0 0 700 130" style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.1))', maxWidth: '700px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem', position: 'relative', zIndex: 5, padding: '0 1rem' }}>
+        <svg width="100%" height="auto" viewBox="0 0 700 130" style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.1))', maxWidth: '600px' }}>
           <defs>
             <linearGradient id="cantoHolo" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="var(--text-color)" />
@@ -180,16 +180,16 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
         </svg>
       </div>
 
-      <h2 style={{ letterSpacing: '0.1em', marginBottom: '1rem', fontWeight: 300, position: 'relative', zIndex: 5 }}>
+      <h2 style={{ letterSpacing: '0.1em', marginBottom: '0.75rem', fontWeight: 300, position: 'relative', zIndex: 5, padding: '0 1rem' }}>
         Welcome to Canto
       </h2>
-      <p style={{ maxWidth: '500px', margin: '0 auto 2rem auto', color: 'var(--text-muted)', lineHeight: '1.8', position: 'relative', zIndex: 5 }}>
+      <p style={{ maxWidth: '480px', margin: '0 auto 1.75rem auto', color: 'var(--text-muted)', lineHeight: '1.8', position: 'relative', zIndex: 5, padding: '0 1.25rem' }}>
         An infinite AI encyclopedia powered by real knowledge sources.
         Search any topic and watch a comprehensive, fact-checked article materialize in real time.
       </p>
 
       {/* ── Feature badges ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2rem', flexWrap: 'wrap', position: 'relative', zIndex: 5 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap', position: 'relative', zIndex: 5, padding: '0 1rem' }}>
         {[
           { icon: '📚', label: 'Wikipedia' },
           { icon: '🔬', label: 'NASA' },
@@ -203,17 +203,25 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
       </div>
       
       {onWordClick && (
-        <div style={{ marginTop: '2rem', position: 'relative', zIndex: 10 }}>
+        <div style={{ marginTop: '1.5rem', position: 'relative', zIndex: 10, padding: '0 1rem' }}>
           <p style={{ fontSize: '0.85em', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem' }}>Explore these portals</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center', maxWidth: '650px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center', maxWidth: '650px', margin: '0 auto' }}>
             {exampleTopics.map(topic => (
               <button
                 key={topic}
                 onClick={() => onWordClick(topic)}
                 style={{
-                  background: 'transparent', border: '1px solid var(--border-color)', padding: '0.5rem 1rem', borderRadius: '2px',
-                  color: 'var(--text-color)', cursor: 'pointer', transition: 'all 0.2s ease', WebkitTapHighlightColor: 'transparent',
-                  fontFamily: 'monospace', fontSize: '0.85em'
+                  background: 'transparent',
+                  border: '1px solid var(--border-color)',
+                  padding: '0.55rem 1rem',
+                  borderRadius: '4px',
+                  color: 'var(--text-color)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  WebkitTapHighlightColor: 'transparent',
+                  fontFamily: 'monospace',
+                  fontSize: '0.85em',
+                  minHeight: '2.5rem',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; e.currentTarget.style.textShadow = 'var(--ascii-glow)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-color)'; e.currentTarget.style.textShadow = 'none'; }}

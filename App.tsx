@@ -470,9 +470,10 @@ const App: React.FC = () => {
         padding: '0.1rem 0.4rem',
         cursor: 'default',
         userSelect: 'none',
+        whiteSpace: 'nowrap',
       }}
     >
-      {searchesRemaining}/{searchesLimit} ✦ {resetTimer && `(Resets in ${resetTimer})`}
+      {searchesRemaining}/{searchesLimit}{resetTimer && <span className="search-limit-badge-timer"> ✦ (Resets in {resetTimer})</span>}
     </span>
   );
 
@@ -484,90 +485,90 @@ const App: React.FC = () => {
 
         {/* ── Top nav ── */}
         {!isReadingMode && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative', zIndex: 10 }}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {currentPage !== 'landing' && (
-              <>
-                <button onClick={() => navigateToPage('landing')} style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}>
-                  Home
-                </button>
-                <button onClick={() => window.history.back()} style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}>
-                  &larr; Back
-                </button>
-              </>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {searchLimitBadge}
-
-            {currentPage === 'wiki' && (
-              <button onClick={() => { setCurrentTopic(''); navigateToPage('landing'); }} style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}>
-                + New Topic
-              </button>
-            )}
-
-            <div style={{ position: 'relative' }} ref={historyRef}>
-              <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}>
-                History
-              </button>
-              {isHistoryOpen && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem', minWidth: '200px', zIndex: 20, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.9em', fontWeight: 'bold', fontFamily: 'monospace' }}>History</span>
-                    <button onClick={clearHistory} style={{ fontSize: '0.8em', color: '#cc0000', fontFamily: 'monospace' }}>Clear</button>
-                  </div>
-                  {history.length === 0 ? (
-                    <p style={{ margin: 0, fontSize: '0.9em', color: 'var(--text-muted)', padding: '0.5rem', fontFamily: 'monospace' }}>No history yet.</p>
-                  ) : (
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '250px', overflowY: 'auto' }}>
-                      {history.map((t, i) => {
-                        const topicStr = typeof t === 'object' ? (t as any).topic || JSON.stringify(t) : String(t);
-                        return (
-                          <li key={i}>
-                            <button onClick={() => navigateToTopic(topicStr)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              {topicStr}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                  {favorites.length > 0 && (
-                    <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border-color)' }}>
-                      <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase' }}>★ Favorites</span>
-                      <ul style={{ listStyle: 'none', padding: 0, margin: '0.4rem 0 0 0' }}>
-                        {favorites.slice(0, 5).map((t, i) => (
-                          <li key={i}>
-                            <button onClick={() => navigateToTopic(t)} style={{ width: '100%', textAlign: 'left', padding: '0.3rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              {t}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <button 
-                    onClick={() => { setIsHistoryOpen(false); navigateToPage('library'); }} 
-                    style={{ width: '100%', marginTop: '0.8rem', padding: '0.4rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px', cursor: 'pointer', fontSize: '0.8em', fontFamily: 'monospace', color: 'var(--text-color)' }}
-                  >
-                    View Local Library
+          <nav className="top-nav">
+            <div className="top-nav-left">
+              {currentPage !== 'landing' && (
+                <>
+                  <button onClick={() => navigateToPage('landing')} className="nav-btn">
+                    Home
                   </button>
-                </div>
+                  <button onClick={() => window.history.back()} className="nav-btn">
+                    &larr; Back
+                  </button>
+                </>
               )}
             </div>
 
-            <button onClick={handleShare} style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', position: 'relative', fontFamily: 'monospace' }}>
-              Share
-            </button>
-          </div>
-          </div>
+            <div className="top-nav-right">
+              {searchLimitBadge}
+
+              {currentPage === 'wiki' && (
+                <button onClick={() => { setCurrentTopic(''); navigateToPage('landing'); }} className="nav-btn">
+                  + New
+                </button>
+              )}
+
+              <div style={{ position: 'relative' }} ref={historyRef}>
+                <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="nav-btn">
+                  History
+                </button>
+                {isHistoryOpen && (
+                  <div className="history-dropdown">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.9em', fontWeight: 'bold', fontFamily: 'monospace' }}>History</span>
+                      <button onClick={clearHistory} style={{ fontSize: '0.8em', color: '#cc0000', fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+                    </div>
+                    {history.length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '0.9em', color: 'var(--text-muted)', padding: '0.5rem', fontFamily: 'monospace' }}>No history yet.</p>
+                    ) : (
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '220px', overflowY: 'auto' }}>
+                        {history.map((t, i) => {
+                          const topicStr = typeof t === 'object' ? (t as any).topic || JSON.stringify(t) : String(t);
+                          return (
+                            <li key={i}>
+                              <button onClick={() => navigateToTopic(topicStr)} style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', color: 'var(--text-color)', fontFamily: 'monospace' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                {topicStr}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {favorites.length > 0 && (
+                      <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border-color)' }}>
+                        <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase' }}>★ Favorites</span>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: '0.4rem 0 0 0' }}>
+                          {favorites.slice(0, 5).map((t, i) => (
+                            <li key={i}>
+                              <button onClick={() => navigateToTopic(t)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.6rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-color)', fontFamily: 'monospace' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                {t}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => { setIsHistoryOpen(false); navigateToPage('library'); }} 
+                      style={{ width: '100%', marginTop: '0.8rem', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px', cursor: 'pointer', fontSize: '0.8em', fontFamily: 'monospace', color: 'var(--text-color)' }}
+                    >
+                      View Local Library
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button onClick={handleShare} className="nav-btn">
+                Share
+              </button>
+            </div>
+          </nav>
         )}
 
         <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
@@ -608,18 +609,18 @@ const App: React.FC = () => {
                       <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
                     </div>
                   )}
-                  <h2 style={{ marginBottom: '0.5rem', textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
+                  <h2 className="wiki-topic-title" style={{ marginBottom: '0.5rem', textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
                     {currentTopic}
                   </h2>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '0 0.5rem' }}>
                     {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>⏱ {readingTime} min read</span>}
                     <button 
                       onClick={() => setIsReadingMode(!isReadingMode)}
-                      style={{ background: 'transparent', border: '1px solid var(--border-color)', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.2rem 0.6rem', fontSize: '0.75em', borderRadius: '4px', cursor: 'pointer', fontFamily: 'monospace' }}
+                      style={{ background: 'transparent', border: '1px solid var(--border-color)', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.3rem 0.7rem', fontSize: '0.75em', borderRadius: '4px', cursor: 'pointer', fontFamily: 'monospace', minHeight: '2rem' }}
                     >
                       {isReadingMode ? '📖 Reading Mode: ON' : '📖 Reading Mode: OFF'}
                     </button>
-                    <div style={{ width: '120px' }}>
+                    <div style={{ width: '110px' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
                     </div>
                   </div>

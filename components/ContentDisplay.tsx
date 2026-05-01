@@ -41,7 +41,10 @@ const InteractiveContent: React.FC<{
     const text = selection.toString().trim();
     if (text && text.length > 2) {
       setSelectedText(text);
-      setPopupPos({ x: e.clientX, y: e.clientY - 40 });
+      // Clamp popup position so it stays within viewport
+      const vw = window.innerWidth;
+      const x = Math.min(Math.max(e.clientX, 80), vw - 80);
+      setPopupPos({ x, y: e.clientY - 48 });
     } else {
       setPopupPos(null);
     }
@@ -467,7 +470,7 @@ const InteractiveContent: React.FC<{
       )}
 
       {!isStreaming && content.length > 0 && (
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="content-actions" style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', alignItems: 'center' }}>
           <button 
             onClick={handleCopy}
             style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}

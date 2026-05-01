@@ -48,7 +48,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
   };
 
   return (
-    <div className="search-container" style={{ position: 'relative' }} ref={containerRef}>
+    <div className="search-container" ref={containerRef}>
       <form onSubmit={handleSubmit} className="search-form" role="search">
         <input
           type="text"
@@ -58,16 +58,37 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
             setShowSuggestions(true);
           }}
           onFocus={() => setShowSuggestions(true)}
-          placeholder="Search..."
+          placeholder="Search any topic..."
           className="search-input"
           aria-label="Search for a topic"
           disabled={isLoading}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
         />
         {query && (
           <button 
             type="button" 
             onClick={() => { setQuery(''); setShowSuggestions(false); }}
-            style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1rem', padding: '0.2rem' }}
+            style={{
+              position: 'absolute',
+              right: '0.75rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              padding: '0.25rem',
+              lineHeight: 1,
+              minWidth: '2rem',
+              minHeight: '2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
             aria-label="Clear search"
           >
             ✕
@@ -79,23 +100,33 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
             top: '100%',
             left: 0,
             right: 0,
-            background: '#fff',
-            border: '1px solid #ccc',
+            background: 'var(--bg-color)',
+            border: '1px solid var(--border-color)',
+            borderTop: 'none',
+            borderRadius: '0 0 8px 8px',
             listStyle: 'none',
             padding: 0,
-            margin: '4px 0 0 0',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            zIndex: 10,
-            maxHeight: '200px',
-            overflowY: 'auto'
+            margin: 0,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+            zIndex: 100,
+            maxHeight: '220px',
+            overflowY: 'auto',
           }}>
             {suggestions.map((suggestion, index) => (
               <li 
                 key={index} 
                 onClick={() => handleSuggestionClick(suggestion)}
-                style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: index < suggestions.length - 1 ? '1px solid #eee' : 'none' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                style={{
+                  padding: '0.65rem 1rem',
+                  cursor: 'pointer',
+                  borderBottom: index < suggestions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                  fontFamily: 'monospace',
+                  fontSize: '0.9em',
+                  color: 'var(--text-color)',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--input-bg)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 {suggestion}
               </li>
