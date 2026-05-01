@@ -32,7 +32,7 @@ When reference context is provided, use it to ensure factual accuracy and cite s
 // ─── Server API client ───────────────────────────────────────────────────────
 
 async function callServerAI(
-  provider: 'ollama' | 'groq',
+  provider: 'ollama' | 'groq' | 'github',
   model: string,
   messages: ChatMessage[],
   stream: boolean = false
@@ -103,10 +103,12 @@ async function callServerAI(
 
 // ─── Unified fallback wrapper ────────────────────────────────────────────────
 
-const PROVIDERS: Array<{ provider: 'ollama' | 'groq'; model: string; name: string }> = [
-  { provider: 'groq', model: 'llama-3.1-8b-instant', name: 'Llama (Groq)' },
-  { provider: 'ollama', model: 'deepseek-v3.2:cloud', name: 'DeepSeek v3.2' },
-  { provider: 'ollama', model: 'kimi-k2.5:cloud', name: 'Kimi' },
+const PROVIDERS: Array<{ provider: 'ollama' | 'groq' | 'github'; model: string; name: string }> = [
+  { provider: 'groq',   model: 'llama-3.1-8b-instant',  name: 'Llama (Groq)' },
+  { provider: 'github', model: 'DeepSeek-V3',            name: 'DeepSeek V3 (GitHub)' },
+  { provider: 'github', model: 'grok-3-mini',            name: 'Grok mini 3 (GitHub)' },
+  { provider: 'ollama', model: 'qwen3-next:80b-cloud',   name: 'Qwen3 Next 80B (Ollama)' },
+  { provider: 'ollama', model: 'nemotron-3-nano:30b-cloud', name: 'Nemotron 3 Nano 30B (Ollama)' },
 ];
 
 async function* streamWithFallback(

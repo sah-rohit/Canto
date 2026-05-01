@@ -176,19 +176,55 @@ export default defineConfig(({ mode }) => {
                 // ── Internet Archive (Open Library) ──────────────────────────
                 (async () => {
                   try {
-                    const iaRes = await fetchWithTimeout(
-                      `https://openlibrary.org/search.json?q=${encoded}&limit=3`,
-                      { headers: { 'User-Agent': 'CantoEncyclopedia/1.0' } }
-                    );
-                    if (iaRes.ok) {
-                      const data = await iaRes.json();
-                      if (data.docs && data.docs.length > 0) {
-                        const summaries = data.docs.slice(0, 3).map((d: any) => {
-                          const author = d.author_name?.[0] || 'Unknown';
-                          const year = d.first_publish_year || 'N/A';
-                          return `"${d.title}" by ${author} (${year})`;
-                        });
-                        results.internetArchive = `Related books: ${summaries.join('; ')}`;
+                    // Try Open Library search first
+                    let iaOk = false;
+                    try {
+                      const iaRes = await fetchWithTimeout(
+                        `https://openlibrary.org/search.json?q=${encoded}&limit=3&fields=title,author_name,first_publish_year`,
+                        {
+                          headers: {
+                            'User-Agent': 'CantoEncyclopedia/1.0 (contact@sonatainteractive.com)',
+                            'Accept': 'application/json',
+                          }
+                        },
+                        7000
+                      );
+                      if (iaRes.ok) {
+                        const data = await iaRes.json();
+                        if (data.docs && data.docs.length > 0) {
+                          const summaries = data.docs.slice(0, 3).map((d: any) => {
+                            const author = d.author_name?.[0] || 'Unknown';
+                            const year = d.first_publish_year || 'N/A';
+                            return `"${d.title}" by ${author} (${year})`;
+                          });
+                          results.internetArchive = `Related books: ${summaries.join('; ')}`;
+                          iaOk = true;
+                        }
+                      }
+                    } catch (e: any) {
+                      console.warn('[Knowledge] Open Library failed:', e.message);
+                    }
+
+                    // Fallback: Internet Archive full-text search
+                    if (!iaOk) {
+                      try {
+                        const iaFtRes = await fetchWithTimeout(
+                          `https://archive.org/advancedsearch.php?q=${encoded}&fl[]=title,creator,year&rows=3&output=json`,
+                          { headers: { 'Accept': 'application/json' } },
+                          7000
+                        );
+                        if (iaFtRes.ok) {
+                          const data = await iaFtRes.json();
+                          const docs = data?.response?.docs;
+                          if (docs && docs.length > 0) {
+                            const summaries = docs.slice(0, 3).map((d: any) =>
+                              `"${d.title}" by ${d.creator || 'Unknown'} (${d.year || 'N/A'})`
+                            );
+                            results.internetArchive = `Related works: ${summaries.join('; ')}`;
+                          }
+                        }
+                      } catch (e: any) {
+                        console.warn('[Knowledge] Internet Archive fallback failed:', e.message);
                       }
                     }
                   } catch (e: any) {
@@ -333,12 +369,22 @@ export default defineConfig(({ mode }) => {
 
               if (provider === 'ollama') {
                 endpoint = 'https://ollama.com/v1/chat/completions';
-                apiKey = model.includes('kimi') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
+                // qwen3-next uses key slot 1 (OLLAMA_DEEPSEEK_KEY), nemotron uses key slot 2 (OLLAMA_KIMI_KEY)
+                apiKey = model.includes('nemotron') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
                 headers['Authorization'] = `Bearer ${apiKey}`;
                 requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
               } else if (provider === 'groq') {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 apiKey = env.GROQ_API_KEY;
+                headers['Authorization'] = `Bearer ${apiKey}`;
+                requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+              } else if (provider === 'github') {
+                // GitHub Models — OpenAI-compatible endpoint
+                // DeepSeek V3 uses GITHUB_DEEPSEEK_KEY, Grok uses GITHUB_GROK_KEY
+                endpoint = 'https://models.inference.ai.azure.com/chat/completions';
+                apiKey = model.toLowerCase().includes('grok')
+                  ? env.GITHUB_GROK_KEY
+                  : env.GITHUB_DEEPSEEK_KEY;
                 headers['Authorization'] = `Bearer ${apiKey}`;
                 requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
               } else if (provider === 'huggingface') {

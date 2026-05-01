@@ -28,12 +28,21 @@ export const onRequest = async (context: any) => {
 
     if (provider === 'ollama') {
       endpoint = 'https://ollama.com/v1/chat/completions';
-      apiKey = model.includes('kimi') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
+      // qwen3-next uses key slot 1 (OLLAMA_DEEPSEEK_KEY), nemotron uses key slot 2 (OLLAMA_KIMI_KEY)
+      apiKey = model.includes('nemotron') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
       headers['Authorization'] = `Bearer ${apiKey}`;
       requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
     } else if (provider === 'groq') {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions';
       apiKey = env.GROQ_API_KEY;
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+    } else if (provider === 'github') {
+      // GitHub Models — OpenAI-compatible endpoint
+      endpoint = 'https://models.inference.ai.azure.com/chat/completions';
+      apiKey = model.toLowerCase().includes('grok')
+        ? env.GITHUB_GROK_KEY
+        : env.GITHUB_DEEPSEEK_KEY;
       headers['Authorization'] = `Bearer ${apiKey}`;
       requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
     } else if (provider === 'huggingface') {
@@ -53,7 +62,7 @@ export const onRequest = async (context: any) => {
 
     if (!apiKey && provider !== 'gemini') {
       console.error(`[Canto AI] Missing API key for provider: ${provider}`);
-      return new Response(JSON.stringify({ error: `API Key for ${provider} is not configured on Cloudflare.` }), {
+      return new Response(JSON.stringify({ error: `API Key for ${provider} is not configured.` }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });

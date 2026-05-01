@@ -22,7 +22,7 @@ export const onRequest = async (context: any) => {
   const encoded = encodeURIComponent(topic);
   const results: Record<string, string> = {};
 
-  const fetchWithTimeout = async (url: string, opts: RequestInit = {}, ms = 5000): Promise<Response> => {
+  const fetchWithTimeout = async (url: string, opts: RequestInit = {}, ms = 6000): Promise<Response> => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ms);
     try {
@@ -50,16 +50,48 @@ export const onRequest = async (context: any) => {
     // ── Internet Archive ──────────────────────────
     (async () => {
       try {
-        const iaRes = await fetchWithTimeout(
-          `https://openlibrary.org/search.json?q=${encoded}&limit=3`
-        );
-        if (iaRes.ok) {
-          const data = await iaRes.json();
-          if (data.docs && data.docs.length > 0) {
-            results.internetArchive = data.docs.slice(0, 3).map((d: any) => 
-              `"${d.title}" by ${d.author_name?.[0] || 'Unknown'} (${d.first_publish_year || 'N/A'})`
-            ).join('; ');
+        // Try Open Library first
+        let iaOk = false;
+        try {
+          const iaRes = await fetchWithTimeout(
+            `https://openlibrary.org/search.json?q=${encoded}&limit=3&fields=title,author_name,first_publish_year`,
+            {
+              headers: {
+                'User-Agent': 'CantoEncyclopedia/1.0 (contact@sonatainteractive.com)',
+                'Accept': 'application/json',
+              }
+            },
+            7000
+          );
+          if (iaRes.ok) {
+            const data = await iaRes.json();
+            if (data.docs && data.docs.length > 0) {
+              results.internetArchive = data.docs.slice(0, 3).map((d: any) => 
+                `"${d.title}" by ${d.author_name?.[0] || 'Unknown'} (${d.first_publish_year || 'N/A'})`
+              ).join('; ');
+              iaOk = true;
+            }
           }
+        } catch {}
+
+        // Fallback: Internet Archive advanced search
+        if (!iaOk) {
+          try {
+            const iaFtRes = await fetchWithTimeout(
+              `https://archive.org/advancedsearch.php?q=${encoded}&fl[]=title,creator,year&rows=3&output=json`,
+              { headers: { 'Accept': 'application/json' } },
+              7000
+            );
+            if (iaFtRes.ok) {
+              const data = await iaFtRes.json();
+              const docs = data?.response?.docs;
+              if (docs && docs.length > 0) {
+                results.internetArchive = docs.slice(0, 3).map((d: any) =>
+                  `"${d.title}" by ${d.creator || 'Unknown'} (${d.year || 'N/A'})`
+                ).join('; ');
+              }
+            }
+          } catch {}
         }
       } catch (e) {}
     })(),

@@ -30,13 +30,14 @@ export const CantoNotification: React.FC<NotificationProps> = ({ message, type =
 
   return (
     <div className={`canto-notification ${visible ? 'visible' : ''}`} style={{
-      position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)',
+      position: 'fixed', bottom: '2rem', left: '50%',
       background: 'var(--bg-color)', border: '1px solid var(--border-color)',
       padding: '0.75rem 1.5rem', borderRadius: '2px', zIndex: 1000,
       fontFamily: 'monospace', fontSize: '0.9em', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
       color: 'var(--text-color)', pointerEvents: 'none', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      opacity: visible ? 1 : 0, transform: visible ? 'translate(-50%, 0)' : 'translate(-50%, 20px)'
-    } as any}>
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translate(-50%, 0)' : 'translate(-50%, 20px)',
+    }}>
       <span style={{ marginRight: '0.8rem', color: colors[type] }}>
         {type === 'success' && '✓'}
         {type === 'warning' && '⚠'}
