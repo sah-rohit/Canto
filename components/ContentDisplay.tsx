@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { cloudflareTextToSpeech } from '../services/aiService';
 
 interface ContentDisplayProps {
   content: string;
@@ -29,11 +30,16 @@ const InteractiveContent: React.FC<{
 }> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [ttsWordIndex, setTtsWordIndex] = useState<number>(-1);
+  const [ttsWords, setTtsWords] = useState<string[]>([]);
+  const [highlightBox, setHighlightBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const wordSpanRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
 
   const handleSelection = (e: React.MouseEvent) => {
     const selection = window.getSelection();
@@ -56,12 +62,35 @@ const InteractiveContent: React.FC<{
     }
   }, [content, isStreaming]);
 
+  // Update highlight box position when the active TTS word changes
+  useEffect(() => {
+    if (ttsWordIndex < 0) {
+      setHighlightBox(null);
+      return;
+    }
+    const span = wordSpanRefs.current.get(ttsWordIndex);
+    if (!span || !contentRef.current) { setHighlightBox(null); return; }
+    const spanRect = span.getBoundingClientRect();
+    const containerRect = contentRef.current.getBoundingClientRect();
+    setHighlightBox({
+      top: spanRect.top - containerRect.top + contentRef.current.scrollTop,
+      left: spanRect.left - containerRect.left,
+      width: spanRect.width,
+      height: spanRect.height,
+    });
+    // Scroll the word into view smoothly
+    span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [ttsWordIndex]);
+
   useEffect(() => {
     return () => {
-      // Guard: speechSynthesis may not exist in all browsers
+      // Stop browser TTS
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      // Stop Cloudflare TTS audio element
+      const audio = document.getElementById('canto-tts-audio') as HTMLAudioElement | null;
+      if (audio) { audio.pause(); audio.remove(); }
     };
   }, []);
 
@@ -116,19 +145,88 @@ const InteractiveContent: React.FC<{
     }
   };
 
-  const handleTTS = () => {
-    // Guard: speechSynthesis may not be available in all browsers
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    if (isSpeaking) {
+  const stopTTS = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    } else {
-      const plainText = getPlainText();
-      const utterance = new SpeechSynthesisUtterance(plainText);
-      utterance.onend = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-      setIsSpeaking(true);
     }
+    const existingAudio = document.getElementById('canto-tts-audio') as HTMLAudioElement | null;
+    if (existingAudio) { existingAudio.pause(); existingAudio.remove(); }
+    setIsSpeaking(false);
+    setTtsWordIndex(-1);
+    setTtsWords([]);
+    setHighlightBox(null);
+    wordSpanRefs.current.clear();
+  };
+
+  const handleTTS = async () => {
+    if (isSpeaking) { stopTTS(); return; }
+
+    const plainText = getPlainText();
+    // Tokenise into words for highlight tracking
+    const words = plainText.match(/\S+/g) || [];
+    setTtsWords(words);
+    wordSpanRefs.current.clear();
+    setIsSpeaking(true);
+    setTtsWordIndex(0);
+
+    // ── Try Cloudflare TTS first ──────────────────────────────────
+    try {
+      const audioBuffer = await cloudflareTextToSpeech(plainText);
+      if (audioBuffer) {
+        const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.id = 'canto-tts-audio';
+        document.body.appendChild(audio);
+
+        // Estimate word timing from audio duration once metadata loads
+        audio.onloadedmetadata = () => {
+          const duration = audio.duration;
+          const msPerWord = words.length > 0 ? (duration * 1000) / words.length : 300;
+          let idx = 0;
+          const advance = () => {
+            if (idx >= words.length) return;
+            setTtsWordIndex(idx++);
+            setTimeout(advance, msPerWord);
+          };
+          advance();
+        };
+
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          audio.remove();
+          stopTTS();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          audio.remove();
+          stopTTS();
+        };
+        await audio.play();
+        return;
+      }
+    } catch {
+      // fall through to browser TTS
+    }
+
+    // ── Browser speechSynthesis fallback with word boundary events ──
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      stopTTS();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(plainText);
+    utterance.onboundary = (e) => {
+      if (e.name !== 'word') return;
+      // Find which word index corresponds to this char offset
+      let charCount = 0;
+      for (let i = 0; i < words.length; i++) {
+        if (charCount >= e.charIndex) { setTtsWordIndex(i); break; }
+        charCount += words[i].length + 1; // +1 for space
+      }
+    };
+    utterance.onend = () => stopTTS();
+    utterance.onerror = () => stopTTS();
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleShare = () => {
@@ -211,6 +309,12 @@ const InteractiveContent: React.FC<{
     'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'were', 'was', 'are', 'is', 'a', 'an', 'to', 'in', 'on', 'of', 'it', 'be', 'by', 'as', 'at', 'or', 'an', 'not', 'but', 'if', 'then', 'else', 'they', 'them', 'their', 'our', 'your', 'his', 'her', 'its', 'about', 'more', 'some', 'any', 'all', 'can', 'will', 'would', 'could', 'should', 'has', 'had', 'been', 'do', 'does', 'did', 'which', 'who', 'whom', 'where', 'when', 'why', 'how'
   ]);
 
+  // Running word index counter used during TTS render to assign refs
+  const ttsRenderWordIdx = useRef(0);
+
+  // Reset word counter before each render when TTS is active
+  if (isSpeaking) ttsRenderWordIdx.current = 0;
+
   const renderClickableText = (text: string) => {
     // 1. Identify all common multi-word concepts and proper nouns (Capitalized consecutive words)
     const matches: { phrase: string; index: number }[] = [];
@@ -280,24 +384,34 @@ const InteractiveContent: React.FC<{
       const words = chunk.split(/([a-zA-Z0-9]+)/);
       return words.map((wordChunk, wordIdx) => {
         if (/^[a-zA-Z0-9]{4,}$/.test(wordChunk) && !STOP_WORDS.has(wordChunk.toLowerCase())) {
+          const thisWordIdx = isSpeaking ? ttsRenderWordIdx.current++ : -1;
+          const isActive = isSpeaking && thisWordIdx === ttsWordIndex;
           return (
             <span
               key={`w-${idx}-${wordIdx}`}
+              ref={isSpeaking ? (el) => { if (el) wordSpanRefs.current.set(thisWordIdx, el); } : undefined}
               className="interactive-word clickable-any-word"
               onClick={() => onWordClick(wordChunk)}
               style={{
                 cursor: 'pointer',
                 display: 'inline-block',
-                borderBottom: '1px dotted transparent',
-                transition: 'all 0.15s ease'
+                borderBottom: isActive
+                  ? '2px solid var(--accent-color)'
+                  : '1px dotted transparent',
+                color: isActive ? 'var(--accent-color)' : 'inherit',
+                transition: 'color 0.1s ease, border-color 0.1s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
-                e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
+                if (!isActive) {
+                  e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
+                  e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderBottomColor = 'transparent';
-                e.currentTarget.style.textShadow = 'none';
+                if (!isActive) {
+                  e.currentTarget.style.borderBottomColor = 'transparent';
+                  e.currentTarget.style.textShadow = 'none';
+                }
               }}
             >
               {wordChunk}
@@ -405,8 +519,88 @@ const InteractiveContent: React.FC<{
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div className="markdown-body" onMouseUp={handleSelection} style={{ lineHeight: '1.8' }}>
+    <div style={{ position: 'relative' }} ref={contentRef}>
+      {/* ── TTS word-highlight overlay ── */}
+      {isSpeaking && highlightBox && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: highlightBox.top - 2,
+            left: highlightBox.left - 3,
+            width: highlightBox.width + 6,
+            height: highlightBox.height + 4,
+            background: 'var(--accent-color)',
+            opacity: 0.18,
+            borderRadius: '2px',
+            pointerEvents: 'none',
+            zIndex: 5,
+            transition: 'top 0.1s ease, left 0.1s ease, width 0.1s ease',
+            borderBottom: '1px solid var(--accent-color)',
+          }}
+        />
+      )}
+      {/* ── TTS status bar — matches site's monospace / border aesthetic ── */}
+      {isSpeaking && ttsWordIndex >= 0 && ttsWords[ttsWordIndex] && (
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-color)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '2px',
+            padding: '0.5rem 1.2rem',
+            fontFamily: 'monospace',
+            fontSize: '0.85em',
+            color: 'var(--text-color)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 9998,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            maxWidth: '80vw',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+          }}
+        >
+          {/* Stop button — same style as nav-btn */}
+          <button
+            onClick={stopTTS}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.9em',
+              padding: 0,
+              pointerEvents: 'auto',
+              textDecoration: 'underline',
+            }}
+          >
+            Stop
+          </button>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', letterSpacing: '0.05em' }}>
+            ▶
+          </span>
+          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.03em' }}>
+            {ttsWords[ttsWordIndex]}
+          </span>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>
+            {ttsWordIndex + 1}/{ttsWords.length}
+          </span>
+        </div>
+      )}
+
+      <div className="markdown-body tts-content" onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
         <Markdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
           {content + (isStreaming ? ' \u2588' : '')}
         </Markdown>

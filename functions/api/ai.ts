@@ -36,7 +36,8 @@ export const onRequest = async (context: any) => {
       endpoint = 'https://api.groq.com/openai/v1/chat/completions';
       apiKey = env.GROQ_API_KEY;
       headers['Authorization'] = `Bearer ${apiKey}`;
-      requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+      // Keep max_tokens low to avoid Groq's 6000 TPM limit
+      requestBody = { model, messages, temperature: 0.7, max_tokens: 800, stream };
     } else if (provider === 'github') {
       // GitHub Models — OpenAI-compatible endpoint
       endpoint = 'https://models.inference.ai.azure.com/chat/completions';
@@ -45,6 +46,21 @@ export const onRequest = async (context: any) => {
         : env.GITHUB_DEEPSEEK_KEY;
       headers['Authorization'] = `Bearer ${apiKey}`;
       requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+    } else if (provider === 'cloudflare') {
+      // Cloudflare Workers AI — map friendly model names to real CF model IDs
+      const CF_MODEL_MAP: Record<string, { accountKey: 'CF_ACCOUNT_1' | 'CF_ACCOUNT_2'; cfId: string }> = {
+        'google/gemini-3.1-flash-lite': { accountKey: 'CF_ACCOUNT_1', cfId: '@cf/google/gemini-flash-1.5' },
+        'openai/gpt-4.1-mini':          { accountKey: 'CF_ACCOUNT_2', cfId: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+      };
+      const mapped = CF_MODEL_MAP[model];
+      const cfAccountId = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_ID : env.CF_ACCOUNT_1_ID;
+      const cfToken     = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_TOKEN : env.CF_ACCOUNT_1_TOKEN;
+      const cfModelId   = mapped?.cfId ?? (model.startsWith('@') ? model : `@cf/${model}`);
+      endpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModelId}`;
+      apiKey = cfToken;
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      // CF Workers AI does not support SSE streaming — always non-stream
+      requestBody = { messages, max_tokens: 1024 };
     } else if (provider === 'huggingface') {
       endpoint = `https://router.huggingface.co/hf-inference/models/${model}/v1/chat/completions`;
       apiKey = env.HUGGINGFACE_KEY || '';
@@ -82,7 +98,34 @@ export const onRequest = async (context: any) => {
 
     const responseHeaders = new Headers();
     responseHeaders.set('Access-Control-Allow-Origin', '*');
-    
+
+    // Cloudflare Workers AI always returns JSON — handle separately
+    if (provider === 'cloudflare') {
+      const json = await apiRes.json();
+      const content = json?.result?.response ?? json?.choices?.[0]?.message?.content ?? '';
+      if (!content) {
+        return new Response(JSON.stringify({ error: 'Empty CF response', raw: json }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      if (stream) {
+        // Emit as a single SSE event so the client stream parser works
+        const chunk = JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] });
+        const body = `data: ${chunk}\n\ndata: [DONE]\n\n`;
+        return new Response(body, {
+          headers: {
+            ...responseHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+        headers: { ...responseHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (stream) {
       responseHeaders.set('Content-Type', 'text/event-stream');
       responseHeaders.set('Cache-Control', 'no-cache');

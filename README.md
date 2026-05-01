@@ -48,7 +48,7 @@
 
 ## ✨ Features
 
-- 🧠 **5-Provider AI Fallback Chain** — Groq → GitHub DeepSeek V3 → GitHub Grok mini 3 → Ollama Qwen3 Next 80B → Ollama Nemotron 3 Nano 30B, with automatic failover
+- 🧠 **7-Provider AI Fallback Chain** — Groq → GitHub DeepSeek V3 → GitHub Grok mini 3 → Cloudflare Gemini Flash Lite → Cloudflare GPT-4.1 mini → Ollama Qwen3 Next 80B → Ollama Nemotron 3 Nano 30B, with automatic failover
 - 📚 **Knowledge-Enriched Articles** — Every article is grounded by Wikipedia, NASA, Internet Archive, and CORE Academic databases before AI generation
 - 🎨 **ASCII Art Generation** — AI-generated visual representations for every topic, with robust JSON extraction and fallback
 - 🕒 **Rate Limit Timer** — Live countdown showing exactly when your daily credits reset
@@ -56,7 +56,7 @@
 - 📏 **Dynamic Font Scaling** — Custom slider (80–150%) for personalized accessibility
 - 📂 **Local Library** — Instant access to your search history and starred favorites (no cloud storage, fully private)
 - 📥 **Download & Export** — Save articles as `.TXT` or print-to-`.PDF`
-- 🔊 **Text-to-Speech** — Listen to any article with browser-native TTS
+- 🔊 **Text-to-Speech** — Cloudflare MeloTTS 1.5 Max as primary engine, browser TTS as automatic fallback
 - 🔗 **Shareable Links** — Share any article via a base64-encoded URL (viewable for free)
 - 🔒 **IP-Based Rate Limiting** — Server-side abuse prevention (15 searches/day per IP, cross-browser)
 - 🎭 **4 Rich Themes** — Classic, Obsidian, Dark Neon, and Vintage
@@ -73,10 +73,16 @@ Canto uses a cascading fallback system — if one provider is unavailable or rat
 | 1 | **Groq** | `llama-3.1-8b-instant` | `GROQ_API_KEY` |
 | 2 | **GitHub Models** | `DeepSeek-V3` | `GITHUB_DEEPSEEK_KEY` |
 | 3 | **GitHub Models** | `grok-3-mini` | `GITHUB_GROK_KEY` |
-| 4 | **Ollama Cloud** | `qwen3-next:80b-cloud` | `OLLAMA_DEEPSEEK_KEY` |
-| 5 | **Ollama Cloud** | `nemotron-3-nano:30b-cloud` | `OLLAMA_KIMI_KEY` |
+| 4 | **Cloudflare Workers AI** | `google/gemini-3.1-flash-lite` | `CF_ACCOUNT_1_TOKEN` |
+| 5 | **Cloudflare Workers AI** | `openai/gpt-4.1-mini` | `CF_ACCOUNT_2_TOKEN` |
+| 6 | **Ollama Cloud** | `qwen3-next:80b-cloud` | `OLLAMA_DEEPSEEK_KEY` |
+| 7 | **Ollama Cloud** | `nemotron-3-nano:30b-cloud` | `OLLAMA_KIMI_KEY` |
 
 All requests are proxied server-side — no API keys are ever exposed to the client bundle.
+
+## 🔊 Text-to-Speech
+
+TTS uses **Cloudflare Workers AI `@cf/myshell-ai/melotts-1.5-max`** as the primary engine, with browser `speechSynthesis` as automatic fallback if Cloudflare TTS fails or is unconfigured.
 
 ## 📡 Knowledge Sources
 
@@ -100,6 +106,7 @@ Before generating any article, Canto fetches real-world context from multiple so
 │                     │                    │               │
 │                     ▼                    ▼               │
 │              /api/knowledge          /api/ai             │
+│                                      /api/tts            │
 └─────────────────────┬────────────────────┬──────────────┘
                       │                    │
 ┌─────────────────────▼────────────────────▼──────────────┐
@@ -110,9 +117,15 @@ Before generating any article, Canto fetches real-world context from multiple so
 │  │Wikipedia │ │ NASA │         │ 1. Groq (Llama 3.1)  │ │
 │  ├──────────┤ ├──────┤         │ 2. GitHub DeepSeek V3│ │
 │  │  CORE    │ │ Jina │         │ 3. GitHub Grok mini 3│ │
-│  ├──────────┤ └──────┘         │ 4. Ollama Qwen3 80B  │ │
-│  │Open Lib. │                  │ 5. Ollama Nemotron 30B│ │
-│  └──────────┘                  └──────────────────────┘ │
+│  ├──────────┤ └──────┘         │ 4. CF Gemini Flash   │ │
+│  │Open Lib. │                  │ 5. CF GPT-4.1 mini   │ │
+│  └──────────┘                  │ 6. Ollama Qwen3 80B  │ │
+│                                │ 7. Ollama Nemotron   │ │
+│  TTS Proxy                     └──────────────────────┘ │
+│  ┌──────────────────────────┐                            │
+│  │ CF MeloTTS 1.5 Max       │                            │
+│  │ → browser TTS (fallback) │                            │
+│  └──────────────────────────┘                            │
 │                                                          │
 │  /api/rate-limit  — IP-keyed, 15 searches/day            │
 │  Security Headers — XSS, Frame, CORS, Referrer           │
@@ -161,6 +174,11 @@ All keys go in `.env` (never committed). See [`.env.example`](.env.example) for 
 | `GROQ_API_KEY` | [Groq](https://console.groq.com) | Primary AI (Llama 3.1 8B) | [console.groq.com](https://console.groq.com) |
 | `GITHUB_DEEPSEEK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback (DeepSeek V3) | [github.com/marketplace/models](https://github.com/marketplace/models) |
 | `GITHUB_GROK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback (Grok mini 3) | [github.com/marketplace/models](https://github.com/marketplace/models) |
+| `CF_ACCOUNT_1_ID` | [Cloudflare](https://dash.cloudflare.com) | Account ID for AI + TTS | [dash.cloudflare.com](https://dash.cloudflare.com) |
+| `CF_ACCOUNT_1_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (Gemini Flash Lite) | [dash.cloudflare.com](https://dash.cloudflare.com) |
+| `CF_TTS_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | TTS (MeloTTS 1.5 Max) | [dash.cloudflare.com](https://dash.cloudflare.com) |
+| `CF_ACCOUNT_2_ID` | [Cloudflare](https://dash.cloudflare.com) | Account ID for GPT-4.1 mini | [dash.cloudflare.com](https://dash.cloudflare.com) |
+| `CF_ACCOUNT_2_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (GPT-4.1 mini) | [dash.cloudflare.com](https://dash.cloudflare.com) |
 | `OLLAMA_DEEPSEEK_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Qwen3 Next 80B) | [ollama.com](https://ollama.com) |
 | `OLLAMA_KIMI_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Nemotron 3 Nano 30B) | [ollama.com](https://ollama.com) |
 | `NASA_API_KEY` | [NASA](https://api.nasa.gov) | Space & science context | [api.nasa.gov](https://api.nasa.gov) |
@@ -247,6 +265,7 @@ Licensed under the **Apache License 2.0** — see the [LICENSE](LICENSE) file fo
 
 - [Groq](https://groq.com) — Ultra-fast LLM inference
 - [GitHub Models](https://github.com/marketplace/models) — DeepSeek V3 and Grok mini 3 access
+- [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) — Gemini Flash Lite, GPT-4.1 mini, and MeloTTS
 - [Ollama](https://ollama.com) — Cloud-hosted open models (Qwen3, Nemotron)
 - [Wikipedia](https://wikipedia.org) — The world's encyclopedia
 - [NASA](https://nasa.gov) — Space and science data

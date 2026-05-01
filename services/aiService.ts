@@ -27,12 +27,12 @@ For instance, the latest macOS version as of today is macOS Tahoe (version 26), 
 Always weave the latest real-world facts provided in the reference context into your response.
 You always write in plain text / Markdown. Never use HTML tags.
 Keep a consistent tone: concise, insightful, slightly literary.
-When reference context is provided, use it to ensure factual accuracy and cite specific details.`;
+When reference context is provided, use it to ensure factual accuracy — but never echo the context labels, source names, raw metadata, file paths, or citation markers. Synthesise the facts into clean prose only.`;
 
 // ─── Server API client ───────────────────────────────────────────────────────
 
 async function callServerAI(
-  provider: 'ollama' | 'groq' | 'github',
+  provider: 'ollama' | 'groq' | 'github' | 'cloudflare',
   model: string,
   messages: ChatMessage[],
   stream: boolean = false
@@ -103,12 +103,14 @@ async function callServerAI(
 
 // ─── Unified fallback wrapper ────────────────────────────────────────────────
 
-const PROVIDERS: Array<{ provider: 'ollama' | 'groq' | 'github'; model: string; name: string }> = [
-  { provider: 'groq',   model: 'llama-3.1-8b-instant',  name: 'Llama (Groq)' },
-  { provider: 'github', model: 'DeepSeek-V3',            name: 'DeepSeek V3 (GitHub)' },
-  { provider: 'github', model: 'grok-3-mini',            name: 'Grok mini 3 (GitHub)' },
-  { provider: 'ollama', model: 'qwen3-next:80b-cloud',   name: 'Qwen3 Next 80B (Ollama)' },
-  { provider: 'ollama', model: 'nemotron-3-nano:30b-cloud', name: 'Nemotron 3 Nano 30B (Ollama)' },
+const PROVIDERS: Array<{ provider: 'ollama' | 'groq' | 'github' | 'cloudflare'; model: string; name: string }> = [
+  { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
+  { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
+  { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
+  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
+  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
+  { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
+  { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
 ];
 
 async function* streamWithFallback(
@@ -176,9 +178,18 @@ FORMATTING RULES:
 3. Use bullet lists (* item) or numbered lists (1. item) for enumerations.
 4. Use Markdown tables when comparing multiple items.
 5. Do NOT use headers (no # ## ###).
-6. When reference context is provided, weave verified facts naturally into your response for accuracy.
-7. Present a clean, well-structured, professional article. Do NOT output unrefined headers or raw uncleaned titles like '/ The Tesseract /' or similar escape patterns. Format all text cleanly.
-8. CRITICAL: Heavily prioritize facts, dates, and version numbers found in the REFERENCE CONTEXT (especially the WEB SEARCH / CRAWLER section) over your internal pre-trained weights. Always use 2026 as the baseline present-day temporal context.
+6. CRITICAL: Do NOT reproduce, echo, or quote the REFERENCE CONTEXT labels, source names, or raw metadata. Weave verified facts naturally into flowing prose only.
+7. Present a clean, well-structured, professional article. Do NOT output raw section labels, file paths, IDs, citation markers, or any text that looks like system metadata.
+8. CRITICAL: Heavily prioritize facts, dates, and version numbers from the REFERENCE CONTEXT over your internal weights. Always use 2026 as the baseline present-day temporal context.
+
+VISUAL ENRICHMENT — include at least one ASCII visual per response inside a fenced code block tagged \`\`\`ascii:
+Choose the type that best fits the concept:
+- Mind-map, Flow diagram, Hierarchy / pyramid, Timeline, Spectrum / scale
+
+AESTHETIC EFFECTS (use sparingly for 1-2 key words only):
+- Glowing: [Word](#glow)
+- Outlined: [Word](#outline)
+- Glitch/distort: [Word](#distort)
 
 VISUAL ENRICHMENT — include at least one ASCII visual per response inside a fenced code block tagged \`\`\`ascii:
 Choose the type that best fits the concept:
@@ -354,5 +365,27 @@ export async function fetchRelatedTopics(topic: string): Promise<string[]> {
     return [];
   } catch {
     return [];
+  }
+}
+
+/**
+ * Converts text to speech using Cloudflare TTS (melotts-1.5-max) as primary,
+ * falling back to browser speechSynthesis if Cloudflare TTS fails.
+ * Returns an AudioBuffer if Cloudflare TTS succeeds, or null to signal browser fallback.
+ */
+export async function cloudflareTextToSpeech(text: string): Promise<ArrayBuffer | null> {
+  try {
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) throw new Error(`TTS HTTP ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength < 100) throw new Error('TTS returned empty audio');
+    return buffer;
+  } catch (err) {
+    console.warn('[Canto TTS] Cloudflare TTS failed, using browser fallback:', (err as Error).message);
+    return null;
   }
 }

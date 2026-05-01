@@ -38,27 +38,35 @@ export async function fetchKnowledgeContext(topic: string): Promise<KnowledgeCon
 
 /**
  * Build a context block from knowledge sources for the AI prompt.
+ * Uses clean instruction-framed labels so the AI treats this as
+ * reference data, not content to echo verbatim.
  */
 export function buildContextBlock(ctx: KnowledgeContext): string {
   const sections: string[] = [];
 
   if (ctx.wikipedia) {
-    sections.push(`── WIKIPEDIA ──\n${ctx.wikipedia}`);
+    // Sanitise: strip any leftover HTML entities or wiki markup
+    const clean = ctx.wikipedia
+      .replace(/\[\d+\]/g, '')          // strip [1] citation markers
+      .replace(/={2,}[^=]+=+/g, '')     // strip == Section == headers
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    if (clean.length > 20) sections.push(`[Wikipedia summary] ${clean}`);
   }
   if (ctx.internetArchive) {
-    sections.push(`── INTERNET ARCHIVE ──\n${ctx.internetArchive}`);
+    sections.push(`[Related books] ${ctx.internetArchive}`);
   }
   if (ctx.nasa) {
-    sections.push(`── NASA ──\n${ctx.nasa}`);
+    sections.push(`[NASA image data] ${ctx.nasa}`);
   }
   if (ctx.core) {
-    sections.push(`── ACADEMIC (CORE) ──\n${ctx.core}`);
+    sections.push(`[Academic papers] ${ctx.core}`);
   }
   if (ctx.crawler) {
-    sections.push(`── WEB SEARCH (CRAWLER) ──\n${ctx.crawler}`);
+    sections.push(`[Web search snippets] ${ctx.crawler}`);
   }
 
   if (sections.length === 0) return '';
 
-  return `\n\nREFERENCE CONTEXT (use these verified sources to improve accuracy):\n${sections.join('\n\n')}`;
+  return `\n\n---\nREFERENCE CONTEXT — use these verified facts to improve accuracy. Do NOT copy these labels or repeat this block verbatim:\n\n${sections.join('\n\n')}\n---`;
 }

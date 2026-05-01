@@ -243,9 +243,15 @@ export default defineConfig(({ mode }) => {
                       const items = data?.collection?.items;
                       if (items && items.length > 0) {
                         const descriptions = items.slice(0, 2).map((item: any) => {
-                          const desc = item?.data?.[0]?.description || '';
-                          return desc.slice(0, 300);
-                        }).filter(Boolean);
+                          const desc: string = item?.data?.[0]?.description || '';
+                          // Strip file paths, IDs, and metadata codes that appear in NASA descriptions
+                          return desc
+                            .replace(/\b[A-Z0-9]{6,}\b/g, '')       // strip NASA IDs like "GSFC2023-1234"
+                            .replace(/https?:\/\/\S+/g, '')           // strip URLs
+                            .replace(/\s{2,}/g, ' ')
+                            .trim()
+                            .slice(0, 250);
+                        }).filter((d: string) => d.length > 30);
                         if (descriptions.length > 0) {
                           results.nasa = descriptions.join(' | ');
                         }
@@ -270,7 +276,14 @@ export default defineConfig(({ mode }) => {
                       if (data.results && data.results.length > 0) {
                         const papers = data.results.slice(0, 3).map((p: any) => {
                           const authors = p.authors?.map((a: any) => a.name).join(', ') || 'Unknown';
-                          const abstract = p.abstract?.slice(0, 200) || '';
+                          // Strip LaTeX, citation markers, and academic formatting noise
+                          const abstract = (p.abstract || '')
+                            .replace(/\$[^$]*\$/g, '')               // strip LaTeX math
+                            .replace(/\\[a-zA-Z]+\{[^}]*\}/g, '')    // strip LaTeX commands
+                            .replace(/\[\d+\]/g, '')                  // strip citation markers [1]
+                            .replace(/\s{2,}/g, ' ')
+                            .trim()
+                            .slice(0, 180);
                           return `"${p.title}" (${authors})${abstract ? ': ' + abstract : ''}`;
                         });
                         results.core = papers.join('\n');
@@ -285,40 +298,54 @@ export default defineConfig(({ mode }) => {
                 (async () => {
                   try {
                     const snippets: string[] = [];
-                    // Try Crawl4AI via Jina's highly accessible Reader first
+
+                    // Jina reader on DuckDuckGo HTML — extract only meaningful result snippets
                     try {
                       const jinaRes = await fetchWithTimeout(
                         `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${encoded}`,
-                        { headers: { 'Accept': 'text/plain' } }
+                        { headers: { 'Accept': 'text/plain', 'X-Return-Format': 'text' } },
+                        6000
                       );
                       if (jinaRes.ok) {
                         const text = await jinaRes.text();
-                        // Extract lines or paragraphs matching snippets
-                        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 20 && l.length < 500);
-                        if (lines.length > 0) snippets.push(...lines.slice(0, 6));
+                        const lines = text.split('\n')
+                          .map(l => l.trim())
+                          // Keep only lines that look like real sentences:
+                          // - 40–400 chars (filters nav links and raw URLs)
+                          // - contain at least one space (not a single token)
+                          // - don't start with common boilerplate patterns
+                          .filter(l =>
+                            l.length >= 40 &&
+                            l.length <= 400 &&
+                            l.includes(' ') &&
+                            !/^(https?:|www\.|javascript:|#|<|>|\[|\]|\{|\}|Cookie|Privacy|Terms|Sign in|Log in|Search|Menu|Navigation|Skip|©|All rights)/i.test(l) &&
+                            !/^\d+$/.test(l)
+                          );
+                        if (lines.length > 0) snippets.push(...lines.slice(0, 5));
                       }
                     } catch {}
 
-                    // Fallback to DuckDuckGo direct parsing if Jina fails
+                    // Fallback: DuckDuckGo lite — parse result-snippet spans only
                     if (snippets.length === 0) {
                       try {
                         const ddgRes = await fetchWithTimeout(
                           `https://lite.duckduckgo.com/lite/?q=${encoded}`,
-                          { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }
+                          { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CantoBot/1.0)' } },
+                          6000
                         );
                         if (ddgRes.ok) {
                           const text = await ddgRes.text();
                           const matches = text.matchAll(/class="result-snippet"[^>]*>(.*?)<\/td>/gi);
                           for (const match of matches) {
-                            let s = match[1].replace(/<[^>]*>/g, '').trim();
-                            if (s) snippets.push(s);
+                            const s = match[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+                            if (s && s.length >= 30) snippets.push(s);
                           }
                         }
                       } catch {}
                     }
 
                     if (snippets.length > 0) {
-                      results.crawler = snippets.slice(0, 6).join('\n\n');
+                      results.crawler = snippets.slice(0, 4).join('\n\n');
                     }
                   } catch (e: any) {
                     console.warn('[Crawl4AI] Error in Web Crawling:', e.message);
@@ -328,6 +355,61 @@ export default defineConfig(({ mode }) => {
 
               await Promise.allSettled(tasks);
               res.end(JSON.stringify(results));
+            });
+
+            // ═══════════════════════════════════════════════════════════════════
+            //  /api/tts — Cloudflare TTS (melotts-1.5-max) proxy
+            // ═══════════════════════════════════════════════════════════════════
+            server.middlewares.use('/api/tts', async (req, res) => {
+              if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
+              if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+              setCors(res);
+
+              const body = await readBody(req);
+              let text = '';
+              try { text = JSON.parse(body).text; } catch { res.statusCode = 400; res.end('Invalid JSON'); return; }
+              if (!text) { res.statusCode = 400; res.end('Missing text'); return; }
+
+              const cfAccountId = env.CF_ACCOUNT_1_ID;
+              const cfToken     = env.CF_TTS_TOKEN;
+
+              if (!cfAccountId || !cfToken) {
+                res.statusCode = 503;
+                res.end(JSON.stringify({ error: 'Cloudflare TTS not configured' }));
+                return;
+              }
+
+              try {
+                const cfRes = await fetch(
+                  `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/myshell-ai/melotts-1.5-max`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${cfToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ input_text: text }),
+                  }
+                );
+
+                if (!cfRes.ok) {
+                  const errText = await cfRes.text();
+                  console.error('[TTS] Cloudflare error:', cfRes.status, errText);
+                  res.statusCode = cfRes.status;
+                  res.end(errText);
+                  return;
+                }
+
+                // Cloudflare TTS returns audio/mpeg binary
+                const audioBuffer = await cfRes.arrayBuffer();
+                res.setHeader('Content-Type', 'audio/mpeg');
+                res.setHeader('Content-Length', audioBuffer.byteLength.toString());
+                res.end(Buffer.from(audioBuffer));
+              } catch (err: any) {
+                console.error('[TTS] Fatal error:', err.message);
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: err.message }));
+              }
             });
 
             // ═══════════════════════════════════════════════════════════════════
@@ -377,16 +459,33 @@ export default defineConfig(({ mode }) => {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 apiKey = env.GROQ_API_KEY;
                 headers['Authorization'] = `Bearer ${apiKey}`;
-                requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+                // Keep max_tokens low to avoid Groq's 6000 TPM limit
+                requestBody = { model, messages, temperature: 0.7, max_tokens: 800, stream };
               } else if (provider === 'github') {
                 // GitHub Models — OpenAI-compatible endpoint
-                // DeepSeek V3 uses GITHUB_DEEPSEEK_KEY, Grok uses GITHUB_GROK_KEY
+                // PATs use "token <PAT>" auth scheme
                 endpoint = 'https://models.inference.ai.azure.com/chat/completions';
                 apiKey = model.toLowerCase().includes('grok')
                   ? env.GITHUB_GROK_KEY
                   : env.GITHUB_DEEPSEEK_KEY;
                 headers['Authorization'] = `Bearer ${apiKey}`;
                 requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+              } else if (provider === 'cloudflare') {
+                // Cloudflare Workers AI
+                // CF model IDs must start with @cf/ — map friendly names to real CF model IDs
+                const CF_MODEL_MAP: Record<string, { accountKey: 'CF_ACCOUNT_1' | 'CF_ACCOUNT_2'; cfId: string }> = {
+                  'google/gemini-3.1-flash-lite': { accountKey: 'CF_ACCOUNT_1', cfId: '@cf/google/gemini-flash-1.5' },
+                  'openai/gpt-4.1-mini':          { accountKey: 'CF_ACCOUNT_2', cfId: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+                };
+                const mapped = CF_MODEL_MAP[model];
+                const cfAccountId = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_ID : env.CF_ACCOUNT_1_ID;
+                const cfToken     = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_TOKEN : env.CF_ACCOUNT_1_TOKEN;
+                const cfModelId   = mapped?.cfId ?? (model.startsWith('@') ? model : `@cf/${model}`);
+                endpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModelId}`;
+                apiKey = cfToken;
+                headers['Authorization'] = `Bearer ${apiKey}`;
+                // CF Workers AI does not support SSE streaming via this endpoint — always non-stream
+                requestBody = { messages, max_tokens: 1024 };
               } else if (provider === 'huggingface') {
                 endpoint = `https://router.huggingface.co/hf-inference/models/${model}/v1/chat/completions`;
                 apiKey = env.HUGGINGFACE_KEY || '';
@@ -403,7 +502,7 @@ export default defineConfig(({ mode }) => {
                 };
               }
 
-              if (stream) {
+              if (stream && provider !== 'cloudflare') {
                 res.setHeader('Content-Type', 'text/event-stream');
                 res.setHeader('Cache-Control', 'no-cache');
                 res.setHeader('Connection', 'keep-alive');
@@ -416,6 +515,26 @@ export default defineConfig(({ mode }) => {
                   const errText = await apiRes.text();
                   res.statusCode = apiRes.status;
                   res.end(errText);
+                  return;
+                }
+
+                // Cloudflare Workers AI always returns JSON (no SSE streaming)
+                // Emit the full response as a single SSE chunk so the client stream parser works
+                if (provider === 'cloudflare') {
+                  const json = await apiRes.json();
+                  const content = json?.result?.response ?? json?.choices?.[0]?.message?.content ?? '';
+                  if (!content) { res.statusCode = 502; res.end('Empty CF response'); return; }
+                  if (stream) {
+                    // Wrap as a single OpenAI-compatible SSE event then [DONE]
+                    const chunk = JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] });
+                    res.setHeader('Content-Type', 'text/event-stream');
+                    res.setHeader('Cache-Control', 'no-cache');
+                    res.write(`data: ${chunk}\n\n`);
+                    res.write('data: [DONE]\n\n');
+                    res.end();
+                  } else {
+                    res.end(JSON.stringify({ choices: [{ message: { content } }] }));
+                  }
                   return;
                 }
 
