@@ -21,10 +21,10 @@ interface ChatMessage {
   content: string;
 }
 
-// ─── System persona ───────────────────────────────────────────────────────────
-
 const SYSTEM_PERSONA = `You are Canto, an infinite AI encyclopedia with a poetic, precise voice.
-Your responses are encyclopedic yet evocative — factual but never dry.
+The current year is 2026. Therefore, use 2026 as your present-day temporal context.
+For instance, the latest macOS version as of today is macOS Tahoe (version 26), released in late 2025 following macOS Sequoia.
+Always weave the latest real-world facts provided in the reference context into your response.
 You always write in plain text / Markdown. Never use HTML tags.
 Keep a consistent tone: concise, insightful, slightly literary.
 When reference context is provided, use it to ensure factual accuracy and cite specific details.`;
@@ -175,6 +175,8 @@ FORMATTING RULES:
 4. Use Markdown tables when comparing multiple items.
 5. Do NOT use headers (no # ## ###).
 6. When reference context is provided, weave verified facts naturally into your response for accuracy.
+7. Present a clean, well-structured, professional article. Do NOT output unrefined headers or raw uncleaned titles like '/ The Tesseract /' or similar escape patterns. Format all text cleanly.
+8. CRITICAL: Heavily prioritize facts, dates, and version numbers found in the REFERENCE CONTEXT (especially the WEB SEARCH / CRAWLER section) over your internal pre-trained weights. Always use 2026 as the baseline present-day temporal context.
 
 VISUAL ENRICHMENT — include at least one ASCII visual per response inside a fenced code block tagged \`\`\`ascii:
 Choose the type that best fits the concept:

@@ -9,6 +9,7 @@ export interface KnowledgeContext {
   internetArchive?: string;
   nasa?: string;
   core?: string;
+  crawler?: string;
 }
 
 /**
@@ -52,6 +53,9 @@ export function buildContextBlock(ctx: KnowledgeContext): string {
   }
   if (ctx.core) {
     sections.push(`── ACADEMIC (CORE) ──\n${ctx.core}`);
+  }
+  if (ctx.crawler) {
+    sections.push(`── WEB SEARCH (CRAWLER) ──\n${ctx.crawler}`);
   }
 
   if (sections.length === 0) return '';

@@ -3,11 +3,11 @@
  *
  * Server-side: Tracks by IP address only — switching browsers does NOT reset credits.
  * Client-side: localStorage fallback if server is unreachable.
- * Limit: 15 searches per day per IP, resets at midnight.
+ * Limit: 20 searches per day per IP, resets at midnight.
  */
 
 const STORAGE_KEY = 'canto_rl';
-const DAILY_LIMIT = 15;
+const DAILY_LIMIT = 20;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

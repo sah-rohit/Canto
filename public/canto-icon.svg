@@ -1,7 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
-  <path d="M 0 10 C 0 4.477 13.431 0 30 0 C 46.569 0 60 4.477 60 10 C 60 15.523 46.569 20 30 20 C 13.431 20 0 15.523 0 10 Z" fill="none" stroke="#e2e8f0" stroke-width="4" />
-  <path d="M 0 10 L 0 30 C 0 35.523 13.431 40 30 40 C 46.569 40 60 35.523 60 30 L 60 10" fill="none" stroke="#e2e8f0" stroke-width="4" />
-  <path d="M 0 30 L 0 50 C 0 55.523 13.431 60 30 60 C 46.569 60 60 55.523 60 50 L 60 30" fill="none" stroke="#e2e8f0" stroke-width="4" />
-  <circle cx="15" cy="15" r="3" fill="#38bdf8" />
-  <circle cx="45" cy="45" r="3" fill="#38bdf8" />
+  <path d="M 30 0 A 30 30 0 1 0 60 30 A 20 20 0 1 1 30 0 Z" fill="none" stroke="#e2e8f0" stroke-width="3" />
+  <circle cx="20" cy="15" r="2" fill="#38bdf8" />
+  <circle cx="35" cy="45" r="2" fill="#38bdf8" />
 </svg>

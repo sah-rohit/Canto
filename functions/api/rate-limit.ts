@@ -18,7 +18,7 @@ export const onRequest = async (context: any) => {
   return new Response(JSON.stringify({
     allowed: true,
     remaining: null, // Signals client to use local state
-    limit: 15,
+    limit: 20,
     resetsAt: 'midnight'
   }), {
     headers: {

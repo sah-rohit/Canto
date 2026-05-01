@@ -19,6 +19,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { useToast } from './components/ToastContext';
 import { StartupAnimation } from './components/StartupAnimation';
 import { CantoDialog, CantoSlider } from './components/UIComponents';
+import {
+  dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory, dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites
+} from './services/dbService';
 
 // A curated list of "banger" words and phrases for the random button.
 const PREDEFINED_WORDS = [
@@ -67,7 +70,7 @@ const App: React.FC = () => {
   const [showIntro, setShowIntro] = useState(true);
   // Rate limit state
   const [searchesRemaining, setSearchesRemaining] = useState<number | null>(null);
-  const [searchesLimit, setSearchesLimit] = useState<number>(15);
+  const [searchesLimit, setSearchesLimit] = useState<number>(20);
   const [resetTimer, setResetTimer] = useState<string>('');
   const [readingTime, setReadingTime] = useState<number | null>(null);
   const [isReadingMode, setIsReadingMode] = useState(false);
@@ -89,14 +92,23 @@ const App: React.FC = () => {
     });
 
     try {
-      const savedHistory = localStorage.getItem('canto_history');
-      if (savedHistory) setHistory(JSON.parse(savedHistory));
-      
-      const savedCache = localStorage.getItem('canto_cache');
-      if (savedCache) setCache(JSON.parse(savedCache));
+      dbGetHistory().then(h => {
+        if (h && h.length > 0) {
+          setHistory(h);
+        } else {
+          const savedHistory = localStorage.getItem('canto_history');
+          if (savedHistory) setHistory(JSON.parse(savedHistory));
+        }
+      });
 
-      const savedFavs = localStorage.getItem('canto_favs');
-      if (savedFavs) setFavorites(JSON.parse(savedFavs));
+      dbGetFavorites().then(f => {
+        if (f && f.length > 0) {
+          setFavorites(f);
+        } else {
+          const savedFavs = localStorage.getItem('canto_favs');
+          if (savedFavs) setFavorites(JSON.parse(savedFavs));
+        }
+      });
 
       const savedTheme = localStorage.getItem('canto_theme');
       if (savedTheme) {
@@ -145,6 +157,7 @@ const App: React.FC = () => {
       setHistory(prev => {
         const newHistory = [trimmed, ...prev.filter(t => t.toLowerCase() !== trimmed.toLowerCase())].slice(0, 50);
         try { localStorage.setItem('canto_history', JSON.stringify(newHistory)); } catch(e) {}
+        dbSaveHistory(trimmed);
         return newHistory;
       });
 
@@ -159,6 +172,11 @@ const App: React.FC = () => {
       const isFav = prev.includes(topic);
       const newFavs = isFav ? prev.filter(t => t !== topic) : [...prev, topic];
       try { localStorage.setItem('canto_favs', JSON.stringify(newFavs)); } catch(e) {}
+      if (isFav) {
+        dbRemoveFavorite(topic);
+      } else {
+        dbSaveFavorite(topic);
+      }
       showToast(isFav ? 'Removed from favorites' : 'Added to favorites', 'success');
       return newFavs;
     });
@@ -172,6 +190,7 @@ const App: React.FC = () => {
       try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
       return newCache;
     });
+    dbDeleteCache(normalized);
     setRetryTrigger(prev => prev + 1);
     showToast('Regenerating content...', 'info');
   }, [currentTopic, showToast]);
@@ -226,6 +245,17 @@ const App: React.FC = () => {
         setContent(cache[normalizedTopic].content);
         setAsciiArt(cache[normalizedTopic].asciiArt);
         setGenerationTime(null);
+        return;
+      }
+
+      const dbCached = await dbGetCache(normalizedTopic);
+      if (dbCached) {
+        setIsLoading(false);
+        setError(null);
+        setContent(dbCached.content);
+        setAsciiArt(dbCached.asciiArt);
+        setGenerationTime(null);
+        setCache(prev => ({ ...prev, [normalizedTopic]: dbCached }));
         return;
       }
 
@@ -293,6 +323,7 @@ const App: React.FC = () => {
               delete newCache[keys[0]];
             }
             try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
+            dbSaveCache(currentTopic, accumulatedContent, finalArt);
             return newCache;
           });
         }
@@ -358,6 +389,7 @@ const App: React.FC = () => {
   const handleConfirmClear = useCallback(() => {
     setHistory([]);
     try { localStorage.removeItem('canto_history'); } catch(e) {}
+    dbClearHistory();
     setIsHistoryOpen(false);
     setIsConfirmingClear(false);
     showToast('Browsing history cleared', 'info');
