@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cloudflareTextToSpeech } from '../services/aiService';
@@ -45,6 +46,7 @@ const InteractiveContent: React.FC<{
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -91,8 +93,6 @@ const InteractiveContent: React.FC<{
       width: spanRect.width,
       height: spanRect.height,
     });
-    // Scroll the word into view smoothly
-    span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [ttsWordIndex]);
 
   useEffect(() => {
@@ -104,14 +104,10 @@ const InteractiveContent: React.FC<{
       // Stop Cloudflare TTS audio
       if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
       if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
+      if (playTimerRef.current) clearInterval(playTimerRef.current);
       document.body.classList.remove('tts-active');
     };
   }, []);
-
-  // Push body down when TTS bar is visible so content isn't hidden behind it
-  useEffect(() => {
-    document.body.classList.toggle('tts-active', isSpeaking);
-  }, [isSpeaking]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -173,6 +169,7 @@ const InteractiveContent: React.FC<{
       audioRef.current = null;
     }
     if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
+    if (playTimerRef.current) clearInterval(playTimerRef.current);
     playTTSStop();
     setIsSpeaking(false);
     setIsPaused(false);
@@ -189,9 +186,11 @@ const InteractiveContent: React.FC<{
     if (audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
       if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
+      if (playTimerRef.current) clearInterval(playTimerRef.current);
       setIsPaused(true);
     } else if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
       window.speechSynthesis.pause();
+      if (playTimerRef.current) clearInterval(playTimerRef.current);
       setIsPaused(true);
     }
   }, []);
@@ -206,22 +205,20 @@ const InteractiveContent: React.FC<{
     }
   }, []);
 
-  // Advance word index with pace-matched timing
-  const scheduleWordAdvance = useCallback((words: string[], startIdx: number, msPerWord: number) => {
-    if (startIdx >= words.length) return;
-    setTtsWordIndex(startIdx);
-    setTtsResumeIndex(startIdx);
-    wordTimerRef.current = setTimeout(() => {
-      scheduleWordAdvance(words, startIdx + 1, msPerWord);
-    }, msPerWord);
-  }, []);
-
   const handleTTS = useCallback(async () => {
     if (isSpeaking && !isPaused) { pauseTTS(); return; }
     if (isSpeaking && isPaused) { resumeTTS(); return; }
 
     const plainText = getPlainText();
-    const words = plainText.match(/\S+/g) || [];
+    const words: string[] = [];
+    const wordStarts: number[] = [];
+
+    const wordRegex = /[a-zA-Z0-9]+/g;
+    let m;
+    while ((m = wordRegex.exec(plainText)) !== null) {
+      words.push(m[0]);
+      wordStarts.push(m.index);
+    }
     setTtsWords(words);
     wordSpanRefs.current.clear();
     setIsSpeaking(true);
@@ -243,11 +240,36 @@ const InteractiveContent: React.FC<{
         audio.onloadedmetadata = () => {
           const dur = audio.duration;
           setTtsDuration(dur);
-          const msPerWord = words.length > 0 ? (dur * 1000) / words.length : 300;
-          scheduleWordAdvance(words, 0, msPerWord);
-        };
 
-        audio.ontimeupdate = () => setTtsCurrentTime(audio.currentTime);
+          // Pacing timing lookup based on characters
+          const totalChars = words.reduce((sum, w) => sum + w.length, 0);
+          let currentMs = 0;
+          const wordStartTimesMs = words.map((w) => {
+            const startTime = currentMs;
+            const wordDurationMs = totalChars > 0 ? (w.length / totalChars) * (dur * 1000) : 300;
+            currentMs += wordDurationMs;
+            return startTime;
+          });
+
+          if (playTimerRef.current) clearInterval(playTimerRef.current);
+          playTimerRef.current = setInterval(() => {
+            if (audioRef.current && !audioRef.current.paused) {
+              const audioMs = audioRef.current.currentTime * 1000;
+              setTtsCurrentTime(audioRef.current.currentTime);
+
+              let matchedWordIdx = 0;
+              for (let i = 0; i < wordStartTimesMs.length; i++) {
+                if (wordStartTimesMs[i] <= audioMs) {
+                  matchedWordIdx = i;
+                } else {
+                  break;
+                }
+              }
+              setTtsWordIndex(matchedWordIdx);
+              setTtsResumeIndex(matchedWordIdx);
+            }
+          }, 50);
+        };
 
         audio.onended = () => {
           URL.revokeObjectURL(url);
@@ -270,23 +292,27 @@ const InteractiveContent: React.FC<{
     utterance.volume = ttsVolume;
     utterance.onboundary = (e) => {
       if (e.name !== 'word') return;
-      let charCount = 0;
-      for (let i = 0; i < words.length; i++) {
-        if (charCount >= e.charIndex) { setTtsWordIndex(i); setTtsResumeIndex(i); break; }
-        charCount += words[i].length + 1;
+      let matchedWordIdx = 0;
+      for (let i = 0; i < wordStarts.length; i++) {
+        if (wordStarts[i] <= e.charIndex) {
+          matchedWordIdx = i;
+        } else {
+          break;
+        }
       }
+      setTtsWordIndex(matchedWordIdx);
+      setTtsResumeIndex(matchedWordIdx);
     };
     utterance.onend = () => stopTTS();
     utterance.onerror = () => stopTTS();
     window.speechSynthesis.speak(utterance);
-  }, [isSpeaking, isPaused, ttsVolume, pauseTTS, resumeTTS, stopTTS, scheduleWordAdvance]);
+  }, [isSpeaking, isPaused, ttsVolume, pauseTTS, resumeTTS, stopTTS]);
 
   // Seek audio to a specific time
   const seekAudio = useCallback((time: number) => {
     if (audioRef.current) {
       audioRef.current.currentTime = time;
       setTtsCurrentTime(time);
-      // Recalculate word index from time
       if (ttsDuration > 0 && ttsWords.length > 0) {
         const idx = Math.floor((time / ttsDuration) * ttsWords.length);
         setTtsWordIndex(Math.min(idx, ttsWords.length - 1));
@@ -426,25 +452,44 @@ const InteractiveContent: React.FC<{
     return chunks.map((chunk, idx) => {
       if (phrasesById[chunk]) {
         const phrase = phrasesById[chunk];
+        const phraseWords = phrase.match(/[a-zA-Z0-9]+/g) || [];
+        const phraseWordCount = phraseWords.length;
+
+        const startWordIdx = isSpeaking ? ttsRenderWordIdx.current : -1;
+        if (isSpeaking) {
+          ttsRenderWordIdx.current += phraseWordCount;
+        }
+
+        const isActive = isSpeaking && ttsWordIndex >= startWordIdx && ttsWordIndex < startWordIdx + phraseWordCount;
+
         return (
           <span
             key={`p-${idx}`}
+            ref={isSpeaking ? (el) => { if (el) wordSpanRefs.current.set(startWordIdx, el); } : undefined}
             className="interactive-word clickable-any-word text-glow"
             onClick={() => onWordClick(phrase)}
             style={{
               cursor: 'pointer',
               display: 'inline-block',
-              borderBottom: '1px dotted transparent',
+              borderBottom: isActive ? '2px solid var(--accent-color)' : '1px dotted transparent',
+              color: isActive ? 'var(--accent-color)' : 'inherit',
               transition: 'all 0.15s ease',
-              textShadow: '0 0 10px var(--accent-color)'
+              textShadow: isActive ? '0 0 15px var(--accent-color)' : '0 0 10px var(--accent-color)',
+              backgroundColor: isActive ? 'rgba(120, 81, 169, 0.2)' : 'transparent',
+              borderRadius: isActive ? '2px' : '0',
+              padding: isActive ? '0 2px' : '0',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
-              e.currentTarget.style.textShadow = '0 0 15px var(--accent-color), 0 0 30px var(--accent-color)';
+              if (!isActive) {
+                e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
+                e.currentTarget.style.textShadow = '0 0 15px var(--accent-color), 0 0 30px var(--accent-color)';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderBottomColor = 'transparent';
-              e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
+              if (!isActive) {
+                e.currentTarget.style.borderBottomColor = 'transparent';
+                e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
+              }
             }}
           >
             {phrase}
@@ -454,32 +499,38 @@ const InteractiveContent: React.FC<{
 
       const words = chunk.split(/([a-zA-Z0-9]+)/);
       return words.map((wordChunk, wordIdx) => {
-        if (/^[a-zA-Z0-9]{4,}$/.test(wordChunk) && !STOP_WORDS.has(wordChunk.toLowerCase())) {
+        if (/^[a-zA-Z0-9]+$/.test(wordChunk)) {
           const thisWordIdx = isSpeaking ? ttsRenderWordIdx.current++ : -1;
           const isActive = isSpeaking && thisWordIdx === ttsWordIndex;
+          const isClickable = wordChunk.length >= 4 && !STOP_WORDS.has(wordChunk.toLowerCase());
+
           return (
             <span
               key={`w-${idx}-${wordIdx}`}
               ref={isSpeaking ? (el) => { if (el) wordSpanRefs.current.set(thisWordIdx, el); } : undefined}
-              className="interactive-word clickable-any-word"
-              onClick={() => { onWordClick(wordChunk); playWordClick(); }}
+              className={`interactive-word ${isClickable ? 'clickable-any-word' : ''}`}
+              onClick={isClickable ? () => { onWordClick(wordChunk); playWordClick(); } : undefined}
               style={{
-                cursor: 'pointer',
+                cursor: isClickable ? 'pointer' : 'default',
                 display: 'inline-block',
                 borderBottom: isActive
                   ? '2px solid var(--accent-color)'
-                  : '1px dotted transparent',
+                  : isClickable ? '1px dotted transparent' : 'none',
                 color: isActive ? 'var(--accent-color)' : 'inherit',
                 transition: 'color 0.1s ease, border-color 0.1s ease',
+                backgroundColor: isActive ? 'rgba(120, 81, 169, 0.2)' : 'transparent',
+                borderRadius: isActive ? '2px' : '0',
+                padding: isActive ? '0 2px' : '0',
+                boxShadow: isActive ? '0 0 8px rgba(120, 81, 169, 0.4)' : 'none',
               }}
               onMouseEnter={(e) => {
-                if (!isActive) {
+                if (isClickable && !isActive) {
                   e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
                   e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (!isActive) {
+                if (isClickable && !isActive) {
                   e.currentTarget.style.borderBottomColor = 'transparent';
                   e.currentTarget.style.textShadow = 'none';
                 }
@@ -611,28 +662,32 @@ const InteractiveContent: React.FC<{
         />
       )}
 
-      {/* ── TTS Player Bar — fixed at bottom of screen, full-width media player ── */}
-      {isSpeaking && ttsWords.length > 0 && (
+      {/* ── Floating TTS Player Bar ── */}
+      {isSpeaking && ttsWords.length > 0 && createPortal(
         <div
           role="region"
           aria-label="Text-to-speech player"
           style={{
             position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 9998,
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 99999,
+            width: 'min(500px, 92vw)',
             background: 'var(--bg-color)',
-            borderTop: '1px solid var(--border-color)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
             fontFamily: 'monospace',
             fontSize: '0.82em',
             userSelect: 'none',
-            /* Safe area for iOS home bar */
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.35), 0 0 20px rgba(120, 81, 169, 0.1)',
+            backdropFilter: 'blur(12px)',
+            padding: '10px 16px',
+            animation: 'fadeIn 0.3s ease-out forwards',
           }}
         >
           {/* Progress / timeline row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBottom: '6px' }}>
             {/* Time elapsed */}
             <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.6rem', flexShrink: 0, textAlign: 'right' }}>
               {ttsDuration > 0
@@ -641,7 +696,7 @@ const InteractiveContent: React.FC<{
             </span>
 
             {/* Scrubber — shows word progress when no audio duration, time when available */}
-            <div style={{ flex: 1, position: 'relative', height: '3px', background: 'var(--border-color)', borderRadius: '2px', cursor: ttsDuration > 0 ? 'pointer' : 'default' }}>
+            <div style={{ flex: 1, position: 'relative', height: '4px', background: 'var(--border-color)', borderRadius: '2px', cursor: ttsDuration > 0 ? 'pointer' : 'default' }}>
               <div style={{
                 position: 'absolute', left: 0, top: 0, height: '100%',
                 width: ttsDuration > 0
@@ -649,7 +704,7 @@ const InteractiveContent: React.FC<{
                   : `${((ttsWordIndex + 1) / Math.max(ttsWords.length, 1)) * 100}%`,
                 background: 'var(--accent-color)',
                 borderRadius: '2px',
-                transition: 'width 0.15s linear',
+                transition: 'width 0.1s linear',
               }} />
               {ttsDuration > 0 && (
                 <input
@@ -678,7 +733,7 @@ const InteractiveContent: React.FC<{
           </div>
 
           {/* Controls row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0', padding: '0.3rem 0.75rem 0.45rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Current word — fixed width, centered */}
             <div style={{
               flex: 1,
@@ -687,10 +742,9 @@ const InteractiveContent: React.FC<{
               whiteSpace: 'nowrap',
               color: 'var(--accent-color)',
               fontSize: '0.85em',
+              fontWeight: 'bold',
               letterSpacing: '0.03em',
-              paddingRight: '0.5rem',
             }}>
-              <span style={{ color: 'var(--text-muted)', marginRight: '0.35rem', fontSize: '0.75em' }}>▶</span>
               {ttsWords[ttsWordIndex] ?? ''}
             </div>
 
@@ -702,14 +756,22 @@ const InteractiveContent: React.FC<{
                 background: 'transparent',
                 border: '1px solid var(--border-color)',
                 color: 'var(--text-color)',
-                borderRadius: '2px',
-                width: '2.2rem', height: '2.2rem',
+                borderRadius: '6px',
+                width: '2rem', height: '2rem',
                 cursor: 'pointer',
                 fontFamily: 'monospace',
                 fontSize: '0.9em',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
-                marginRight: '0.4rem',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-color)';
+                e.currentTarget.style.color = 'var(--accent-color)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.color = 'var(--text-color)';
               }}
             >
               {isPaused ? '▶' : '⏸'}
@@ -723,24 +785,32 @@ const InteractiveContent: React.FC<{
                 background: 'transparent',
                 border: '1px solid var(--border-color)',
                 color: 'var(--text-muted)',
-                borderRadius: '2px',
-                width: '2.2rem', height: '2.2rem',
+                borderRadius: '6px',
+                width: '2rem', height: '2rem',
                 cursor: 'pointer',
                 fontFamily: 'monospace',
                 fontSize: '0.85em',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
-                marginRight: '0.75rem',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-color)';
+                e.currentTarget.style.color = 'var(--accent-color)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.color = 'var(--text-muted)';
               }}
             >
               ■
             </button>
 
             {/* Volume icon + slider */}
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', flexShrink: 0, marginRight: '0.3rem' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', flexShrink: 0 }}>
               {ttsVolume === 0 ? '🔇' : ttsVolume < 0.5 ? '🔉' : '🔊'}
             </span>
-            <div style={{ width: '70px', position: 'relative', height: '3px', background: 'var(--border-color)', borderRadius: '2px', flexShrink: 0 }}>
+            <div style={{ width: '60px', position: 'relative', height: '3px', background: 'var(--border-color)', borderRadius: '2px', flexShrink: 0 }}>
               <div style={{
                 position: 'absolute', left: 0, top: 0, height: '100%',
                 width: `${ttsVolume * 100}%`,
@@ -761,7 +831,8 @@ const InteractiveContent: React.FC<{
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <div className={`markdown-body tts-content${isStreaming ? ' streaming-active' : ''}`} onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
