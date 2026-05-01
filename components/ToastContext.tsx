@@ -35,7 +35,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const getColors = (type: ToastType) => {
     switch (type) {
-      case 'success': return '#00ff88';
+      case 'success': return 'var(--accent-color)';
       case 'warning': return '#ffcc00';
       case 'error': return '#ff4444';
       default: return 'var(--accent-color)';
@@ -70,13 +70,13 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           return (
             <div key={toast.id} style={{
               background: 'var(--bg-color)',
-              border: `1px solid ${color}`,
-              color: color,
-              padding: '0.75rem 1.5rem',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-color)',
+              padding: '0.6rem 1.2rem',
               borderRadius: '2px',
               fontFamily: 'monospace',
-              fontSize: '0.9em',
-              boxShadow: `0 0 15px ${color}33`,
+              fontSize: '0.85em',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               animation: 'canto-toast-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards',
               pointerEvents: 'auto',
               display: 'flex',
@@ -86,12 +86,12 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               <style>
                 {`
                   @keyframes canto-toast-in {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
+                    from { opacity: 0; transform: translate(-50%, 20px); }
+                    to { opacity: 1; transform: translate(-50%, 0); }
                   }
                 `}
               </style>
-              <span>{getIcon(toast.type)}</span>
+              <span style={{ color }}>{getIcon(toast.type)}</span>
               {toast.message}
             </div>
           );
