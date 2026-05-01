@@ -2,10 +2,11 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cloudflareTextToSpeech } from '../services/aiService';
+import { playSearchComplete, playWordClick, playTTSStart, playTTSStop, isSoundEnabled, setSoundEnabled } from '../services/soundService';
 
 interface ContentDisplayProps {
   content: string;
@@ -30,12 +31,23 @@ const InteractiveContent: React.FC<{
 }> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
   const [ttsWordIndex, setTtsWordIndex] = useState<number>(-1);
   const [ttsWords, setTtsWords] = useState<string[]>([]);
+  const [ttsDuration, setTtsDuration] = useState<number>(0);
+  const [ttsCurrentTime, setTtsCurrentTime] = useState<number>(0);
+  const [ttsVolume, setTtsVolume] = useState<number>(1);
+  const [ttsResumeIndex, setTtsResumeIndex] = useState<number>(0);
   const [highlightBox, setHighlightBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
+  // Draggable TTS bar position
+  const [barPos, setBarPos] = useState<{ x: number; y: number } | null>(null);
+  const barDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const wordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -60,7 +72,11 @@ const InteractiveContent: React.FC<{
     if (isStreaming && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [content, isStreaming]);
+    // Play completion sound when streaming finishes
+    if (!isStreaming && content.length > 100) {
+      playSearchComplete();
+    }
+  }, [isStreaming]);
 
   // Update highlight box position when the active TTS word changes
   useEffect(() => {
@@ -88,9 +104,9 @@ const InteractiveContent: React.FC<{
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
-      // Stop Cloudflare TTS audio element
-      const audio = document.getElementById('canto-tts-audio') as HTMLAudioElement | null;
-      if (audio) { audio.pause(); audio.remove(); }
+      // Stop Cloudflare TTS audio
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
+      if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
     };
   }, []);
 
@@ -145,29 +161,72 @@ const InteractiveContent: React.FC<{
     }
   };
 
-  const stopTTS = () => {
+  const stopTTS = useCallback(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
-    const existingAudio = document.getElementById('canto-tts-audio') as HTMLAudioElement | null;
-    if (existingAudio) { existingAudio.pause(); existingAudio.remove(); }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
+    playTTSStop();
     setIsSpeaking(false);
+    setIsPaused(false);
     setTtsWordIndex(-1);
     setTtsWords([]);
+    setTtsDuration(0);
+    setTtsCurrentTime(0);
+    setTtsResumeIndex(0);
     setHighlightBox(null);
     wordSpanRefs.current.clear();
-  };
+  }, []);
 
-  const handleTTS = async () => {
-    if (isSpeaking) { stopTTS(); return; }
+  const pauseTTS = useCallback(() => {
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
+      setIsPaused(true);
+    } else if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+    }
+  }, []);
+
+  const resumeTTS = useCallback(() => {
+    if (audioRef.current && audioRef.current.paused) {
+      audioRef.current.play().catch(() => {});
+      setIsPaused(false);
+    } else if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+    }
+  }, []);
+
+  // Advance word index with pace-matched timing
+  const scheduleWordAdvance = useCallback((words: string[], startIdx: number, msPerWord: number) => {
+    if (startIdx >= words.length) return;
+    setTtsWordIndex(startIdx);
+    setTtsResumeIndex(startIdx);
+    wordTimerRef.current = setTimeout(() => {
+      scheduleWordAdvance(words, startIdx + 1, msPerWord);
+    }, msPerWord);
+  }, []);
+
+  const handleTTS = useCallback(async () => {
+    if (isSpeaking && !isPaused) { pauseTTS(); return; }
+    if (isSpeaking && isPaused) { resumeTTS(); return; }
 
     const plainText = getPlainText();
-    // Tokenise into words for highlight tracking
     const words = plainText.match(/\S+/g) || [];
     setTtsWords(words);
     wordSpanRefs.current.clear();
     setIsSpeaking(true);
+    setIsPaused(false);
     setTtsWordIndex(0);
+    setTtsResumeIndex(0);
+    playTTSStart();
 
     // ── Try Cloudflare TTS first ──────────────────────────────────
     try {
@@ -176,30 +235,24 @@ const InteractiveContent: React.FC<{
         const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        audio.id = 'canto-tts-audio';
-        document.body.appendChild(audio);
+        audio.volume = ttsVolume;
+        audioRef.current = audio;
 
-        // Estimate word timing from audio duration once metadata loads
         audio.onloadedmetadata = () => {
-          const duration = audio.duration;
-          const msPerWord = words.length > 0 ? (duration * 1000) / words.length : 300;
-          let idx = 0;
-          const advance = () => {
-            if (idx >= words.length) return;
-            setTtsWordIndex(idx++);
-            setTimeout(advance, msPerWord);
-          };
-          advance();
+          const dur = audio.duration;
+          setTtsDuration(dur);
+          const msPerWord = words.length > 0 ? (dur * 1000) / words.length : 300;
+          scheduleWordAdvance(words, 0, msPerWord);
         };
+
+        audio.ontimeupdate = () => setTtsCurrentTime(audio.currentTime);
 
         audio.onended = () => {
           URL.revokeObjectURL(url);
-          audio.remove();
           stopTTS();
         };
         audio.onerror = () => {
           URL.revokeObjectURL(url);
-          audio.remove();
           stopTTS();
         };
         await audio.play();
@@ -209,25 +262,72 @@ const InteractiveContent: React.FC<{
       // fall through to browser TTS
     }
 
-    // ── Browser speechSynthesis fallback with word boundary events ──
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      stopTTS();
-      return;
-    }
+    // ── Browser speechSynthesis fallback ─────────────────────────
+    if (typeof window === 'undefined' || !window.speechSynthesis) { stopTTS(); return; }
     const utterance = new SpeechSynthesisUtterance(plainText);
+    utterance.volume = ttsVolume;
     utterance.onboundary = (e) => {
       if (e.name !== 'word') return;
-      // Find which word index corresponds to this char offset
       let charCount = 0;
       for (let i = 0; i < words.length; i++) {
-        if (charCount >= e.charIndex) { setTtsWordIndex(i); break; }
-        charCount += words[i].length + 1; // +1 for space
+        if (charCount >= e.charIndex) { setTtsWordIndex(i); setTtsResumeIndex(i); break; }
+        charCount += words[i].length + 1;
       }
     };
     utterance.onend = () => stopTTS();
     utterance.onerror = () => stopTTS();
     window.speechSynthesis.speak(utterance);
-  };
+  }, [isSpeaking, isPaused, ttsVolume, pauseTTS, resumeTTS, stopTTS, scheduleWordAdvance]);
+
+  // Seek audio to a specific time
+  const seekAudio = useCallback((time: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setTtsCurrentTime(time);
+      // Recalculate word index from time
+      if (ttsDuration > 0 && ttsWords.length > 0) {
+        const idx = Math.floor((time / ttsDuration) * ttsWords.length);
+        setTtsWordIndex(Math.min(idx, ttsWords.length - 1));
+      }
+    }
+  }, [ttsDuration, ttsWords]);
+
+  // Volume change
+  const changeVolume = useCallback((vol: number) => {
+    setTtsVolume(vol);
+    if (audioRef.current) audioRef.current.volume = vol;
+  }, []);
+
+  // Draggable bar handlers
+  const onBarDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const orig = barPos ?? { x: window.innerWidth / 2 - 180, y: window.innerHeight - 120 };
+    barDragRef.current = { startX: clientX, startY: clientY, origX: orig.x, origY: orig.y };
+
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      if (!barDragRef.current) return;
+      const cx = 'touches' in ev ? (ev as TouchEvent).touches[0].clientX : (ev as MouseEvent).clientX;
+      const cy = 'touches' in ev ? (ev as TouchEvent).touches[0].clientY : (ev as MouseEvent).clientY;
+      const dx = cx - barDragRef.current.startX;
+      const dy = cy - barDragRef.current.startY;
+      setBarPos({
+        x: Math.max(0, Math.min(window.innerWidth - 360, barDragRef.current.origX + dx)),
+        y: Math.max(0, Math.min(window.innerHeight - 80, barDragRef.current.origY + dy)),
+      });
+    };
+    const onUp = () => {
+      barDragRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchend', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
+  }, [barPos]);
 
   const handleShare = () => {
     const url = window.location.href;
@@ -391,7 +491,7 @@ const InteractiveContent: React.FC<{
               key={`w-${idx}-${wordIdx}`}
               ref={isSpeaking ? (el) => { if (el) wordSpanRefs.current.set(thisWordIdx, el); } : undefined}
               className="interactive-word clickable-any-word"
-              onClick={() => onWordClick(wordChunk)}
+              onClick={() => { onWordClick(wordChunk); playWordClick(); }}
               style={{
                 cursor: 'pointer',
                 display: 'inline-block',
@@ -540,69 +640,132 @@ const InteractiveContent: React.FC<{
           }}
         />
       )}
-      {/* ── TTS status bar — matches site's monospace / border aesthetic ── */}
-      {isSpeaking && ttsWordIndex >= 0 && ttsWords[ttsWordIndex] && (
+
+      {/* ── Floating TTS control bar ── */}
+      {isSpeaking && ttsWords.length > 0 && (
         <div
-          aria-live="polite"
-          aria-atomic="true"
+          aria-label="TTS controls"
           style={{
             position: 'fixed',
-            bottom: '2rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            left: barPos ? `${barPos.x}px` : '50%',
+            top: barPos ? `${barPos.y}px` : undefined,
+            bottom: barPos ? undefined : '2rem',
+            transform: barPos ? 'none' : 'translateX(-50%)',
+            width: '340px',
+            maxWidth: 'calc(100vw - 2rem)',
             background: 'var(--bg-color)',
             border: '1px solid var(--border-color)',
             borderRadius: '2px',
-            padding: '0.5rem 1.2rem',
-            fontFamily: 'monospace',
-            fontSize: '0.85em',
-            color: 'var(--text-color)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             zIndex: 9998,
-            pointerEvents: 'none',
-            whiteSpace: 'nowrap',
-            maxWidth: '80vw',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
+            fontFamily: 'monospace',
+            fontSize: '0.82em',
+            userSelect: 'none',
           }}
         >
-          {/* Stop button — same style as nav-btn */}
-          <button
-            onClick={stopTTS}
+          {/* Drag handle */}
+          <div
+            onMouseDown={onBarDragStart}
+            onTouchStart={onBarDragStart}
             style={{
-              background: 'transparent',
-              border: 'none',
+              padding: '0.35rem 0.8rem',
+              borderBottom: '1px solid var(--border-color)',
+              cursor: 'grab',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
               color: 'var(--text-muted)',
-              cursor: 'pointer',
-              fontFamily: 'monospace',
-              fontSize: '0.9em',
-              padding: 0,
-              pointerEvents: 'auto',
-              textDecoration: 'underline',
+              fontSize: '0.75em',
+              letterSpacing: '0.08em',
             }}
           >
-            Stop
-          </button>
-          <span style={{ color: 'var(--border-color)' }}>|</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', letterSpacing: '0.05em' }}>
-            ▶
-          </span>
-          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.03em' }}>
-            {ttsWords[ttsWordIndex]}
-          </span>
-          <span style={{ color: 'var(--border-color)' }}>|</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>
-            {ttsWordIndex + 1}/{ttsWords.length}
-          </span>
+            <span>⠿ TTS</span>
+            <span style={{ color: 'var(--text-muted)' }}>{ttsWordIndex + 1} / {ttsWords.length}</span>
+          </div>
+
+          {/* Current word display — fixed height so bar doesn't resize */}
+          <div style={{
+            padding: '0.45rem 0.8rem',
+            height: '2.2rem',
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+            borderBottom: '1px solid var(--border-color)',
+          }}>
+            <span style={{ color: 'var(--text-muted)', marginRight: '0.5rem', fontSize: '0.75em' }}>▶</span>
+            <span style={{
+              color: 'var(--accent-color)',
+              letterSpacing: '0.04em',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+            }}>
+              {ttsWords[ttsWordIndex] ?? ''}
+            </span>
+          </div>
+
+          {/* Timeline scrubber (only when audio duration is known) */}
+          {ttsDuration > 0 && (
+            <div style={{ padding: '0.4rem 0.8rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.8rem', flexShrink: 0 }}>
+                {Math.floor(ttsCurrentTime / 60)}:{String(Math.floor(ttsCurrentTime % 60)).padStart(2, '0')}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={ttsDuration}
+                step={0.5}
+                value={ttsCurrentTime}
+                onChange={e => seekAudio(parseFloat(e.target.value))}
+                style={{ flex: 1, accentColor: 'var(--accent-color)', cursor: 'pointer', height: '3px' }}
+                aria-label="Seek audio"
+              />
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.8rem', textAlign: 'right', flexShrink: 0 }}>
+                {Math.floor(ttsDuration / 60)}:{String(Math.floor(ttsDuration % 60)).padStart(2, '0')}
+              </span>
+            </div>
+          )}
+
+          {/* Controls row */}
+          <div style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Play/Pause */}
+            <button
+              onClick={isPaused ? resumeTTS : pauseTTS}
+              style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '2px', padding: '0.25rem 0.6rem', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', flexShrink: 0 }}
+              aria-label={isPaused ? 'Resume' : 'Pause'}
+            >
+              {isPaused ? '▶' : '⏸'}
+            </button>
+
+            {/* Stop */}
+            <button
+              onClick={stopTTS}
+              style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', borderRadius: '2px', padding: '0.25rem 0.6rem', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', flexShrink: 0, textDecoration: 'underline' }}
+              aria-label="Stop TTS"
+            >
+              Stop
+            </button>
+
+            {/* Volume */}
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.75em', flexShrink: 0 }}>🔊</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={ttsVolume}
+              onChange={e => changeVolume(parseFloat(e.target.value))}
+              style={{ flex: 1, accentColor: 'var(--accent-color)', cursor: 'pointer', height: '3px' }}
+              aria-label="Volume"
+            />
+          </div>
         </div>
       )}
 
-      <div className="markdown-body tts-content" onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
+      <div className={`markdown-body tts-content${isStreaming ? ' streaming-active' : ''}`} onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
         <Markdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-          {content + (isStreaming ? ' \u2588' : '')}
+          {content}
         </Markdown>
         <div ref={bottomRef} style={{ height: 1, padding: 0, margin: 0 }} />
       </div>
@@ -673,9 +836,16 @@ const InteractiveContent: React.FC<{
           </button>
           <button 
             onClick={handleTTS}
+            style={{ textDecoration: 'underline', color: isSpeaking ? 'var(--accent-color)' : 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
+          >
+            {isSpeaking && !isPaused ? '⏸ Pause' : isSpeaking && isPaused ? '▶ Resume' : 'Listen TTS'}
+          </button>
+          <button
+            onClick={() => { const next = !soundOn; setSoundOn(next); setSoundEnabled(next); }}
+            title={soundOn ? 'Sound effects on' : 'Sound effects off'}
             style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
           >
-            {isSpeaking ? 'Stop TTS' : 'Listen TTS'}
+            {soundOn ? '🔔' : '🔕'}
           </button>
           <button 
             onClick={onToggleFavorite}

@@ -468,6 +468,59 @@
         animation: fadeIn 0.6s ease-out forwards;
       }
       
+      /* Smooth streaming — each new chunk fades in */
+      @keyframes streamIn {
+        from { opacity: 0; transform: translateY(3px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .stream-chunk {
+        animation: streamIn 0.18s ease-out forwards;
+        display: inline;
+      }
+
+      /* Streaming content area — subtle pulse while loading */
+      .streaming-active .markdown-body > p:last-child {
+        animation: streamIn 0.2s ease-out forwards;
+      }
+      .streaming-active .markdown-body > p:last-child::after {
+        content: '';
+        display: inline-block;
+        width: 0.55em;
+        height: 1em;
+        background: var(--text-color);
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        animation: blink 0.9s step-end infinite;
+        opacity: 0.7;
+      }
+
+      /* TTS range input styling */
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 3px;
+        background: var(--border-color);
+        border-radius: 2px;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent-color);
+        cursor: pointer;
+        border: none;
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent-color);
+        cursor: pointer;
+        border: none;
+      }
+      
       .living-ascii {
         animation: living-ascii 3s infinite ease-in-out;
       }

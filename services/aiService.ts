@@ -189,15 +189,6 @@ Choose the type that best fits the concept:
 AESTHETIC EFFECTS (use sparingly for 1-2 key words only):
 - Glowing: [Word](#glow)
 - Outlined: [Word](#outline)
-- Glitch/distort: [Word](#distort)
-
-VISUAL ENRICHMENT — include at least one ASCII visual per response inside a fenced code block tagged \`\`\`ascii:
-Choose the type that best fits the concept:
-- Mind-map, Flow diagram, Hierarchy / pyramid, Timeline, Spectrum / scale
-
-AESTHETIC EFFECTS (use sparingly for 1-2 key words only):
-- Glowing: [Word](#glow)
-- Outlined: [Word](#outline)
 - Glitch/distort: [Word](#distort)`;
 
   const messages: ChatMessage[] = [
@@ -387,5 +378,51 @@ export async function cloudflareTextToSpeech(text: string): Promise<ArrayBuffer 
   } catch (err) {
     console.warn('[Canto TTS] Cloudflare TTS failed, using browser fallback:', (err as Error).message);
     return null;
+  }
+}
+
+/**
+ * Generates 3 suggested follow-up research questions for a topic.
+ */
+export async function fetchSuggestedFollowUps(topic: string, content: string): Promise<string[]> {
+  const snippet = content.slice(0, 600);
+  const messages: ChatMessage[] = [
+    { role: 'system', content: 'Return only valid JSON arrays. No extra text.' },
+    {
+      role: 'user',
+      content: `Based on this encyclopedia entry about "${topic}", generate exactly 3 compelling follow-up research questions a curious reader would want to explore next. Make them specific and thought-provoking. Return as JSON array: ["question1","question2","question3"]\n\nEntry snippet: ${snippet}`,
+    },
+  ];
+  try {
+    const raw = await callWithFallback(messages);
+    const arrMatch = raw.match(/\[[\s\S]*\]/);
+    if (!arrMatch) return [];
+    const parsed = JSON.parse(arrMatch[0]);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map(String).slice(0, 3);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Generates a concise 2-3 sentence summary of an article.
+ */
+export async function generateSummary(topic: string, content: string): Promise<string> {
+  const snippet = content.slice(0, 1200);
+  const messages: ChatMessage[] = [
+    { role: 'system', content: SYSTEM_PERSONA },
+    {
+      role: 'user',
+      content: `Write a concise 2-3 sentence summary of this encyclopedia entry about "${topic}". Capture the most essential facts. No Markdown, no labels, plain prose only.\n\nEntry: ${snippet}`,
+    },
+  ];
+  try {
+    const result = await callWithFallback(messages);
+    return result.trim();
+  } catch {
+    return `A comprehensive entry about ${topic}.`;
   }
 }

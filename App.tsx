@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { streamDefinition, generateAsciiArt, AsciiArtData, getRandomWord } from './services/aiService';
+import { fetchKnowledgeContext } from './services/knowledgeService';
 import { initRateLimit, checkRateLimit, recordSearch, getRemainingSearches } from './services/rateLimitService';
 import ContentDisplay from './components/ContentDisplay';
 import SearchBar from './components/SearchBar';
@@ -15,12 +16,14 @@ import LandingPage from './components/LandingPage';
 import DidYouKnow from './components/DidYouKnow';
 import RelatedTopics from './components/RelatedTopics';
 import ErrorBoundary from './components/ErrorBoundary';
+import ResearchPanel from './components/ResearchPanel';
 // Starfield removed — replaced by static ASCII space art in LandingPage
 import { useToast } from './components/ToastContext';
 import { StartupAnimation } from './components/StartupAnimation';
 import { CantoDialog, CantoSlider } from './components/UIComponents';
 import {
-  dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory, dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites
+  dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
+  dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics
 } from './services/dbService';
 
 // A curated list of "banger" words and phrases for the random button.
@@ -81,6 +84,9 @@ const App: React.FC = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
+  // Research panel
+  const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
+  const [lastSources, setLastSources] = useState<{ wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -350,6 +356,11 @@ const App: React.FC = () => {
           if (!isCancelled) setAsciiArt(finalArt);
         });
 
+      // Fetch knowledge sources for Research Panel — fire and forget
+      fetchKnowledgeContext(currentTopic).then(ctx => {
+        if (!isCancelled) setLastSources(ctx);
+      }).catch(() => {});
+
       // Stream definition
       let accumulatedContent = '';
       try {
@@ -362,6 +373,8 @@ const App: React.FC = () => {
 
         // Save to cache on success
         if (!isCancelled && accumulatedContent.length > 50) {
+          const wordCount = accumulatedContent.split(/\s+/).filter(Boolean).length;
+          const tokenEstimate = Math.ceil(accumulatedContent.length / 4);
           setCache(prev => {
             const newCache = { 
               ...prev, 
@@ -378,6 +391,8 @@ const App: React.FC = () => {
             }
             try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
             dbSaveCache(currentTopic, accumulatedContent, finalArt);
+            dbSaveHistory(currentTopic, { wordCount, tokenEstimate });
+            dbRecordAnalytics(currentTopic, wordCount, tokenEstimate);
             return newCache;
           });
         }
@@ -567,6 +582,17 @@ const App: React.FC = () => {
               <button onClick={handleShare} className="nav-btn">
                 Share
               </button>
+
+              {currentPage === 'wiki' && content && (
+                <button
+                  onClick={() => setIsResearchPanelOpen(v => !v)}
+                  className="nav-btn"
+                  style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)' }}
+                  aria-label="Open research panel"
+                >
+                  ◈ Research
+                </button>
+              )}
             </div>
           </nav>
         )}
@@ -741,6 +767,16 @@ const App: React.FC = () => {
             }}
           />
         )}
+
+        {/* ── Research Panel ── */}
+        <ResearchPanel
+          topic={currentTopic}
+          content={content}
+          sources={lastSources}
+          onTopicClick={(t) => { navigateToTopic(t); setIsResearchPanelOpen(false); }}
+          isOpen={isResearchPanelOpen}
+          onClose={() => setIsResearchPanelOpen(false)}
+        />
       </div>
     </>
   );
