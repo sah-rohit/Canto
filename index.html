@@ -494,31 +494,20 @@
         opacity: 0.7;
       }
 
-      /* TTS range input styling */
-      input[type="range"] {
-        -webkit-appearance: none;
-        appearance: none;
-        height: 3px;
-        background: var(--border-color);
-        border-radius: 2px;
-        outline: none;
+      /* TTS player bar — push content up when active */
+      body.tts-active {
+        padding-bottom: 80px;
       }
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: var(--accent-color);
+
+      /* TTS range input — invisible overlay on custom track */
+      .tts-range-overlay {
+        position: absolute;
+        inset: -6px 0;
+        width: 100%;
+        height: 15px;
+        opacity: 0;
         cursor: pointer;
-        border: none;
-      }
-      input[type="range"]::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: var(--accent-color);
-        cursor: pointer;
-        border: none;
+        margin: 0;
       }
       
       .living-ascii {

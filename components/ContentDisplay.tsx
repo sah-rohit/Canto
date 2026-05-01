@@ -43,9 +43,6 @@ const InteractiveContent: React.FC<{
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
-  // Draggable TTS bar position
-  const [barPos, setBarPos] = useState<{ x: number; y: number } | null>(null);
-  const barDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -107,10 +104,15 @@ const InteractiveContent: React.FC<{
       // Stop Cloudflare TTS audio
       if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
       if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
+      document.body.classList.remove('tts-active');
     };
   }, []);
 
-  // Close download menu on outside click
+  // Push body down when TTS bar is visible so content isn't hidden behind it
+  useEffect(() => {
+    document.body.classList.toggle('tts-active', isSpeaking);
+  }, [isSpeaking]);
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (downloadRef.current && !downloadRef.current.contains(e.target as Node)) {
@@ -297,37 +299,6 @@ const InteractiveContent: React.FC<{
     setTtsVolume(vol);
     if (audioRef.current) audioRef.current.volume = vol;
   }, []);
-
-  // Draggable bar handlers
-  const onBarDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const orig = barPos ?? { x: window.innerWidth / 2 - 180, y: window.innerHeight - 120 };
-    barDragRef.current = { startX: clientX, startY: clientY, origX: orig.x, origY: orig.y };
-
-    const onMove = (ev: MouseEvent | TouchEvent) => {
-      if (!barDragRef.current) return;
-      const cx = 'touches' in ev ? (ev as TouchEvent).touches[0].clientX : (ev as MouseEvent).clientX;
-      const cy = 'touches' in ev ? (ev as TouchEvent).touches[0].clientY : (ev as MouseEvent).clientY;
-      const dx = cx - barDragRef.current.startX;
-      const dy = cy - barDragRef.current.startY;
-      setBarPos({
-        x: Math.max(0, Math.min(window.innerWidth - 360, barDragRef.current.origX + dx)),
-        y: Math.max(0, Math.min(window.innerHeight - 80, barDragRef.current.origY + dy)),
-      });
-    };
-    const onUp = () => {
-      barDragRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchend', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove, { passive: true });
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchend', onUp);
-  }, [barPos]);
 
   const handleShare = () => {
     const url = window.location.href;
@@ -631,109 +602,115 @@ const InteractiveContent: React.FC<{
             width: highlightBox.width + 6,
             height: highlightBox.height + 4,
             background: 'var(--accent-color)',
-            opacity: 0.18,
+            opacity: 0.15,
             borderRadius: '2px',
             pointerEvents: 'none',
             zIndex: 5,
-            transition: 'top 0.1s ease, left 0.1s ease, width 0.1s ease',
-            borderBottom: '1px solid var(--accent-color)',
+            transition: 'top 0.08s ease, left 0.08s ease, width 0.08s ease',
           }}
         />
       )}
 
-      {/* ── Floating TTS control bar ── */}
+      {/* ── TTS Player Bar — fixed at bottom of screen, full-width media player ── */}
       {isSpeaking && ttsWords.length > 0 && (
         <div
-          aria-label="TTS controls"
+          role="region"
+          aria-label="Text-to-speech player"
           style={{
             position: 'fixed',
-            left: barPos ? `${barPos.x}px` : '50%',
-            top: barPos ? `${barPos.y}px` : undefined,
-            bottom: barPos ? undefined : '2rem',
-            transform: barPos ? 'none' : 'translateX(-50%)',
-            width: '340px',
-            maxWidth: 'calc(100vw - 2rem)',
-            background: 'var(--bg-color)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '2px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            bottom: 0,
+            left: 0,
+            right: 0,
             zIndex: 9998,
+            background: 'var(--bg-color)',
+            borderTop: '1px solid var(--border-color)',
             fontFamily: 'monospace',
             fontSize: '0.82em',
             userSelect: 'none',
+            /* Safe area for iOS home bar */
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
         >
-          {/* Drag handle */}
-          <div
-            onMouseDown={onBarDragStart}
-            onTouchStart={onBarDragStart}
-            style={{
-              padding: '0.35rem 0.8rem',
-              borderBottom: '1px solid var(--border-color)',
-              cursor: 'grab',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              color: 'var(--text-muted)',
-              fontSize: '0.75em',
-              letterSpacing: '0.08em',
-            }}
-          >
-            <span>⠿ TTS</span>
-            <span style={{ color: 'var(--text-muted)' }}>{ttsWordIndex + 1} / {ttsWords.length}</span>
-          </div>
+          {/* Progress / timeline row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1rem 0' }}>
+            {/* Time elapsed */}
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.6rem', flexShrink: 0, textAlign: 'right' }}>
+              {ttsDuration > 0
+                ? `${Math.floor(ttsCurrentTime / 60)}:${String(Math.floor(ttsCurrentTime % 60)).padStart(2, '0')}`
+                : `${ttsWordIndex + 1}`}
+            </span>
 
-          {/* Current word display — fixed height so bar doesn't resize */}
-          <div style={{
-            padding: '0.45rem 0.8rem',
-            height: '2.2rem',
-            display: 'flex',
-            alignItems: 'center',
-            overflow: 'hidden',
-            borderBottom: '1px solid var(--border-color)',
-          }}>
-            <span style={{ color: 'var(--text-muted)', marginRight: '0.5rem', fontSize: '0.75em' }}>▶</span>
-            <span style={{
-              color: 'var(--accent-color)',
-              letterSpacing: '0.04em',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-            }}>
-              {ttsWords[ttsWordIndex] ?? ''}
+            {/* Scrubber — shows word progress when no audio duration, time when available */}
+            <div style={{ flex: 1, position: 'relative', height: '3px', background: 'var(--border-color)', borderRadius: '2px', cursor: ttsDuration > 0 ? 'pointer' : 'default' }}>
+              <div style={{
+                position: 'absolute', left: 0, top: 0, height: '100%',
+                width: ttsDuration > 0
+                  ? `${(ttsCurrentTime / ttsDuration) * 100}%`
+                  : `${((ttsWordIndex + 1) / Math.max(ttsWords.length, 1)) * 100}%`,
+                background: 'var(--accent-color)',
+                borderRadius: '2px',
+                transition: 'width 0.15s linear',
+              }} />
+              {ttsDuration > 0 && (
+                <input
+                  type="range"
+                  min={0}
+                  max={ttsDuration}
+                  step={0.5}
+                  value={ttsCurrentTime}
+                  onChange={e => seekAudio(parseFloat(e.target.value))}
+                  aria-label="Seek"
+                  style={{
+                    position: 'absolute', inset: '-6px 0',
+                    width: '100%', height: '15px',
+                    opacity: 0, cursor: 'pointer', margin: 0,
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Time total / word count */}
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.6rem', flexShrink: 0 }}>
+              {ttsDuration > 0
+                ? `${Math.floor(ttsDuration / 60)}:${String(Math.floor(ttsDuration % 60)).padStart(2, '0')}`
+                : `${ttsWords.length}w`}
             </span>
           </div>
 
-          {/* Timeline scrubber (only when audio duration is known) */}
-          {ttsDuration > 0 && (
-            <div style={{ padding: '0.4rem 0.8rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.8rem', flexShrink: 0 }}>
-                {Math.floor(ttsCurrentTime / 60)}:{String(Math.floor(ttsCurrentTime % 60)).padStart(2, '0')}
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={ttsDuration}
-                step={0.5}
-                value={ttsCurrentTime}
-                onChange={e => seekAudio(parseFloat(e.target.value))}
-                style={{ flex: 1, accentColor: 'var(--accent-color)', cursor: 'pointer', height: '3px' }}
-                aria-label="Seek audio"
-              />
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.8rem', textAlign: 'right', flexShrink: 0 }}>
-                {Math.floor(ttsDuration / 60)}:{String(Math.floor(ttsDuration % 60)).padStart(2, '0')}
-              </span>
-            </div>
-          )}
-
           {/* Controls row */}
-          <div style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {/* Play/Pause */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0', padding: '0.3rem 0.75rem 0.45rem' }}>
+            {/* Current word — fixed width, centered */}
+            <div style={{
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: 'var(--accent-color)',
+              fontSize: '0.85em',
+              letterSpacing: '0.03em',
+              paddingRight: '0.5rem',
+            }}>
+              <span style={{ color: 'var(--text-muted)', marginRight: '0.35rem', fontSize: '0.75em' }}>▶</span>
+              {ttsWords[ttsWordIndex] ?? ''}
+            </div>
+
+            {/* Play / Pause */}
             <button
               onClick={isPaused ? resumeTTS : pauseTTS}
-              style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '2px', padding: '0.25rem 0.6rem', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', flexShrink: 0 }}
               aria-label={isPaused ? 'Resume' : 'Pause'}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-color)',
+                borderRadius: '2px',
+                width: '2.2rem', height: '2.2rem',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '0.9em',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                marginRight: '0.4rem',
+              }}
             >
               {isPaused ? '▶' : '⏸'}
             </button>
@@ -741,24 +718,48 @@ const InteractiveContent: React.FC<{
             {/* Stop */}
             <button
               onClick={stopTTS}
-              style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', borderRadius: '2px', padding: '0.25rem 0.6rem', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', flexShrink: 0, textDecoration: 'underline' }}
-              aria-label="Stop TTS"
+              aria-label="Stop"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-muted)',
+                borderRadius: '2px',
+                width: '2.2rem', height: '2.2rem',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '0.85em',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                marginRight: '0.75rem',
+              }}
             >
-              Stop
+              ■
             </button>
 
-            {/* Volume */}
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.75em', flexShrink: 0 }}>🔊</span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={ttsVolume}
-              onChange={e => changeVolume(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: 'var(--accent-color)', cursor: 'pointer', height: '3px' }}
-              aria-label="Volume"
-            />
+            {/* Volume icon + slider */}
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', flexShrink: 0, marginRight: '0.3rem' }}>
+              {ttsVolume === 0 ? '🔇' : ttsVolume < 0.5 ? '🔉' : '🔊'}
+            </span>
+            <div style={{ width: '70px', position: 'relative', height: '3px', background: 'var(--border-color)', borderRadius: '2px', flexShrink: 0 }}>
+              <div style={{
+                position: 'absolute', left: 0, top: 0, height: '100%',
+                width: `${ttsVolume * 100}%`,
+                background: 'var(--text-muted)',
+                borderRadius: '2px',
+              }} />
+              <input
+                type="range"
+                min={0} max={1} step={0.05}
+                value={ttsVolume}
+                onChange={e => changeVolume(parseFloat(e.target.value))}
+                aria-label="Volume"
+                style={{
+                  position: 'absolute', inset: '-6px 0',
+                  width: '100%', height: '15px',
+                  opacity: 0, cursor: 'pointer', margin: 0,
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

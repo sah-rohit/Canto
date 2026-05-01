@@ -28,79 +28,81 @@
 
 ---
 
-**Canto** is an open-source, AI-powered encyclopedia that generates comprehensive, fact-checked articles on any topic in real time. Unlike traditional wikis with static pages, Canto pulls from multiple verified knowledge sources and uses a cascading AI fallback chain to synthesize rich, engaging entries — complete with ASCII art, interactive cross-references, tables, and kinetic typography.
+**Canto** is an open-source, AI-powered encyclopedia that generates comprehensive, fact-checked articles on any topic in real time. It pulls from 5 verified knowledge sources, uses a 7-provider AI fallback chain, and renders rich entries with ASCII art, interactive cross-references, kinetic typography, and full TTS playback.
 
 ## 🖼️ Screenshots
 
 <div align="center">
   <img src="screenshots/Screenshot (562).png" width="800" alt="Canto Landing Page" />
-  <br/>
-  <em>Aesthetic ASCII Space Landing Page</em>
-  <br/><br/>
+  <br/><em>Aesthetic ASCII Space Landing Page</em><br/><br/>
   <img src="screenshots/Screenshot (563).png" width="800" alt="Canto Article View" />
-  <br/>
-  <em>Infinite AI-Generated Article with ASCII Representation</em>
-  <br/><br/>
+  <br/><em>Infinite AI-Generated Article with ASCII Representation</em><br/><br/>
   <img src="screenshots/Screenshot (564).png" width="800" alt="Canto Local Library" />
-  <br/>
-  <em>Personalized Local Library & Favorites</em>
+  <br/><em>Personalized Local Library & Favorites</em>
 </div>
 
 ## ✨ Features
 
-- 🧠 **7-Provider AI Fallback Chain** — Groq → GitHub DeepSeek V3 → GitHub Grok mini 3 → Cloudflare Gemini Flash Lite → Cloudflare GPT-4.1 mini → Ollama Qwen3 Next 80B → Ollama Nemotron 3 Nano 30B, with automatic failover
-- 📚 **Knowledge-Enriched Articles** — Every article is grounded by Wikipedia, NASA, Internet Archive, and CORE Academic databases before AI generation
-- 🎨 **ASCII Art Generation** — AI-generated visual representations for every topic, with robust JSON extraction and fallback
-- 🕒 **Rate Limit Timer** — Live countdown showing exactly when your daily credits reset
-- 📖 **Reading Mode** — Distraction-free, centered interface for deep reading
-- 📏 **Dynamic Font Scaling** — Custom slider (80–150%) for personalized accessibility
-- 📂 **Local Library** — Instant access to your search history and starred favorites (no cloud storage, fully private)
-- 📥 **Download & Export** — Save articles as `.TXT` or print-to-`.PDF`
-- 🔊 **Text-to-Speech** — Cloudflare MeloTTS 1.5 Max as primary engine, browser TTS as automatic fallback
-- 🔗 **Shareable Links** — Share any article via a base64-encoded URL (viewable for free)
-- 🔒 **IP-Based Rate Limiting** — Server-side abuse prevention (15 searches/day per IP, cross-browser)
-- 🎭 **4 Rich Themes** — Classic, Obsidian, Dark Neon, and Vintage
-- 📱 **Progressive Web App** — Installable on mobile and desktop with offline caching
-- ⚡ **Streaming Responses** — Content streams token-by-token for instant feedback
-- 🗄️ **IndexedDB Caching** — Articles cached locally for instant re-reads without using credits
+| Category | Feature |
+|---|---|
+| 🧠 **AI** | 7-provider fallback chain — Groq → GitHub DeepSeek V3 → GitHub Grok mini 3 → CF Gemini Flash → CF Llama 3.3 70B → Ollama Qwen3 80B → Ollama Nemotron 30B |
+| 📚 **Knowledge** | Wikipedia, NASA, CORE Academic, Open Library, Jina/DuckDuckGo web search — all fetched in parallel before generation |
+| 🎨 **ASCII Art** | AI-generated recognizable visual art for every topic |
+| 🔊 **TTS** | Cloudflare MeloTTS 1.5 Max primary + browser fallback; fixed player bar with timeline, seek, volume, pause/resume |
+| ◈ **Research** | Inline panel: AI follow-ups, source citations, full-text search, folders, starred entries, 7-day analytics |
+| ⚡ **Streaming** | Token-by-token SSE streaming with smooth CSS fade-in animation |
+| 📖 **Reading** | Distraction-free reading mode, font size slider (80–150%) |
+| 🗄️ **Storage** | IndexedDB v3: cache, history, favorites, folders, analytics — all local, no cloud |
+| 🔗 **Sharing** | Base64-encoded shareable article URLs |
+| 🔒 **Security** | Server-side API proxy, IP-based rate limiting (15/day), no client key exposure |
+| 🎭 **Themes** | Classic, Obsidian, Dark Neon, Vintage |
+| 📱 **PWA** | Installable on mobile and desktop, offline caching via service worker |
+| 🔔 **Sound** | Optional Web Audio API sound effects (search complete, word click, TTS start/stop) |
 
 ## 🤖 AI Provider Chain
 
-Canto uses a cascading fallback system — if one provider is unavailable or rate-limited, the next one is tried automatically:
-
-| Priority | Provider | Model | Key |
+| Priority | Provider | Model | Key Variable |
 |---|---|---|---|
 | 1 | **Groq** | `llama-3.1-8b-instant` | `GROQ_API_KEY` |
 | 2 | **GitHub Models** | `DeepSeek-V3` | `GITHUB_DEEPSEEK_KEY` |
 | 3 | **GitHub Models** | `grok-3-mini` | `GITHUB_GROK_KEY` |
-| 4 | **Cloudflare Workers AI** | `google/gemini-3.1-flash-lite` | `CF_ACCOUNT_1_TOKEN` |
-| 5 | **Cloudflare Workers AI** | `openai/gpt-4.1-mini` | `CF_ACCOUNT_2_TOKEN` |
+| 4 | **Cloudflare Workers AI** | `@cf/google/gemini-flash-1.5` | `CF_ACCOUNT_1_TOKEN` |
+| 5 | **Cloudflare Workers AI** | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | `CF_ACCOUNT_2_TOKEN` |
 | 6 | **Ollama Cloud** | `qwen3-next:80b-cloud` | `OLLAMA_DEEPSEEK_KEY` |
 | 7 | **Ollama Cloud** | `nemotron-3-nano:30b-cloud` | `OLLAMA_KIMI_KEY` |
 
-All requests are proxied server-side — no API keys are ever exposed to the client bundle.
-
-## 🔊 Text-to-Speech
-
-TTS uses **Cloudflare Workers AI `@cf/myshell-ai/melotts-1.5-max`** as the primary engine, with browser `speechSynthesis` as automatic fallback if Cloudflare TTS fails or is unconfigured.
+All requests are proxied server-side — API keys are never exposed to the client bundle.
 
 ## 📡 Knowledge Sources
 
-Before generating any article, Canto fetches real-world context from multiple sources in parallel:
+Fetched in parallel before every AI generation:
 
 | Source | Data | Auth |
 |---|---|---|
-| **Wikipedia** | Article summaries (up to 1500 chars) | None required |
+| **Wikipedia REST API** | Article summaries (≤1500 chars), citation-stripped | None |
 | **NASA Images API** | Space & science image descriptions | Free key |
-| **CORE Academic** | Open-access paper abstracts | Free key |
-| **Open Library / Internet Archive** | Related book titles and authors | None required |
-| **Web Crawler (Jina + DuckDuckGo)** | Live search snippets | None required |
+| **CORE Academic** | Open-access paper abstracts (LaTeX-stripped) | Free key |
+| **Open Library / Internet Archive** | Related book titles and authors | None |
+| **Jina AI + DuckDuckGo** | Live web search snippets (boilerplate-filtered) | None |
+
+## 🔊 TTS Player
+
+- **Primary:** Cloudflare Workers AI `@cf/myshell-ai/melotts-1.5-max`
+- **Fallback:** Browser `speechSynthesis` with `onboundary` word tracking
+- **Player bar:** `position: fixed; bottom: 0` — always visible at browser bottom while scrolling
+  - Progress track with animated fill
+  - Seek scrubber (when CF audio duration is known)
+  - `MM:SS` timestamps or word count
+  - ⏸ Pause / ▶ Resume / ■ Stop
+  - Volume slider
+  - Word-by-word highlight overlay in article text
+  - `body.tts-active` adds `padding-bottom: 80px` so content isn't hidden
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  CLIENT (React + Vite)                   │
+│                  CLIENT (React 18 + Vite)                │
 │                                                          │
 │  SearchBar ──► knowledgeService ──► aiService            │
 │                     │                    │               │
@@ -112,161 +114,126 @@ Before generating any article, Canto fetches real-world context from multiple so
 ┌─────────────────────▼────────────────────▼──────────────┐
 │           SERVER (Vite Dev / Cloudflare Pages)           │
 │                                                          │
-│  Knowledge Aggregation          AI Provider Proxy        │
-│  ┌──────────┐ ┌──────┐         ┌──────────────────────┐ │
-│  │Wikipedia │ │ NASA │         │ 1. Groq (Llama 3.1)  │ │
-│  ├──────────┤ ├──────┤         │ 2. GitHub DeepSeek V3│ │
-│  │  CORE    │ │ Jina │         │ 3. GitHub Grok mini 3│ │
-│  ├──────────┤ └──────┘         │ 4. CF Gemini Flash   │ │
-│  │Open Lib. │                  │ 5. CF GPT-4.1 mini   │ │
-│  └──────────┘                  │ 6. Ollama Qwen3 80B  │ │
-│                                │ 7. Ollama Nemotron   │ │
-│  TTS Proxy                     └──────────────────────┘ │
-│  ┌──────────────────────────┐                            │
-│  │ CF MeloTTS 1.5 Max       │                            │
-│  │ → browser TTS (fallback) │                            │
-│  └──────────────────────────┘                            │
+│  Knowledge (parallel)       AI Provider Cascade          │
+│  ┌──────────┐ ┌──────┐     ┌──────────────────────────┐ │
+│  │Wikipedia │ │ NASA │     │ 1. Groq Llama 3.1 8B     │ │
+│  ├──────────┤ ├──────┤     │ 2. GitHub DeepSeek V3    │ │
+│  │  CORE    │ │ Jina │     │ 3. GitHub Grok mini 3    │ │
+│  ├──────────┤ └──────┘     │ 4. CF Gemini Flash 1.5   │ │
+│  │Open Lib. │              │ 5. CF Llama 3.3 70B      │ │
+│  └──────────┘              │ 6. Ollama Qwen3 80B      │ │
+│                            │ 7. Ollama Nemotron 30B   │ │
+│  TTS                       └──────────────────────────┘ │
+│  CF MeloTTS → browser fallback                           │
 │                                                          │
-│  /api/rate-limit  — IP-keyed, 15 searches/day            │
-│  Security Headers — XSS, Frame, CORS, Referrer           │
+│  /api/rate-limit — IP-keyed, 15/day                      │
+│  Security headers — XSS, Frame, CORS, Referrer           │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) 18+
-- npm or yarn
-
-### Setup
-
 ```bash
-# Clone the repository
 git clone https://github.com/sah-rohit/Canto.git
 cd Canto
-
-# Install dependencies
 npm install
-
-# Copy the environment template and fill in your API keys
-cp .env.example .env
-
-# Start the development server
-npm run dev
+cp .env.example .env   # fill in your API keys
+npm run dev            # → http://localhost:3000
 ```
 
-The app will be available at `http://localhost:3000`.
-
-### Production Build
-
 ```bash
-npm run build
-npm run preview
+npm run build && npm run preview   # production build
 ```
 
 ## 🔑 API Keys
 
-All keys go in `.env` (never committed). See [`.env.example`](.env.example) for the full template.
-
-| Variable | Service | Purpose | Get Key |
+| Variable | Service | Purpose | Free? |
 |---|---|---|---|
-| `GROQ_API_KEY` | [Groq](https://console.groq.com) | Primary AI (Llama 3.1 8B) | [console.groq.com](https://console.groq.com) |
-| `GITHUB_DEEPSEEK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback (DeepSeek V3) | [github.com/marketplace/models](https://github.com/marketplace/models) |
-| `GITHUB_GROK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback (Grok mini 3) | [github.com/marketplace/models](https://github.com/marketplace/models) |
-| `CF_ACCOUNT_1_ID` | [Cloudflare](https://dash.cloudflare.com) | Account ID for AI + TTS | [dash.cloudflare.com](https://dash.cloudflare.com) |
-| `CF_ACCOUNT_1_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (Gemini Flash Lite) | [dash.cloudflare.com](https://dash.cloudflare.com) |
-| `CF_TTS_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | TTS (MeloTTS 1.5 Max) | [dash.cloudflare.com](https://dash.cloudflare.com) |
-| `CF_ACCOUNT_2_ID` | [Cloudflare](https://dash.cloudflare.com) | Account ID for GPT-4.1 mini | [dash.cloudflare.com](https://dash.cloudflare.com) |
-| `CF_ACCOUNT_2_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (GPT-4.1 mini) | [dash.cloudflare.com](https://dash.cloudflare.com) |
-| `OLLAMA_DEEPSEEK_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Qwen3 Next 80B) | [ollama.com](https://ollama.com) |
-| `OLLAMA_KIMI_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Nemotron 3 Nano 30B) | [ollama.com](https://ollama.com) |
-| `NASA_API_KEY` | [NASA](https://api.nasa.gov) | Space & science context | [api.nasa.gov](https://api.nasa.gov) |
-| `CORE_API_KEY` | [CORE](https://core.ac.uk/services/api) | Academic paper context | [core.ac.uk](https://core.ac.uk/services/api) |
+| `GROQ_API_KEY` | [Groq](https://console.groq.com) | Primary AI | ✅ |
+| `GITHUB_DEEPSEEK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback | ✅ |
+| `GITHUB_GROK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback | ✅ |
+| `CF_ACCOUNT_1_ID` | [Cloudflare](https://dash.cloudflare.com) | CF account 1 | ✅ |
+| `CF_ACCOUNT_1_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (Gemini Flash) | ✅ |
+| `CF_TTS_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | MeloTTS 1.5 Max | ✅ |
+| `CF_ACCOUNT_2_ID` | [Cloudflare](https://dash.cloudflare.com) | CF account 2 | ✅ |
+| `CF_ACCOUNT_2_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (Llama 3.3 70B) | ✅ |
+| `OLLAMA_DEEPSEEK_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Qwen3 80B) | Paid |
+| `OLLAMA_KIMI_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Nemotron 30B) | Paid |
+| `NASA_API_KEY` | [NASA](https://api.nasa.gov) | Knowledge context | ✅ |
+| `CORE_API_KEY` | [CORE](https://core.ac.uk/services/api) | Academic context | ✅ |
 
-Wikipedia, Open Library, and Internet Archive are used without authentication.
+Wikipedia, Open Library, Internet Archive, Jina AI, and DuckDuckGo require no authentication.
 
 ## 📁 Project Structure
 
 ```
 Canto/
-├── index.html              # Entry point, CSS variables, theme definitions
-├── index.tsx               # React bootstrapping
-├── App.tsx                 # Root component — routing, state, nav
-├── index.css               # (reserved for additional global styles)
+├── index.html                    # CSS variables, themes, animations, responsive styles
+├── index.tsx                     # React entry point
+├── App.tsx                       # Root — routing, state, nav, wiki layout
 ├── components/
-│   ├── LandingPage.tsx     # Homepage with animated ASCII space art
-│   ├── ContentDisplay.tsx  # Article renderer (Markdown, TTS, download, share)
-│   ├── AsciiArtDisplay.tsx # ASCII art viewer with interactive characters
-│   ├── SearchBar.tsx       # Search input with autocomplete suggestions
-│   ├── LoadingSkeleton.tsx # Streaming placeholder UI
-│   ├── StaticPage.tsx      # About, FAQ, Privacy, Terms, Pricing, Open Source
-│   ├── DidYouKnow.tsx      # Surprising fact widget per topic
-│   ├── RelatedTopics.tsx   # AI-generated related topic suggestions
-│   ├── StartupAnimation.tsx# Boot sequence animation
-│   ├── ErrorBoundary.tsx   # React error boundary
-│   ├── MoonAscii.tsx       # Decorative ASCII moon component
-│   ├── ToastContext.tsx     # Global toast notification system
-│   └── UIComponents.tsx    # CantoDialog, CantoSlider, CantoNotification
+│   ├── ContentDisplay.tsx        # Article renderer, TTS player, word highlighting
+│   ├── ResearchPanel.tsx         # Inline research: follow-ups, sources, search, library, analytics
+│   ├── LandingPage.tsx           # Homepage with ASCII space art
+│   ├── SearchBar.tsx             # Search input with autocomplete
+│   ├── AsciiArtDisplay.tsx       # ASCII art viewer
+│   ├── LoadingSkeleton.tsx       # Animated loading state
+│   ├── StaticPage.tsx            # About, FAQ, Pricing, Privacy, Terms, Open Source, Library
+│   ├── DidYouKnow.tsx            # Fact widget
+│   ├── RelatedTopics.tsx         # AI-suggested related topics
+│   ├── StartupAnimation.tsx      # Boot sequence
+│   ├── ErrorBoundary.tsx         # React error boundary
+│   ├── ToastContext.tsx           # Global notifications
+│   └── UIComponents.tsx          # CantoDialog, CantoSlider, CantoNotification
 ├── services/
-│   ├── aiService.ts        # 5-provider AI fallback chain + streaming
-│   ├── knowledgeService.ts # Multi-source knowledge context fetcher
-│   ├── rateLimitService.ts # Hybrid IP + client-side rate limiting
-│   ├── dbService.ts        # IndexedDB cache, history, favorites
-│   └── geminiService.ts    # Legacy Gemini service (unused in production)
-├── functions/
-│   └── api/
-│       ├── ai.ts           # Cloudflare Pages AI proxy function
-│       ├── knowledge.ts    # Cloudflare Pages knowledge aggregator
-│       ├── rate-limit.ts   # Cloudflare Pages rate limit checker
-│       └── rate-limit-record.ts # Cloudflare Pages rate limit recorder
+│   ├── aiService.ts              # 7-provider AI chain, TTS, follow-ups, summaries
+│   ├── knowledgeService.ts       # Multi-source context fetcher + sanitiser
+│   ├── dbService.ts              # IndexedDB v3: cache, history, folders, analytics
+│   ├── rateLimitService.ts       # Hybrid IP + client rate limiting
+│   ├── soundService.ts           # Web Audio API sound effects
+│   └── geminiService.ts          # Legacy (unused in production)
+├── functions/api/
+│   ├── ai.ts                     # Cloudflare Pages AI proxy (all 7 providers)
+│   ├── tts.ts                    # Cloudflare Pages TTS proxy
+│   ├── knowledge.ts              # Cloudflare Pages knowledge aggregator
+│   ├── rate-limit.ts             # CF rate limit checker
+│   └── rate-limit-record.ts      # CF rate limit recorder
 ├── public/
-│   ├── manifest.json       # PWA manifest
-│   ├── sw.js               # Service worker for offline caching
-│   └── canto-icon.svg      # App icon
-├── vite.config.ts          # Dev server middleware (API proxy, rate limiting)
-├── .env.example            # API key template
-├── LICENSE                 # Apache 2.0
-└── README.md               # You are here
+│   ├── manifest.json             # PWA manifest
+│   ├── sw.js                     # Service worker
+│   └── canto-icon.svg            # App icon
+├── vite.config.ts                # Dev server middleware (all API routes)
+├── .env.example                  # Key template
+└── LICENSE                       # Apache 2.0
 ```
 
 ## 🔒 Security
 
-- **No client-side key exposure** — All API keys live in server-side middleware only; the client bundle receives `SERVER_SIDE_ONLY` as a placeholder
-- **IP-based rate limiting** — 15 searches/day per IP address, tracked server-side across all browsers
-- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy` on every response
-- **`.env` gitignored** — Secrets are never committed to version control
-- **No tracking** — No cookies, no analytics, no PII collection of any kind
+- **No client-side key exposure** — all keys in server-side middleware; client bundle gets `'SERVER_SIDE_ONLY'`
+- **IP-based rate limiting** — 15 searches/day per IP, tracked in-memory server-side across all browsers
+- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`
+- **`.env` gitignored** — secrets never committed
+- **No tracking** — no cookies, no analytics, no PII collection
 
 ## 🤝 Contributing
 
-Contributions are welcome. Here's how:
+1. Fork → `git checkout -b feature/my-feature`
+2. Commit → `git commit -m 'Add my feature'`
+3. Push → `git push origin feature/my-feature`
+4. Open a Pull Request
 
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/my-feature`)
-3. **Commit** your changes (`git commit -m 'Add my feature'`)
-4. **Push** to the branch (`git push origin feature/my-feature`)
-5. **Open** a Pull Request
-
-Areas where contributions are especially useful:
-
-- 🐛 Bug fixes and edge case handling
-- ✨ New knowledge sources or AI providers
-- 🎨 New themes or UI enhancements
-- 📖 Documentation improvements
-- 🌍 Internationalization (i18n)
-- ⚡ Performance and caching improvements
+Good areas: new AI providers, new knowledge sources, themes, i18n, performance.
 
 ## 📄 License
 
-Licensed under the **Apache License 2.0** — see the [LICENSE](LICENSE) file for details.
+**Apache License 2.0** — see [LICENSE](LICENSE).
 
 ## 🙏 Acknowledgments
 
 - [Groq](https://groq.com) — Ultra-fast LLM inference
-- [GitHub Models](https://github.com/marketplace/models) — DeepSeek V3 and Grok mini 3 access
-- [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) — Gemini Flash Lite, GPT-4.1 mini, and MeloTTS
-- [Ollama](https://ollama.com) — Cloud-hosted open models (Qwen3, Nemotron)
+- [GitHub Models](https://github.com/marketplace/models) — DeepSeek V3 and Grok mini 3
+- [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) — Gemini Flash, Llama 3.3, MeloTTS
+- [Ollama](https://ollama.com) — Qwen3 Next 80B and Nemotron 3 Nano 30B
 - [Wikipedia](https://wikipedia.org) — The world's encyclopedia
 - [NASA](https://nasa.gov) — Space and science data
 - [CORE](https://core.ac.uk) — Open access academic research

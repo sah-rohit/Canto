@@ -582,17 +582,6 @@ const App: React.FC = () => {
               <button onClick={handleShare} className="nav-btn">
                 Share
               </button>
-
-              {currentPage === 'wiki' && content && (
-                <button
-                  onClick={() => setIsResearchPanelOpen(v => !v)}
-                  className="nav-btn"
-                  style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)' }}
-                  aria-label="Open research panel"
-                >
-                  ◈ Research
-                </button>
-              )}
             </div>
           </nav>
         )}
@@ -649,7 +638,42 @@ const App: React.FC = () => {
                     <div style={{ width: '110px' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
                     </div>
+                    {/* Research toggle — in the controls row so it's always visible at top */}
+                    {content && (
+                      <button
+                        onClick={() => setIsResearchPanelOpen(v => !v)}
+                        style={{
+                          background: 'transparent',
+                          border: `1px solid ${isResearchPanelOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
+                          color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)',
+                          borderRadius: '2px',
+                          padding: '0.3rem 0.7rem',
+                          cursor: 'pointer',
+                          fontFamily: 'monospace',
+                          fontSize: '0.75em',
+                          minHeight: '2rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          transition: 'color 0.15s, border-color 0.15s',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.8em' }}>{isResearchPanelOpen ? '▼' : '▶'}</span>
+                        ◈ Research
+                      </button>
+                    )}
                   </div>
+
+                  {/* Research panel — directly below controls, above article content */}
+                  {content && (
+                    <ResearchPanel
+                      topic={currentTopic}
+                      content={content}
+                      sources={lastSources}
+                      onTopicClick={handleWordClick}
+                      isOpen={isResearchPanelOpen}
+                    />
+                  )}
                   {!isLoading && !error && content.length > 0 && (
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                       <button 
@@ -768,15 +792,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* ── Research Panel ── */}
-        <ResearchPanel
-          topic={currentTopic}
-          content={content}
-          sources={lastSources}
-          onTopicClick={(t) => { navigateToTopic(t); setIsResearchPanelOpen(false); }}
-          isOpen={isResearchPanelOpen}
-          onClose={() => setIsResearchPanelOpen(false)}
-        />
       </div>
     </>
   );
