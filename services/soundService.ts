@@ -56,13 +56,4 @@ export function playError(): void {
   playTone(220, 0.18, 'sawtooth', 0.08);
 }
 
-/** TTS start */
-export function playTTSStart(): void {
-  playTone(660, 0.08, 'sine', 0.08);
-  setTimeout(() => playTone(880, 0.08, 'sine', 0.06), 80);
-}
 
-/** TTS stop */
-export function playTTSStop(): void {
-  playTone(440, 0.1, 'sine', 0.07);
-}

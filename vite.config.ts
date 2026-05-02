@@ -357,60 +357,7 @@ export default defineConfig(({ mode }) => {
               res.end(JSON.stringify(results));
             });
 
-            // ═══════════════════════════════════════════════════════════════════
-            //  /api/tts — Cloudflare TTS (melotts-1.5-max) proxy
-            // ═══════════════════════════════════════════════════════════════════
-            server.middlewares.use('/api/tts', async (req, res) => {
-              if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
-              if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
-              setCors(res);
 
-              const body = await readBody(req);
-              let text = '';
-              try { text = JSON.parse(body).text; } catch { res.statusCode = 400; res.end('Invalid JSON'); return; }
-              if (!text) { res.statusCode = 400; res.end('Missing text'); return; }
-
-              const cfAccountId = env.CF_ACCOUNT_1_ID;
-              const cfToken     = env.CF_TTS_TOKEN;
-
-              if (!cfAccountId || !cfToken) {
-                res.statusCode = 503;
-                res.end(JSON.stringify({ error: 'Cloudflare TTS not configured' }));
-                return;
-              }
-
-              try {
-                const cfRes = await fetch(
-                  `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/myshell-ai/melotts-1.5-max`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${cfToken}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ input_text: text }),
-                  }
-                );
-
-                if (!cfRes.ok) {
-                  const errText = await cfRes.text();
-                  console.error('[TTS] Cloudflare error:', cfRes.status, errText);
-                  res.statusCode = cfRes.status;
-                  res.end(errText);
-                  return;
-                }
-
-                // Cloudflare TTS returns audio/mpeg binary
-                const audioBuffer = await cfRes.arrayBuffer();
-                res.setHeader('Content-Type', 'audio/mpeg');
-                res.setHeader('Content-Length', audioBuffer.byteLength.toString());
-                res.end(Buffer.from(audioBuffer));
-              } catch (err: any) {
-                console.error('[TTS] Fatal error:', err.message);
-                res.statusCode = 500;
-                res.end(JSON.stringify({ error: err.message }));
-              }
-            });
 
             // ═══════════════════════════════════════════════════════════════════
             //  /api/ai — AI provider proxy (Groq, Ollama, HuggingFace, Gemini)

@@ -6,8 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { cloudflareTextToSpeech } from '../services/aiService';
-import { playSearchComplete, playWordClick, playTTSStart, playTTSStop, isSoundEnabled, setSoundEnabled } from '../services/soundService';
+import { playSearchComplete, playWordClick, isSoundEnabled, setSoundEnabled } from '../services/soundService';
 
 interface ContentDisplayProps {
   content: string;
@@ -31,37 +30,27 @@ const InteractiveContent: React.FC<{
   isReadingMode?: boolean;
 }> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
-  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
   const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
-  const [ttsWordIndex, setTtsWordIndex] = useState<number>(-1);
-  const [ttsWords, setTtsWords] = useState<string[]>([]);
-  const [ttsDuration, setTtsDuration] = useState<number>(0);
-  const [ttsCurrentTime, setTtsCurrentTime] = useState<number>(0);
-  const [ttsVolume, setTtsVolume] = useState<number>(1);
-  const [ttsResumeIndex, setTtsResumeIndex] = useState<number>(0);
-  const [highlightBox, setHighlightBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const wordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const wordSpanRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+
+  const wordCounter = useRef(0);
 
   const handleSelection = (e: React.MouseEvent) => {
     const selection = window.getSelection();
     if (!selection) return;
     const text = selection.toString().trim();
     if (text && text.length > 2) {
-      setSelectedText(text);
-      // Clamp popup position so it stays within viewport
       const vw = window.innerWidth;
       const x = Math.min(Math.max(e.clientX, 80), vw - 80);
       setPopupPos({ x, y: e.clientY - 48 });
+      setSelectedText(text);
     } else {
       setPopupPos(null);
     }
@@ -71,43 +60,12 @@ const InteractiveContent: React.FC<{
     if (isStreaming && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-    // Play completion sound when streaming finishes
     if (!isStreaming && content.length > 100) {
       playSearchComplete();
     }
   }, [isStreaming]);
 
-  // Update highlight box position when the active TTS word changes
-  useEffect(() => {
-    if (ttsWordIndex < 0) {
-      setHighlightBox(null);
-      return;
-    }
-    const span = wordSpanRefs.current.get(ttsWordIndex);
-    if (!span || !contentRef.current) { setHighlightBox(null); return; }
-    const spanRect = span.getBoundingClientRect();
-    const containerRect = contentRef.current.getBoundingClientRect();
-    setHighlightBox({
-      top: spanRect.top - containerRect.top + contentRef.current.scrollTop,
-      left: spanRect.left - containerRect.left,
-      width: spanRect.width,
-      height: spanRect.height,
-    });
-  }, [ttsWordIndex]);
 
-  useEffect(() => {
-    return () => {
-      // Stop browser TTS
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-      // Stop Cloudflare TTS audio
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ''; audioRef.current = null; }
-      if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
-      if (playTimerRef.current) clearInterval(playTimerRef.current);
-      document.body.classList.remove('tts-active');
-    };
-  }, []);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -119,16 +77,14 @@ const InteractiveContent: React.FC<{
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Strip markdown for plain text export
   const getPlainText = (): string => {
     return content
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // links
-      .replace(/[*_~`]/g, '')                     // formatting
-      .replace(/```ascii\n?/g, '')                // ascii blocks
-      .replace(/```\n?/g, '');                    // code blocks
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[*_~`]/g, '')
+      .replace(/```ascii\n?/g, '')
+      .replace(/```\n?/g, '');
   };
 
-  // Fallback copy using execCommand for browsers without Clipboard API
   const fallbackCopy = (text: string) => {
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -159,172 +115,7 @@ const InteractiveContent: React.FC<{
     }
   };
 
-  const stopTTS = useCallback(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current = null;
-    }
-    if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
-    if (playTimerRef.current) clearInterval(playTimerRef.current);
-    playTTSStop();
-    setIsSpeaking(false);
-    setIsPaused(false);
-    setTtsWordIndex(-1);
-    setTtsWords([]);
-    setTtsDuration(0);
-    setTtsCurrentTime(0);
-    setTtsResumeIndex(0);
-    setHighlightBox(null);
-    wordSpanRefs.current.clear();
-  }, []);
 
-  const pauseTTS = useCallback(() => {
-    if (audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-      if (wordTimerRef.current) clearTimeout(wordTimerRef.current);
-      if (playTimerRef.current) clearInterval(playTimerRef.current);
-      setIsPaused(true);
-    } else if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking) {
-      window.speechSynthesis.pause();
-      if (playTimerRef.current) clearInterval(playTimerRef.current);
-      setIsPaused(true);
-    }
-  }, []);
-
-  const resumeTTS = useCallback(() => {
-    if (audioRef.current && audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
-      setIsPaused(false);
-    } else if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-      setIsPaused(false);
-    }
-  }, []);
-
-  const handleTTS = useCallback(async () => {
-    if (isSpeaking && !isPaused) { pauseTTS(); return; }
-    if (isSpeaking && isPaused) { resumeTTS(); return; }
-
-    const plainText = getPlainText();
-    const words: string[] = [];
-    const wordStarts: number[] = [];
-
-    const wordRegex = /[a-zA-Z0-9]+/g;
-    let m;
-    while ((m = wordRegex.exec(plainText)) !== null) {
-      words.push(m[0]);
-      wordStarts.push(m.index);
-    }
-    setTtsWords(words);
-    wordSpanRefs.current.clear();
-    setIsSpeaking(true);
-    setIsPaused(false);
-    setTtsWordIndex(0);
-    setTtsResumeIndex(0);
-    playTTSStart();
-
-    // ── Try Cloudflare TTS first ──────────────────────────────────
-    try {
-      const audioBuffer = await cloudflareTextToSpeech(plainText);
-      if (audioBuffer) {
-        const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.volume = ttsVolume;
-        audioRef.current = audio;
-
-        audio.onloadedmetadata = () => {
-          const dur = audio.duration;
-          setTtsDuration(dur);
-
-          // Pacing timing lookup based on characters
-          const totalChars = words.reduce((sum, w) => sum + w.length, 0);
-          let currentMs = 0;
-          const wordStartTimesMs = words.map((w) => {
-            const startTime = currentMs;
-            const wordDurationMs = totalChars > 0 ? (w.length / totalChars) * (dur * 1000) : 300;
-            currentMs += wordDurationMs;
-            return startTime;
-          });
-
-          if (playTimerRef.current) clearInterval(playTimerRef.current);
-          playTimerRef.current = setInterval(() => {
-            if (audioRef.current && !audioRef.current.paused) {
-              const audioMs = audioRef.current.currentTime * 1000;
-              setTtsCurrentTime(audioRef.current.currentTime);
-
-              let matchedWordIdx = 0;
-              for (let i = 0; i < wordStartTimesMs.length; i++) {
-                if (wordStartTimesMs[i] <= audioMs) {
-                  matchedWordIdx = i;
-                } else {
-                  break;
-                }
-              }
-              setTtsWordIndex(matchedWordIdx);
-              setTtsResumeIndex(matchedWordIdx);
-            }
-          }, 50);
-        };
-
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          stopTTS();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(url);
-          stopTTS();
-        };
-        await audio.play();
-        return;
-      }
-    } catch {
-      // fall through to browser TTS
-    }
-
-    // ── Browser speechSynthesis fallback ─────────────────────────
-    if (typeof window === 'undefined' || !window.speechSynthesis) { stopTTS(); return; }
-    const utterance = new SpeechSynthesisUtterance(plainText);
-    utterance.volume = ttsVolume;
-    utterance.onboundary = (e) => {
-      if (e.name !== 'word') return;
-      let matchedWordIdx = 0;
-      for (let i = 0; i < wordStarts.length; i++) {
-        if (wordStarts[i] <= e.charIndex) {
-          matchedWordIdx = i;
-        } else {
-          break;
-        }
-      }
-      setTtsWordIndex(matchedWordIdx);
-      setTtsResumeIndex(matchedWordIdx);
-    };
-    utterance.onend = () => stopTTS();
-    utterance.onerror = () => stopTTS();
-    window.speechSynthesis.speak(utterance);
-  }, [isSpeaking, isPaused, ttsVolume, pauseTTS, resumeTTS, stopTTS]);
-
-  // Seek audio to a specific time
-  const seekAudio = useCallback((time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setTtsCurrentTime(time);
-      if (ttsDuration > 0 && ttsWords.length > 0) {
-        const idx = Math.floor((time / ttsDuration) * ttsWords.length);
-        setTtsWordIndex(Math.min(idx, ttsWords.length - 1));
-      }
-    }
-  }, [ttsDuration, ttsWords]);
-
-  // Volume change
-  const changeVolume = useCallback((vol: number) => {
-    setTtsVolume(vol);
-    if (audioRef.current) audioRef.current.volume = vol;
-  }, []);
 
   const handleShare = () => {
     const url = window.location.href;
@@ -333,16 +124,7 @@ const InteractiveContent: React.FC<{
     } else if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).catch(() => {});
     } else {
-      // Fallback for browsers without Clipboard API
-      const input = document.createElement('input');
-      input.value = url;
-      input.style.position = 'fixed';
-      input.style.opacity = '0';
-      document.body.appendChild(input);
-      input.focus();
-      input.select();
-      try { document.execCommand('copy'); } catch (e) { /* silent */ }
-      document.body.removeChild(input);
+      fallbackCopy(url);
     }
   };
 
@@ -363,14 +145,11 @@ const InteractiveContent: React.FC<{
   };
 
   const handleDownloadPdf = () => {
-    // Create a print-friendly version and use browser's native print-to-PDF
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      // Fallback: download as TXT if popup blocked
       handleDownloadTxt();
       return;
     }
-
     const plainText = getPlainText();
     printWindow.document.write(`<!DOCTYPE html>
 <html>
@@ -380,7 +159,7 @@ const InteractiveContent: React.FC<{
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono&display=swap');
     body { font-family: 'Inter', sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; color: #1a1a2e; line-height: 1.8; }
     h1 { font-size: 2em; font-weight: 900; letter-spacing: 0.05em; border-bottom: 3px solid #0b0f19; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
-    pre { font-family: 'JetBrains Mono', monospace; background: #f4f4f8; border: 1px solid #ddd; padding: 1rem; border-radius: 6px; font-size: 0.85em; line-height: 1.3; overflow-x: auto; }
+    pre { font-family: 'JetBrains Mono', monospace; background: #f4f4f8; border: 1px solid #ddd; padding: 1rem; border-radius: 6px; font-size: 0.85em; line-height: 1.4; overflow-x: auto; }
     .footer { margin-top: 3rem; padding-top: 1rem; border-top: 2px solid #eee; font-size: 0.85em; color: #666; }
     @media print { body { margin: 0; } }
   </style>
@@ -406,17 +185,12 @@ const InteractiveContent: React.FC<{
     'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'were', 'was', 'are', 'is', 'a', 'an', 'to', 'in', 'on', 'of', 'it', 'be', 'by', 'as', 'at', 'or', 'an', 'not', 'but', 'if', 'then', 'else', 'they', 'them', 'their', 'our', 'your', 'his', 'her', 'its', 'about', 'more', 'some', 'any', 'all', 'can', 'will', 'would', 'could', 'should', 'has', 'had', 'been', 'do', 'does', 'did', 'which', 'who', 'whom', 'where', 'when', 'why', 'how'
   ]);
 
-  // Running word index counter used during TTS render to assign refs
-  const ttsRenderWordIdx = useRef(0);
 
-  // Reset word counter before each render when TTS is active
-  if (isSpeaking) ttsRenderWordIdx.current = 0;
 
   const renderClickableText = (text: string) => {
-    // 1. Identify all common multi-word concepts and proper nouns (Capitalized consecutive words)
     const matches: { phrase: string; index: number }[] = [];
-    
-    // Check common multi-word concepts (case-insensitive)
+
+    // Match multi-word concepts explicitly
     for (const concept of MULTI_WORD_CONCEPTS) {
       const regex = new RegExp(`\\b${concept}\\b`, 'gi');
       let match;
@@ -425,20 +199,17 @@ const InteractiveContent: React.FC<{
       }
     }
 
-    // Check proper noun phrases (at least 2 capitalized words, e.g., Windows 11, Operating System)
+    // Match all proper nouns
     const propNounRegex = /\b[A-Z][a-zA-Z0-9]*(?:\s+[A-Z][a-zA-Z0-9]*)+\b/g;
     let propMatch;
     while ((propMatch = propNounRegex.exec(text)) !== null) {
-      // Avoid duplicate or overlapping matches
       if (!matches.some(m => m.index <= propMatch!.index && (m.index + m.phrase.length) >= propMatch!.index)) {
         matches.push({ phrase: propMatch[0], index: propMatch.index });
       }
     }
 
-    // Sort matches by index descending so we can replace from end to start without breaking indices
     matches.sort((a, b) => b.index - a.index);
 
-    // Create chunks using the found phrase indices
     let processedText = text;
     const phrasesById: Record<string, string> = {};
     matches.forEach((m, idx) => {
@@ -452,44 +223,17 @@ const InteractiveContent: React.FC<{
     return chunks.map((chunk, idx) => {
       if (phrasesById[chunk]) {
         const phrase = phrasesById[chunk];
-        const phraseWords = phrase.match(/[a-zA-Z0-9]+/g) || [];
-        const phraseWordCount = phraseWords.length;
-
-        const startWordIdx = isSpeaking ? ttsRenderWordIdx.current : -1;
-        if (isSpeaking) {
-          ttsRenderWordIdx.current += phraseWordCount;
-        }
-
-        const isActive = isSpeaking && ttsWordIndex >= startWordIdx && ttsWordIndex < startWordIdx + phraseWordCount;
+        const isClickable = phrase.length >= 4 && !STOP_WORDS.has(phrase.toLowerCase());
 
         return (
           <span
-            key={`p-${idx}`}
-            ref={isSpeaking ? (el) => { if (el) wordSpanRefs.current.set(startWordIdx, el); } : undefined}
-            className="interactive-word clickable-any-word text-glow"
-            onClick={() => onWordClick(phrase)}
+            key={`phrase-${idx}`}
+            className="interactive-word clickable-any-word"
+            onClick={isClickable ? () => onWordClick(phrase) : undefined}
             style={{
-              cursor: 'pointer',
+              cursor: isClickable ? 'pointer' : 'default',
               display: 'inline-block',
-              borderBottom: isActive ? '2px solid var(--accent-color)' : '1px dotted transparent',
-              color: isActive ? 'var(--accent-color)' : 'inherit',
               transition: 'all 0.15s ease',
-              textShadow: isActive ? '0 0 15px var(--accent-color)' : '0 0 10px var(--accent-color)',
-              backgroundColor: isActive ? 'rgba(120, 81, 169, 0.2)' : 'transparent',
-              borderRadius: isActive ? '2px' : '0',
-              padding: isActive ? '0 2px' : '0',
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
-                e.currentTarget.style.textShadow = '0 0 15px var(--accent-color), 0 0 30px var(--accent-color)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.borderBottomColor = 'transparent';
-                e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
-              }
             }}
           >
             {phrase}
@@ -500,40 +244,17 @@ const InteractiveContent: React.FC<{
       const words = chunk.split(/([a-zA-Z0-9]+)/);
       return words.map((wordChunk, wordIdx) => {
         if (/^[a-zA-Z0-9]+$/.test(wordChunk)) {
-          const thisWordIdx = isSpeaking ? ttsRenderWordIdx.current++ : -1;
-          const isActive = isSpeaking && thisWordIdx === ttsWordIndex;
-          const isClickable = wordChunk.length >= 4 && !STOP_WORDS.has(wordChunk.toLowerCase());
+          const isClickable = /^[A-Z]/.test(wordChunk) && !STOP_WORDS.has(wordChunk.toLowerCase());
 
           return (
             <span
-              key={`w-${idx}-${wordIdx}`}
-              ref={isSpeaking ? (el) => { if (el) wordSpanRefs.current.set(thisWordIdx, el); } : undefined}
+              key={`word-${idx}-${wordIdx}`}
               className={`interactive-word ${isClickable ? 'clickable-any-word' : ''}`}
               onClick={isClickable ? () => { onWordClick(wordChunk); playWordClick(); } : undefined}
               style={{
                 cursor: isClickable ? 'pointer' : 'default',
                 display: 'inline-block',
-                borderBottom: isActive
-                  ? '2px solid var(--accent-color)'
-                  : isClickable ? '1px dotted transparent' : 'none',
-                color: isActive ? 'var(--accent-color)' : 'inherit',
                 transition: 'color 0.1s ease, border-color 0.1s ease',
-                backgroundColor: isActive ? 'rgba(120, 81, 169, 0.2)' : 'transparent',
-                borderRadius: isActive ? '2px' : '0',
-                padding: isActive ? '0 2px' : '0',
-                boxShadow: isActive ? '0 0 8px rgba(120, 81, 169, 0.4)' : 'none',
-              }}
-              onMouseEnter={(e) => {
-                if (isClickable && !isActive) {
-                  e.currentTarget.style.borderBottomColor = 'var(--accent-color)';
-                  e.currentTarget.style.textShadow = '0 0 10px var(--accent-color)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (isClickable && !isActive) {
-                  e.currentTarget.style.borderBottomColor = 'transparent';
-                  e.currentTarget.style.textShadow = 'none';
-                }
               }}
             >
               {wordChunk}
@@ -561,7 +282,6 @@ const InteractiveContent: React.FC<{
   };
 
   const MarkdownComponents = {
-    // Render ```ascii ... ``` blocks as styled ASCII diagrams
     code: ({ node, inline, className, children, ...props }: any) => {
       const isAsciiBlock = !inline && className === 'language-ascii';
       if (isAsciiBlock) {
@@ -585,7 +305,6 @@ const InteractiveContent: React.FC<{
           </pre>
         );
       }
-      // Inline code
       return (
         <code
           style={{
@@ -603,19 +322,7 @@ const InteractiveContent: React.FC<{
       );
     },
     a: ({ href, children }: any) => {
-      // Decode href in case it's URI encoded
       const decodedTopic = href ? decodeURIComponent(href) : '';
-      
-      // Handle aesthetic modifiers
-      if (decodedTopic === '#glow') {
-         return <span className="text-glow">{children}</span>;
-      }
-      if (decodedTopic === '#outline') {
-         return <span className="text-outline">{children}</span>;
-      }
-      if (decodedTopic === '#distort') {
-         return <span className="text-distort">{children}</span>;
-      }
 
       return (
         <button
@@ -629,8 +336,8 @@ const InteractiveContent: React.FC<{
         </button>
       );
     },
-    strong: ({ children }: any) => <strong style={{ fontWeight: '900', letterSpacing: '0.02em', textTransform: 'uppercase', color: 'inherit' }}>【{wrapClickable(children)}】</strong>,
-    em: ({ children }: any) => <em style={{ fontStyle: 'italic', fontWeight: '200', letterSpacing: '0.05em' }}>/ {wrapClickable(children)} /</em>,
+    strong: ({ children }: any) => <strong style={{ fontWeight: 'bold' }}>{wrapClickable(children)}</strong>,
+    em: ({ children }: any) => <em style={{ fontStyle: 'italic' }}>{wrapClickable(children)}</em>,
     p: ({ children }: any) => <p style={{ margin: '0 0 1rem 0', lineHeight: '1.8' }}>{wrapClickable(children)}</p>,
     ul: ({ children }: any) => <ul style={{ listStyleType: 'none', paddingLeft: '1rem', marginBottom: '1rem', lineHeight: '1.8', borderLeft: '1px solid var(--border-color)' }}>{children}</ul>,
     ol: ({ children }: any) => <ol style={{ listStyleType: 'decimal-leading-zero', paddingLeft: '2rem', marginBottom: '1rem', lineHeight: '1.8' }}>{children}</ol>,
@@ -642,198 +349,6 @@ const InteractiveContent: React.FC<{
 
   return (
     <div style={{ position: 'relative' }} ref={contentRef}>
-      {/* ── TTS word-highlight overlay ── */}
-      {isSpeaking && highlightBox && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: highlightBox.top - 2,
-            left: highlightBox.left - 3,
-            width: highlightBox.width + 6,
-            height: highlightBox.height + 4,
-            background: 'var(--accent-color)',
-            opacity: 0.15,
-            borderRadius: '2px',
-            pointerEvents: 'none',
-            zIndex: 5,
-            transition: 'top 0.08s ease, left 0.08s ease, width 0.08s ease',
-          }}
-        />
-      )}
-
-      {/* ── Floating TTS Player Bar ── */}
-      {isSpeaking && ttsWords.length > 0 && createPortal(
-        <div
-          role="region"
-          aria-label="Text-to-speech player"
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 99999,
-            width: 'min(500px, 92vw)',
-            background: 'var(--bg-color)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            fontFamily: 'monospace',
-            fontSize: '0.82em',
-            userSelect: 'none',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.35), 0 0 20px rgba(120, 81, 169, 0.1)',
-            backdropFilter: 'blur(12px)',
-            padding: '10px 16px',
-            animation: 'fadeIn 0.3s ease-out forwards',
-          }}
-        >
-          {/* Progress / timeline row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBottom: '6px' }}>
-            {/* Time elapsed */}
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.6rem', flexShrink: 0, textAlign: 'right' }}>
-              {ttsDuration > 0
-                ? `${Math.floor(ttsCurrentTime / 60)}:${String(Math.floor(ttsCurrentTime % 60)).padStart(2, '0')}`
-                : `${ttsWordIndex + 1}`}
-            </span>
-
-            {/* Scrubber — shows word progress when no audio duration, time when available */}
-            <div style={{ flex: 1, position: 'relative', height: '4px', background: 'var(--border-color)', borderRadius: '2px', cursor: ttsDuration > 0 ? 'pointer' : 'default' }}>
-              <div style={{
-                position: 'absolute', left: 0, top: 0, height: '100%',
-                width: ttsDuration > 0
-                  ? `${(ttsCurrentTime / ttsDuration) * 100}%`
-                  : `${((ttsWordIndex + 1) / Math.max(ttsWords.length, 1)) * 100}%`,
-                background: 'var(--accent-color)',
-                borderRadius: '2px',
-                transition: 'width 0.1s linear',
-              }} />
-              {ttsDuration > 0 && (
-                <input
-                  type="range"
-                  min={0}
-                  max={ttsDuration}
-                  step={0.5}
-                  value={ttsCurrentTime}
-                  onChange={e => seekAudio(parseFloat(e.target.value))}
-                  aria-label="Seek"
-                  style={{
-                    position: 'absolute', inset: '-6px 0',
-                    width: '100%', height: '15px',
-                    opacity: 0, cursor: 'pointer', margin: 0,
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Time total / word count */}
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.72em', width: '2.6rem', flexShrink: 0 }}>
-              {ttsDuration > 0
-                ? `${Math.floor(ttsDuration / 60)}:${String(Math.floor(ttsDuration % 60)).padStart(2, '0')}`
-                : `${ttsWords.length}w`}
-            </span>
-          </div>
-
-          {/* Controls row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Current word — fixed width, centered */}
-            <div style={{
-              flex: 1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: 'var(--accent-color)',
-              fontSize: '0.85em',
-              fontWeight: 'bold',
-              letterSpacing: '0.03em',
-            }}>
-              {ttsWords[ttsWordIndex] ?? ''}
-            </div>
-
-            {/* Play / Pause */}
-            <button
-              onClick={isPaused ? resumeTTS : pauseTTS}
-              aria-label={isPaused ? 'Resume' : 'Pause'}
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-color)',
-                borderRadius: '6px',
-                width: '2rem', height: '2rem',
-                cursor: 'pointer',
-                fontFamily: 'monospace',
-                fontSize: '0.9em',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-color)';
-                e.currentTarget.style.color = 'var(--accent-color)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color)';
-                e.currentTarget.style.color = 'var(--text-color)';
-              }}
-            >
-              {isPaused ? '▶' : '⏸'}
-            </button>
-
-            {/* Stop */}
-            <button
-              onClick={stopTTS}
-              aria-label="Stop"
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-muted)',
-                borderRadius: '6px',
-                width: '2rem', height: '2rem',
-                cursor: 'pointer',
-                fontFamily: 'monospace',
-                fontSize: '0.85em',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-color)';
-                e.currentTarget.style.color = 'var(--accent-color)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color)';
-                e.currentTarget.style.color = 'var(--text-muted)';
-              }}
-            >
-              ■
-            </button>
-
-            {/* Volume icon + slider */}
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', flexShrink: 0 }}>
-              {ttsVolume === 0 ? '🔇' : ttsVolume < 0.5 ? '🔉' : '🔊'}
-            </span>
-            <div style={{ width: '60px', position: 'relative', height: '3px', background: 'var(--border-color)', borderRadius: '2px', flexShrink: 0 }}>
-              <div style={{
-                position: 'absolute', left: 0, top: 0, height: '100%',
-                width: `${ttsVolume * 100}%`,
-                background: 'var(--text-muted)',
-                borderRadius: '2px',
-              }} />
-              <input
-                type="range"
-                min={0} max={1} step={0.05}
-                value={ttsVolume}
-                onChange={e => changeVolume(parseFloat(e.target.value))}
-                aria-label="Volume"
-                style={{
-                  position: 'absolute', inset: '-6px 0',
-                  width: '100%', height: '15px',
-                  opacity: 0, cursor: 'pointer', margin: 0,
-                }}
-              />
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       <div className={`markdown-body tts-content${isStreaming ? ' streaming-active' : ''}`} onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
         <Markdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
@@ -906,12 +421,7 @@ const InteractiveContent: React.FC<{
           >
             {copyStatus}
           </button>
-          <button 
-            onClick={handleTTS}
-            style={{ textDecoration: 'underline', color: isSpeaking ? 'var(--accent-color)' : 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
-          >
-            {isSpeaking && !isPaused ? '⏸ Pause' : isSpeaking && isPaused ? '▶ Resume' : 'Listen TTS'}
-          </button>
+
           <button
             onClick={() => { const next = !soundOn; setSoundOn(next); setSoundEnabled(next); }}
             title={soundOn ? 'Sound effects on' : 'Sound effects off'}

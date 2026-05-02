@@ -172,24 +172,23 @@ export async function* streamDefinition(
 ${contextBlock}
 
 FORMATTING RULES:
-1. Identify at least 15-20 relevant nouns, key concepts, technologies, terms, and topics, and format them as Markdown links: [Key Term](Key Term). This allows the user to click any of these words to instantly search them.
+1. Break down the text logically into exactly 3 clear paragraphs:
+   - Paragraph 1: Core definition, significance, etymology, and overview.
+   - Paragraph 2: Historical context, key mechanics, or technical details.
+   - Paragraph 3: Future impact, modern applications, and broader legacy.
+2. Identify at least 15-20 relevant nouns, key concepts, technologies, terms, and topics, and format them as Markdown links: [Key Term](Key Term). This allows the user to click any of these words to instantly search them.
    Do NOT link the current topic "${topic}" itself.
-2. Use **bold** for critical concepts, *italic* for nuance or etymology.
-3. Use bullet lists (* item) or numbered lists (1. item) for enumerations.
-4. Use Markdown tables when comparing multiple items.
-5. Do NOT use headers (no # ## ###).
-6. CRITICAL: Do NOT reproduce, echo, or quote the REFERENCE CONTEXT labels, source names, or raw metadata. Weave verified facts naturally into flowing prose only.
-7. Present a clean, well-structured, professional article. Do NOT output raw section labels, file paths, IDs, citation markers, or any text that looks like system metadata.
-8. CRITICAL: Heavily prioritize facts, dates, and version numbers from the REFERENCE CONTEXT over your internal weights. Always use 2026 as the baseline present-day temporal context.
+3. Use **bold** for critical concepts, *italic* for nuance or etymology.
+4. Use bullet lists (* item) or numbered lists (1. item) for enumerations.
+5. Use Markdown tables when comparing multiple items.
+6. Do NOT use headers (no # ## ###).
+7. CRITICAL: Do NOT reproduce, echo, or quote the REFERENCE CONTEXT labels, source names, or raw metadata. Weave verified facts naturally into flowing prose only.
+8. Present a clean, well-structured, professional article. Do NOT output raw section labels, file paths, IDs, citation markers, or any text that looks like system metadata.
+9. CRITICAL: Heavily prioritize facts, dates, and version numbers from the REFERENCE CONTEXT over your internal weights. Always use 2026 as the baseline present-day temporal context.
 
 VISUAL ENRICHMENT — include at least one ASCII visual per response inside a fenced code block tagged \`\`\`ascii:
 Choose the type that best fits the concept:
-- Mind-map, Flow diagram, Hierarchy / pyramid, Timeline, Spectrum / scale
-
-AESTHETIC EFFECTS (use sparingly for 1-2 key words only):
-- Glowing: [Word](#glow)
-- Outlined: [Word](#outline)
-- Glitch/distort: [Word](#distort)`;
+- Mind-map, Flow diagram, Hierarchy / pyramid, Timeline, Spectrum / scale`;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PERSONA },
@@ -359,27 +358,7 @@ export async function fetchRelatedTopics(topic: string): Promise<string[]> {
   }
 }
 
-/**
- * Converts text to speech using Cloudflare TTS (melotts-1.5-max) as primary,
- * falling back to browser speechSynthesis if Cloudflare TTS fails.
- * Returns an AudioBuffer if Cloudflare TTS succeeds, or null to signal browser fallback.
- */
-export async function cloudflareTextToSpeech(text: string): Promise<ArrayBuffer | null> {
-  try {
-    const response = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    if (!response.ok) throw new Error(`TTS HTTP ${response.status}`);
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength < 100) throw new Error('TTS returned empty audio');
-    return buffer;
-  } catch (err) {
-    console.warn('[Canto TTS] Cloudflare TTS failed, using browser fallback:', (err as Error).message);
-    return null;
-  }
-}
+
 
 /**
  * Generates 3 suggested follow-up research questions for a topic.
