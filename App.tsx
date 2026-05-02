@@ -57,7 +57,8 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const p = params.get('page');
     if (!p && !params.get('topic')) return 'landing';
-    return p && ['about', 'privacy', 'terms', 'landing', 'faq', 'pricing', 'opensource', 'library'].includes(p) ? p : 'wiki';
+    if (p && !['about', 'privacy', 'terms', 'landing', 'faq', 'pricing', 'opensource', 'library', 'wiki'].includes(p)) return '404';
+    return p ? p : 'wiki';
   };
 
   const [currentTopic, setCurrentTopic] = useState<string>(getTopicFromURL());
@@ -86,6 +87,7 @@ const App: React.FC = () => {
   const historyRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
+  const [isAdvancedLabsOpen, setIsAdvancedLabsOpen] = useState(false);
   const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
@@ -938,6 +940,7 @@ const App: React.FC = () => {
                         Research
                       </button>
                     )}
+
                   </div>
 
                   {/* Research panel — directly below controls, above article content */}
@@ -1030,7 +1033,29 @@ const App: React.FC = () => {
                       )}
                       {!isLoading && (
                         <>
-                          <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />
+                          {content && (
+                            <div style={{ textAlign: 'center', marginTop: '3rem', marginBottom: isAdvancedLabsOpen ? '1rem' : '3rem' }}>
+                              <button
+                                onClick={() => setIsAdvancedLabsOpen(v => !v)}
+                                style={{
+                                  background: 'transparent',
+                                  border: `1px solid ${isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
+                                  color: isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--text-muted)',
+                                  borderRadius: '2px',
+                                  padding: '0.4rem 1rem',
+                                  cursor: 'pointer',
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.85em',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.1em',
+                                  transition: 'color 0.15s, border-color 0.15s',
+                                }}
+                              >
+                                {isAdvancedLabsOpen ? 'Hide Canto Labs' : 'Enter Canto Labs'}
+                              </button>
+                            </div>
+                          )}
+                          {isAdvancedLabsOpen && <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />}
                           <DidYouKnow topic={currentTopic} />
                           <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
                         </>
@@ -1047,6 +1072,27 @@ const App: React.FC = () => {
               </div>
             ) : currentPage === 'landing' ? (
               <LandingPage onWordClick={handleWordClick} />
+            ) : currentPage === '404' ? (
+              <div style={{ maxWidth: '800px', margin: '4rem auto', textAlign: 'center', fontFamily: 'monospace' }}>
+                <h1 style={{ fontSize: '3.5em', fontWeight: 'bold', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem', letterSpacing: '0.1em' }}>404</h1>
+                <p style={{ margin: '1.5rem 0', fontSize: '1.1em', color: 'var(--text-color)' }}>This page could not be located in the AI Galactica archives.</p>
+                <button
+                  onClick={() => navigateToPage('landing')}
+                  style={{
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--accent-color)',
+                    padding: '0.6rem 1.2rem',
+                    cursor: 'pointer',
+                    fontFamily: 'monospace',
+                    fontSize: '1em',
+                    borderRadius: '2px',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  Return to Landing Page
+                </button>
+              </div>
             ) : (
               <StaticPage 
                 pageId={currentPage} 

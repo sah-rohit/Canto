@@ -456,4 +456,21 @@ export async function fetchAdvancedLabFeature(topic: string, feature: string, ex
   }
 }
 
+export async function gradeQuiz(topic: string, questions: string[], answers: Record<number, string>): Promise<string> {
+  const qAndAString = questions.map((q, i) => `Question ${i + 1}: ${q}\nUser Answer: ${answers[i] || 'No answer provided.'}`).join('\n\n');
+  const messages: ChatMessage[] = [
+    { role: 'system', content: SYSTEM_PERSONA },
+    {
+      role: 'user',
+      content: `Evaluate the user's answers for the following quiz on the topic "${topic}":\n\n${qAndAString}\n\nTask:\n1. Grade each answer carefully. If it is correct, award points. If it is unattempted or wrong, state that clearly.\n2. For wrong or unattempted questions, output the correct answer right below the user's answer and provide a short, clear explanation of where they went wrong.\n3. Compute an overall score out of 100% and place it at the top.\nMaintain the Raw Encyclopedic Format and Structure (no emojis, monospace-friendly).`,
+    },
+  ];
+  try {
+    return await callWithFallback(messages);
+  } catch {
+    return `Error grading the quiz.`;
+  }
+}
+
+
 

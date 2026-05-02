@@ -15,38 +15,26 @@ interface TooltipRect {
   top: number;
   left: number;
   placement: 'above' | 'below';
-  arrowLeft: number;
 }
 
 function computeTooltipPosition(
   anchorRect: DOMRect,
-  tooltipWidth: number,
-  tooltipHeight: number,
   margin = 8
-): TooltipRect {
-  const vw = window.innerWidth;
+) {
   const vh = window.innerHeight;
 
   // Prefer above; fall back to below if not enough room
   const spaceAbove = anchorRect.top;
-  const spaceBelow = vh - anchorRect.bottom;
-  const placement: 'above' | 'below' = spaceAbove >= tooltipHeight + margin ? 'above' : 'below';
-
-  // Horizontal: center on anchor, clamp to viewport with padding
-  const idealLeft = anchorRect.left + anchorRect.width / 2 - tooltipWidth / 2;
-  const clampedLeft = Math.max(8, Math.min(idealLeft, vw - tooltipWidth - 8));
-
-  // Arrow offset relative to tooltip box
-  const arrowLeft = Math.max(12, Math.min(
-    anchorRect.left + anchorRect.width / 2 - clampedLeft,
-    tooltipWidth - 12
-  ));
+  const placement: 'above' | 'below' = spaceAbove >= 120 ? 'above' : 'below';
 
   const top = placement === 'above'
-    ? anchorRect.top - tooltipHeight - margin
+    ? anchorRect.top - margin
     : anchorRect.bottom + margin;
 
-  return { top, left: clampedLeft, placement, arrowLeft };
+  // Center horizontally on anchor
+  const left = anchorRect.left + anchorRect.width / 2;
+
+  return { top, left, placement };
 }
 
 interface ContentDisplayProps {
@@ -141,7 +129,7 @@ const InteractiveContent: React.FC<{
   const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
-  const [popupPos, setPopupPos] = useState<{ top: number; left: number; placement: 'above' | 'below'; arrowLeft: number } | null>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number; placement: 'above' | 'below' } | null>(null);
   const [explainAnswer, setExplainAnswer] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState<boolean>(false);
   const [inArticleSearch, setInArticleSearch] = useState('');
@@ -155,7 +143,7 @@ const InteractiveContent: React.FC<{
 
   // Precision word/concept hover tooltip
   const [wordDefPos, setWordDefPos] = useState<{
-    top: number; left: number; placement: 'above' | 'below'; arrowLeft: number;
+    top: number; left: number; placement: 'above' | 'below';
     word: string; def: string;
   } | null>(null);
   const wordDefRef = useRef<HTMLDivElement>(null);
@@ -219,8 +207,7 @@ const InteractiveContent: React.FC<{
     if (text && text.length > 2) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      // Popup width ~380px; height ~52px (without answer)
-      const pos = computeTooltipPosition(rect, 380, 52);
+      const pos = computeTooltipPosition(rect);
       setPopupPos(pos);
       setSelectedText(text);
       setExplainAnswer(null);
@@ -232,15 +219,14 @@ const InteractiveContent: React.FC<{
   // ─── Precision word hover/double-click tooltip ───────────────────────────
   const handleWordHover = useCallback((e: React.MouseEvent, word: string, def: string) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // Tooltip ~240px wide, ~60px tall
-    const pos = computeTooltipPosition(rect, 240, 60);
+    const pos = computeTooltipPosition(rect);
     setWordDefPos({ ...pos, word, def });
   }, []);
 
   const handleWordDoubleClick = useCallback((e: React.MouseEvent, word: string) => {
     if (!word || word.length < 3) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const pos = computeTooltipPosition(rect, 240, 60);
+    const pos = computeTooltipPosition(rect);
     setWordDefPos({
       ...pos,
       word,
@@ -253,6 +239,28 @@ const InteractiveContent: React.FC<{
       } : prev);
     }, 600);
   }, [topic]);
+
+  React.useLayoutEffect(() => {
+    [
+      { pos: wordDefPos, ref: wordDefRef },
+      { pos: popupPos, ref: popupRef }
+    ].forEach(({ pos, ref }) => {
+      if (pos && ref.current) {
+        const vw = window.innerWidth;
+        const rect = ref.current.getBoundingClientRect();
+        let shiftX = 0;
+        if (rect.left < 8) shiftX = 8 - rect.left;
+        else if (rect.right > vw - 8) shiftX = vw - 8 - rect.right;
+        
+        ref.current.style.marginLeft = `${shiftX}px`;
+        
+        const arrow = ref.current.querySelector('.popup-arrow') as HTMLDivElement;
+        if (arrow) {
+          arrow.style.left = `calc(50% - ${shiftX}px)`;
+        }
+      }
+    });
+  }, [wordDefPos, popupPos]);
 
   useEffect(() => {
     if (isStreaming && bottomRef.current) {
@@ -764,22 +772,22 @@ const InteractiveContent: React.FC<{
         );
       })()}
 
-      {/* ── Precision Word/Concept Hover Tooltip ── */}
+      {/* ── Precision Hover/Double-Click Word Def Popup ── */}
       {wordDefPos && (
         <div
           ref={wordDefRef}
-          role="tooltip"
           style={{
             position: 'fixed',
             top: `${wordDefPos.top}px`,
             left: `${wordDefPos.left}px`,
+            transform: wordDefPos.placement === 'above' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
             background: 'var(--bg-color)',
             border: '1px solid var(--accent-color)',
             padding: '0.45rem 0.7rem',
             zIndex: 9999,
             fontFamily: 'monospace',
             fontSize: '0.78em',
-            maxWidth: '240px',
+            maxWidth: '280px',
             width: 'max-content',
             boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
             pointerEvents: 'none',
@@ -788,10 +796,10 @@ const InteractiveContent: React.FC<{
           }}
         >
           {/* Arrow pointing to the word */}
-          <div style={{
+          <div className="popup-arrow" style={{
             position: 'absolute',
             [wordDefPos.placement === 'above' ? 'bottom' : 'top']: '-6px',
-            left: `${wordDefPos.arrowLeft}px`,
+            left: `50%`,
             transform: 'translateX(-50%)',
             width: 0,
             height: 0,
@@ -815,6 +823,7 @@ const InteractiveContent: React.FC<{
             position: 'fixed',
             top: `${popupPos.top}px`,
             left: `${popupPos.left}px`,
+            transform: popupPos.placement === 'above' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
             background: 'var(--bg-color)',
             border: '1px solid var(--accent-color)',
             padding: '0.6rem 0.9rem',
@@ -832,10 +841,10 @@ const InteractiveContent: React.FC<{
           }}
         >
           {/* Arrow pointing to the selection */}
-          <div style={{
+          <div className="popup-arrow" style={{
             position: 'absolute',
             [popupPos.placement === 'above' ? 'bottom' : 'top']: '-6px',
-            left: `${popupPos.arrowLeft}px`,
+            left: `50%`,
             transform: 'translateX(-50%)',
             width: 0,
             height: 0,
