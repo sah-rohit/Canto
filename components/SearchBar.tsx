@@ -7,25 +7,24 @@ interface SearchBarProps {
   predefinedWords?: string[];
 }
 
-// Map each predefined word to a brief icon/category snippet for enhanced UX
-const SUGGESTION_METADATA: Record<string, { icon: string; snippet: string }> = {
-  'Balance': { icon: '⚖️', snippet: 'Equilibrium & symmetry' },
-  'Harmony': { icon: '🎵', snippet: 'Unified aesthetic flow' },
-  'Discord': { icon: '⚡', snippet: 'Chaos & divergence' },
-  'Creation': { icon: '🌱', snippet: 'Origins & construction' },
-  'Destruction': { icon: '💥', snippet: 'Deconstruction & decay' },
-  'Creation and decay': { icon: '⏳', snippet: 'Lifecycle dynamics' },
-  'Quantum': { icon: '⚛️', snippet: 'Subatomic mechanics' },
-  'Entropy': { icon: '🌌', snippet: 'Thermodynamic decay' },
-  'Fractal': { icon: '🌀', snippet: 'Infinite recursion' },
-  'Liminal': { icon: '🚪', snippet: 'Transitional spaces' },
-  'Ephemeral': { icon: '🍂', snippet: 'Short-lived phenomena' },
-  'Gestalt': { icon: '🧩', snippet: 'Holistic perception' },
-  'Zeitgeist': { icon: '🕰️', snippet: 'Spirit of the era' },
-  'Cyberpunk': { icon: '💾', snippet: 'High tech, low life' },
-  'Dark Matter': { icon: '🌑', snippet: 'Cosmic missing mass' },
-  'Stoicism': { icon: '🏛️', snippet: 'Hellenistic philosophy' },
-  'Quantum Entanglement': { icon: '🔬', snippet: 'Einsteinian paradox' }
+const SUGGESTION_METADATA: Record<string, { snippet: string }> = {
+  'Balance': { snippet: 'Equilibrium & symmetry' },
+  'Harmony': { snippet: 'Unified aesthetic flow' },
+  'Discord': { snippet: 'Chaos & divergence' },
+  'Creation': { snippet: 'Origins & construction' },
+  'Destruction': { snippet: 'Deconstruction & decay' },
+  'Creation and decay': { snippet: 'Lifecycle dynamics' },
+  'Quantum': { snippet: 'Subatomic mechanics' },
+  'Entropy': { snippet: 'Thermodynamic decay' },
+  'Fractal': { snippet: 'Infinite recursion' },
+  'Liminal': { snippet: 'Transitional spaces' },
+  'Ephemeral': { snippet: 'Short-lived phenomena' },
+  'Gestalt': { snippet: 'Holistic perception' },
+  'Zeitgeist': { snippet: 'Spirit of the era' },
+  'Cyberpunk': { snippet: 'High tech, low life' },
+  'Dark Matter': { snippet: 'Cosmic missing mass' },
+  'Stoicism': { snippet: 'Hellenistic philosophy' },
+  'Quantum Entanglement': { snippet: 'Einsteinian paradox' }
 };
 
 const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, predefinedWords = [] }) => {
@@ -144,7 +143,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
             background: 'var(--bg-color)',
             border: '1px solid var(--border-color)',
             borderTop: 'none',
-            borderRadius: '0 0 4px 4px',
+            borderRadius: '0',
             listStyle: 'none',
             padding: 0,
             margin: 0,
@@ -154,7 +153,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
             overflowY: 'auto',
           }}>
             {suggestions.map((suggestion, index) => {
-              const meta = SUGGESTION_METADATA[suggestion] || { icon: '🔍', snippet: 'General concept' };
+              const meta = SUGGESTION_METADATA[suggestion] || { snippet: 'General concept' };
               return (
                 <li 
                   key={index} 
@@ -174,7 +173,6 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--input-bg)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <span style={{ fontSize: '1.2em' }}>{meta.icon}</span>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontWeight: 'bold' }}>{suggestion}</span>
                     <span style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{meta.snippet}</span>
@@ -197,7 +195,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
           color: 'var(--text-color)',
           cursor: 'pointer',
           transition: 'all 0.2s',
-          borderRadius: '4px',
+          borderRadius: '0',
           fontSize: '0.9em',
           fontFamily: 'monospace',
           minHeight: '2.5rem',
@@ -205,7 +203,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
         onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-color)'; }}
       >
-        🎲 Random
+        Random
       </button>
     </div>
   );

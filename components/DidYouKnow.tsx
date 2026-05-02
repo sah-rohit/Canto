@@ -28,20 +28,12 @@ const DidYouKnow: React.FC<DidYouKnowProps> = ({ topic }) => {
   if (!topic || (!loading && !fact)) return null;
 
   return (
-    <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px', animation: 'pulsateBox 4s infinite alternate' }}>
-      <style>
-        {`
-          @keyframes pulsateBox {
-            from { box-shadow: 0 0 2px rgba(0,0,0,0.05); }
-            to { box-shadow: 0 0 15px var(--border-color); }
-          }
-        `}
-      </style>
-      <h3 style={{ fontSize: '1em', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.8rem', color: 'var(--text-color)' }}>
-        ✧ Did you know?
+    <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '0' }}>
+      <h3 style={{ fontSize: '1em', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.8rem', color: 'var(--text-color)', fontFamily: 'monospace' }}>
+        Did you know?
       </h3>
       {loading ? (
-        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '1.05em', margin: 0 }}>Uncovering truth...</p>
+        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '1.05em', margin: 0, fontFamily: 'monospace' }}>Uncovering truth...</p>
       ) : (
         <p style={{ margin: 0, fontSize: '1.1em', lineHeight: '1.6', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{fact}</p>
       )}

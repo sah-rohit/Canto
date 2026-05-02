@@ -29,33 +29,36 @@ const RelatedTopics: React.FC<RelatedTopicsProps> = ({ topic, onWordClick }) => 
   if (!topic || (!loading && topics.length === 0)) return null;
 
   return (
-    <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px' }}>
-      <h3 style={{ fontSize: '0.9em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', color: 'var(--text-muted)' }}>
-        ✧ Diverging Paths
+    <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '0' }}>
+      <h3 style={{ fontSize: '0.9em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+        Related Topics
       </h3>
       {loading ? (
-        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9em', margin: 0 }}>Mapping connections...</p>
+        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9em', margin: 0, fontFamily: 'monospace' }}>Mapping connections...</p>
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
+        <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.8rem', fontFamily: 'monospace' }}>
            {topics.map((t, idx) => (
-             <button
-                key={idx}
-                onClick={() => onWordClick(t)}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-color)',
-                  padding: '0.4rem 0.8rem',
-                  borderRadius: '2px',
-                  fontSize: '0.9em',
-                  fontFamily: 'monospace',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-color)'; }}
-             >
-               {t}
-             </button>
+             <React.Fragment key={idx}>
+               <button
+                  onClick={() => onWordClick(t)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: 'var(--text-color)',
+                    cursor: 'pointer',
+                    fontSize: '0.9em',
+                    fontFamily: 'monospace',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '3px'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-color)'; }}
+               >
+                 {t}
+               </button>
+               {idx < topics.length - 1 && <span style={{ color: 'var(--text-muted)' }}>•</span>}
+             </React.Fragment>
            ))}
         </div>
       )}

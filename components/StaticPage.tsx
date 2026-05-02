@@ -44,7 +44,7 @@ const asciiArtMap: Record<string, string> = {
   library: `
        .      .           .
          .      .     .     .
-      .    .  ( ★ ) .    .
+      .    .  ( * ) .    .
          .      .     .     .
        .      .           .
   `,
@@ -59,47 +59,68 @@ const asciiArtMap: Record<string, string> = {
 
 const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   about: {
-    title: 'About Canto',
+    title: 'About Canto — Infinite Knowledge Repository',
     content: (
-      <div>
-        <p>Welcome to <strong>Canto</strong> — an infinite, AI-powered encyclopedia.</p>
+      <div style={{ fontFamily: 'monospace', textAlign: 'justify', lineHeight: '1.8' }}>
+        <p>Welcome to <strong>Canto</strong> — an infinite, real-time AI encyclopedia designed for robust academic synthesis, technical depth, and deep learning.</p>
         <p>
-          We believe in a world where curiosity never hits a dead end. Our mission is to provide an
-          infinite, real-time generated encyclopedia where every word is a doorway to new knowledge.
+          Traditional encyclopedias are static snapshots. Canto changes this by generating comprehensive, well-structured, and fact-checked documents in real-time. By sourcing raw factual material directly from verified data repositories, Canto creates thorough reference articles on any topic you choose.
         </p>
-        <h3 style={{ marginTop: '2rem' }}>How It Works</h3>
+
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Knowledge Integrations</h3>
         <p>
-          Unlike traditional encyclopedias that rely on pre-written articles, Canto uses a multi-source 
-          knowledge pipeline. When you search for a topic, it simultaneously fetches verified information from
-          <strong> Wikipedia</strong>, <strong>NASA</strong>, <strong>Internet Archive / Open Library</strong>, <strong>CORE Academic</strong>, and <strong>live web search</strong> via duckduckgo and web crawling technologies.
-          This context is fed into a multi-provider AI fallback chain which synthesizes a rich, encyclopedia-style article in real time.
+          Canto leverages multiple authoritative information sources to prevent AI hallucination and ground content in objective data:
         </p>
-        <h3 style={{ marginTop: '2rem' }}>AI Assisted Research</h3>
+        <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
+          <li style={{ marginBottom: '1rem' }}>
+            <strong>Wikipedia Integration:</strong> Extracts structured historical data, core definitions, and primary reference points.
+          </li>
+          <li style={{ marginBottom: '1rem' }}>
+            <strong>NASA Technical Reports:</strong> Accesses real aerospace, scientific, and technical breakthroughs.
+          </li>
+          <li style={{ marginBottom: '1rem' }}>
+            <strong>Internet Archive Research:</strong> Queries digital book copies and archived open datasets to provide accurate historical context.
+          </li>
+          <li style={{ marginBottom: '1rem' }}>
+            <strong>CORE Academic Studies:</strong> Gathers current peer-reviewed research papers and academic abstracts for advanced exploration.
+          </li>
+        </ul>
+
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Encyclopedia Galactica</h3>
         <p>
-          Canto assists in deep knowledge exploration. It provides direct source extracts, auto-summarization options,
-          and a relationship tree so that you can navigate topics with structural clarity and full provenance.
+          The Encyclopedia Galactica serves as our premium knowledge processing model. It links nodes into continuous semantic graphs, turning single keywords into detailed technical concepts without limits.
+        </p>
+
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>AI-Assisted Research and Document Q&A</h3>
+        <p>
+          In addition to generation, Canto acts as an interactive study assistant. Highlight text within any article to perform contextual sub-searches, open relevant research summaries, and explore related entities on the fly.
         </p>
       </div>
     )
   },
   pricing: {
-    title: 'Pricing',
+    title: 'Canto Plans and Pricing',
     content: (
-      <div>
-        <p>Canto is completely free. No accounts, no paywalls, no subscriptions.</p>
-        <h3 style={{ marginTop: '2rem' }}>🆓 Free — Always</h3>
-        <ul style={{ lineHeight: '2' }}>
-          <li><strong>20 searches per day</strong> per IP address</li>
-          <li>In-depth articles synthesized by multiple AI providers</li>
-          <li>Rich structural mind maps & Relationship graphs for any topic</li>
-          <li>Advanced Web Crawling Content Filter technology</li>
-          <li>Editable and downloadable custom ASCII art</li>
-          <li>Exportable knowledge bases (TXT / PDF)</li>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+        <p>We provide a fully accessible knowledge service without paywalls, login screens, or advertising networks.</p>
+
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Standard Free Tier</h3>
+        <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>20 searches per day:</strong> Refreshes automatically every 24 hours.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Synthesis Pipeline access:</strong> Fetches and combines real-time data from NASA, Wikipedia, CORE, and the Internet Archive.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>In-Article Deep Search:</strong> Scan and highlight information across thousands of words.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Unlimited Library browsing:</strong> Read and download cached files, search logs, and favorites anytime.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Local storage data export:</strong> Export to TXT and PDF for complete offline reading.</li>
         </ul>
-        <h3 style={{ marginTop: '2rem' }}>What if I hit the limit?</h3>
+
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Enterprise and Contributor Plans</h3>
         <p>
-          The limit resets automatically every day at midnight UTC. You can continue reading cached articles,
-          browsing favorites, exploring your library, and editing your ASCII creations.
+          For researchers, academic institutions, and organizations needing elevated computational limits, API keys can be supplied directly through local configuration. Contact the Canto open-source community to find out more.
+        </p>
+
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>What happens when I hit my limit?</h3>
+        <p>
+          Daily search credits are consumed only when generating new articles. You can always search cached history items, add items to folders, edit ASCII art, and export files without any restrictions.
         </p>
       </div>
     )
@@ -107,23 +128,20 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   faq: {
     title: 'Frequently Asked Questions',
     content: (
-      <div>
-        <h3 style={{ marginTop: '2rem' }}>What is Canto?</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>What is Canto?</h3>
         <p>
-          Canto is a generative AI encyclopedia. It converts raw real-time research facts from 5+ knowledge repositories 
-          into clean, high-impact reading articles with mind maps and direct word cross-references.
+          Canto is an AI-driven research assistant that synthesizes direct evidence from Wikipedia, NASA, Academic CORE, and the Internet Archive. It transforms raw search prompts into structured, highly technical articles.
         </p>
 
-        <h3 style={{ marginTop: '2rem' }}>Are the generated ASCII diagrams editable?</h3>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>How does the in-article search work?</h3>
         <p>
-          Yes! Every generated ASCII art block has an <strong>✏️ Edit Art</strong> button. Clicking it converts the artwork
-          into an editable text-area where you can customize it, save your modifications, and download the raw `.txt` directly.
+          Every article features a real-time deep scanning engine. Type in any phrase, and Canto will instantly find and highlight matches in the reading mode without altering text flow.
         </p>
 
-        <h3 style={{ marginTop: '2rem' }}>How does the Web Scraper work?</h3>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>What is the Encyclopedia Galactica?</h3>
         <p>
-          Our built-in crawler extracts high-accuracy context and metadata from DuckDuckGo snippets and live open sources
-          to supply the latest, fact-checked contexts to the AI pipeline before generating articles.
+          It is an advanced technical classification system within Canto that links complex entities, deep scientific theories, and speculative scenarios into organized, cross-referenced documentation.
         </p>
       </div>
     )
@@ -131,48 +149,43 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   privacy: {
     title: 'Privacy Policy',
     content: (
-      <div>
-        <p>We take privacy extremely seriously. Here is how your data stays purely yours:</p>
-        <h3 style={{ marginTop: '2rem' }}>1. Local Persistence</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+        <p>We respect your right to total privacy. Here is how your data is secured:</p>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>1. Direct Local Persistence</h3>
         <p>
-          All search logs, favorite topics, mind maps, and user modifications are strictly stored inside your browser's
-          <strong> IndexedDB</strong>. We do not store your browsing profiles, cookies, or history on our servers.
+          All of your search history, favorite lists, mind maps, and user settings are kept entirely in your browser's local storage and IndexedDB database. No data is sent to external cloud storage providers.
         </p>
-        <h3 style={{ marginTop: '2rem' }}>2. Encrypted Queries</h3>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>2. Anonymous Queries</h3>
         <p>
-          All requests are proxied via our secure serverless endpoint. No private user data or credentials are leaked
-          to third-party AI APIs.
+          Queries are proxied over our secure service layer. Personal identifiers, browsing patterns, and local configuration details are never transmitted to third-party language model providers.
         </p>
       </div>
     )
   },
   terms: {
-    title: 'Terms & Conditions',
+    title: 'Terms and Conditions',
     content: (
-      <div>
-        <p>Simple rules for using Canto:</p>
-        <h3 style={{ marginTop: '2rem' }}>1. Fair Use</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+        <p>Simple rules for using the Canto research platform:</p>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>1. Rate Limits</h3>
         <p>
-          Please respect the 20 searches-per-day rate limit. These limits exist to guarantee fair access to everyone.
+          We ask that you observe the daily API request thresholds. This ensures fair use and computational availability for everyone on the platform.
         </p>
-        <h3 style={{ marginTop: '2rem' }}>2. Data Provenance</h3>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>2. Academic Sourcing</h3>
         <p>
-          Canto attempts to ground all articles in real factual material, but it is an AI tool. Verify critical information
-          with the referenced citations.
+          Canto pulls direct research context from trusted resources like NASA, Wikipedia, and the Internet Archive. However, always consult individual primary texts for critical research.
         </p>
       </div>
     )
   },
   opensource: {
-    title: 'Open Source',
+    title: 'Open Source Development',
     content: (
-      <div>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+        <p>Canto is built with transparency and user privacy in mind.</p>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Source Repository</h3>
         <p>
-          Canto's architecture is fully auditable, forkable, and self-hostable.
-        </p>
-        <h3 style={{ marginTop: '2rem' }}>📦 Github Repository</h3>
-        <p>
-          Clone and explore the codebase under the Apache 2.0 license: <a href="https://github.com/sah-rohit/Canto" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)' }}>github.com/sah-rohit/Canto</a>
+          The complete client codebase, including styling, services, and multi-source integrations, is fully accessible and licensed under the Apache 2.0 license.
         </p>
       </div>
     )
@@ -180,21 +193,17 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   galactica: {
     title: 'Encyclopedia Galactica',
     content: (
-      <div>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+        <p>Explore specialized technical concepts, scientific discoveries, advanced knowledge nodes, and cross-references.</p>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Advanced Knowledge Network</h3>
         <p>
-          Step into the <strong>Encyclopedia Galactica</strong> — a premium cataloging system for exploring expansive 
-          concepts, speculative ideas, deep knowledge graphs, and cross-references.
+          Encyclopedia Galactica models deep technical entities as continuous semantic pathways. This lets you drill down from broad overviews into the exact scientific and philosophical contexts you need.
         </p>
-        <h3 style={{ marginTop: '2rem' }}>Deep Knowledge Integration</h3>
-        <p>
-          Unlike a standard wiki search, the Galactica connects nodes into continuous networks, allowing you to branch out 
-          from simple terms into specialized multi-tier technical sub-concepts.
-        </p>
-        <h3 style={{ marginTop: '2rem' }}>Core Categories</h3>
-        <ul style={{ lineHeight: '2' }}>
-          <li>🌌 <strong>Cosmology & Astrobiology:</strong> Stellar systems, warp fields, dark matter.</li>
-          <li>⚙️ <strong>Cybernetics:</strong> Neural networking, bio-hacking, and artificial intelligence.</li>
-          <li>🧩 <strong>Metaphysics:</strong> Philosophical paradoxes and reality constructs.</li>
+        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Primary Classifications</h3>
+        <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Cosmology & Aerospace:</strong> Complex planetary physics, dark matter experiments, and satellite telemetry studies.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Cybernetics & Machine Logic:</strong> Neural architectures, advanced AI reasoning, and recursive computational networks.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Theoretical Metaphysics:</strong> Dialectics, systemic realities, and logical paradoxes.</li>
         </ul>
       </div>
     )
@@ -214,7 +223,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
 
   if (pageId === 'library') {
     return (
-      <div style={{ paddingBottom: '2rem' }}>
+      <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
         <h2 style={{ marginBottom: '1rem', letterSpacing: '0.1em' }}>My Local Library</h2>
         {art && (
           <pre className="ascii-art living-ascii" style={{ color: '#555', marginBottom: '2rem', overflowX: 'auto' }}>
@@ -223,7 +232,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem', marginTop: '2rem' }}>
           <section>
-            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>★ Favorites</h3>
+            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</h3>
             {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 {favorites.map(t => (
@@ -235,7 +244,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
             )}
           </section>
           <section>
-            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>🕒 Recent History</h3>
+            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recent History</h3>
             {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 {history.map(t => (
@@ -247,9 +256,9 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
             )}
           </section>
         </div>
-        <div style={{ marginTop: '4rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px' }}>
+        <div style={{ marginTop: '4rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '0' }}>
           <p style={{ fontSize: '0.85em', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
-            ℹ️ <strong>Privacy Note:</strong> All library data (history and favorites) is stored exclusively in your browser's local storage. Clearing your site data or cache will remove these records permanently.
+            Privacy Note: All library data is stored exclusively in your browser's local storage. Clearing site data will permanently remove your stored reading logs.
           </p>
         </div>
       </div>
@@ -258,7 +267,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
 
   if (!page) {
     return (
-      <div style={{ paddingBottom: '2rem' }}>
+      <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
         <h2>Page Not Found</h2>
         <p>The page you are looking for does not exist.</p>
       </div>
@@ -266,7 +275,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
   }
 
   return (
-    <div style={{ paddingBottom: '2rem' }}>
+    <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
       <h2 style={{ marginBottom: '1rem', textTransform: 'capitalize', letterSpacing: '0.1em' }}>
         {page.title}
       </h2>

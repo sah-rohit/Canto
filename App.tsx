@@ -390,6 +390,21 @@ const App: React.FC = () => {
               delete newCache[keys[0]];
             }
             try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
+            try {
+              const fullHistoryEntry = {
+                topic: currentTopic,
+                content: accumulatedContent,
+                asciiArt: finalArt,
+                timestamp: Date.now(),
+                wordCount,
+                tokenEstimate
+              };
+              let existingFull: any[] = [];
+              const savedFull = localStorage.getItem('canto_history_full');
+              if (savedFull) existingFull = JSON.parse(savedFull);
+              existingFull = [fullHistoryEntry, ...existingFull.filter(h => h.topic.toLowerCase() !== currentTopic.toLowerCase())];
+              localStorage.setItem('canto_history_full', JSON.stringify(existingFull));
+            } catch (e) {}
             dbSaveCache(currentTopic, accumulatedContent, finalArt);
             dbSaveHistory(currentTopic, { wordCount, tokenEstimate });
             dbRecordAnalytics(currentTopic, wordCount, tokenEstimate);
@@ -509,7 +524,7 @@ const App: React.FC = () => {
         whiteSpace: 'nowrap',
       }}
     >
-      {searchesRemaining}/{searchesLimit}{resetTimer && <span className="search-limit-badge-timer"> ✦ (Resets in {resetTimer})</span>}
+      {searchesRemaining}/{searchesLimit}{resetTimer && <span className="search-limit-badge-timer"> (Resets in {resetTimer})</span>}
     </span>
   );
 
@@ -575,7 +590,7 @@ const App: React.FC = () => {
                     )}
                     {favorites.length > 0 && (
                       <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border-color)' }}>
-                        <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase' }}>★ Favorites</span>
+                        <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase' }}>Favorites</span>
                         <ul style={{ listStyle: 'none', padding: 0, margin: '0.4rem 0 0 0' }}>
                           {favorites.slice(0, 5).map((t, i) => (
                             <li key={i}>
@@ -649,12 +664,12 @@ const App: React.FC = () => {
                     {currentTopic}
                   </h2>
                   <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '0 0.5rem' }}>
-                    {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>⏱ {readingTime} min read</span>}
+                    {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{readingTime} min read</span>}
                     <button 
                       onClick={() => setIsReadingMode(!isReadingMode)}
                       style={{ background: 'transparent', border: '1px solid var(--border-color)', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.3rem 0.7rem', fontSize: '0.75em', borderRadius: '4px', cursor: 'pointer', fontFamily: 'monospace', minHeight: '2rem' }}
                     >
-                      {isReadingMode ? '📖 Reading Mode: ON' : '📖 Reading Mode: OFF'}
+                      {isReadingMode ? 'Reading Mode: On' : 'Reading Mode: Off'}
                     </button>
                     <div style={{ width: '110px' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
@@ -679,8 +694,7 @@ const App: React.FC = () => {
                           transition: 'color 0.15s, border-color 0.15s',
                         }}
                       >
-                        <span style={{ fontSize: '0.8em' }}>{isResearchPanelOpen ? '▼' : '▶'}</span>
-                        ◈ Research
+                        Research
                       </button>
                     )}
                   </div>

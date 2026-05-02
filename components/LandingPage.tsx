@@ -5,25 +5,25 @@ const LARGE_MOON = `
                 ░░░░░░░░░░░░░░░░░               
              ░░░░░░░░░░░░░░░░░░░░░░             
            ░░░░░░░░░░░░░░░░░░░░░░░░░░           
-         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░         
-        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        
-       ░░░░░░░░░░░░▒▒░░░░░░░░░░░░░░░░░░░░       
-      ░░░░░░░░░░░▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░      
-     ░░░░░░░░░░░░▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░     
-     ░░░░░░░░░░░░░░░░░░░░░░░░▒▒░░░░░░░░░░░░     
-    ░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒░░░░░░░░░░░░    
-    ░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒░░░░░░░░░░░░░    
-    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    
-     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░     
-     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░     
-      ░░░░░░░░░▒▒░░░░░░░░░░░░░░░░░░░░░░░░░      
-       ░░░░░░░▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░       
-        ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        
-         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░         
-           ░░░░░░░░░░░░░░░░░░░░░░░░░░           
-             ░░░░░░░░░░░░░░░░░░░░░░             
-                ░░░░░░░░░░░░░░░░░               
-                    ░░░░░░░░░░░                 `;
+          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░         
+         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        
+        ░░░░░░░░░░░░▒▒░░░░░░░░░░░░░░░░░░░░       
+       ░░░░░░░░░░░▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░      
+      ░░░░░░░░░░░░▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░     
+      ░░░░░░░░░░░░░░░░░░░░░░░░▒▒░░░░░░░░░░░░     
+     ░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒░░░░░░░░░░░░    
+     ░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒░░░░░░░░░░░░░    
+     ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    
+      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░     
+      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░     
+       ░░░░░░░░░▒▒░░░░░░░░░░░░░░░░░░░░░░░░░      
+        ░░░░░░░▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░       
+         ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        
+          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░         
+            ░░░░░░░░░░░░░░░░░░░░░░░░░░           
+              ░░░░░░░░░░░░░░░░░░░░░░             
+                 ░░░░░░░░░░░░░░░░░               
+                     ░░░░░░░░░░░                 `;
 
 const ROCKET = `
               /\\
@@ -68,32 +68,6 @@ const PLANET = `
           ╰─┤ ▒░░▒▒▒ ├─╯
             ╰────────╯`;
 
-const SATELLITE = `
-     📡
-    /  \\
-   | [] |
-  /|____|\\
- [_|____|_]
-   |    |
-   |____|`;
-
-const ASTRONAUT = `
-     .  .
-     |--|
-    /|__|\\
-   / |  | \\
-     |__|
-     /  \\
-    |    |`;
-
-const ALIEN_SHIP = `
-     .  .
-   .      .
- .__________.
- |  ░░░░░░  |
- '----------'
-    /    \\`;
-
 const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWordClick }) => {
   const exampleTopics = [
     "Quantum Entanglement", "Cyberpunk", "Stoicism",
@@ -101,12 +75,11 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
     "Dark Matter", "Philosophy", "Renaissance"
   ];
 
-  // Using a slightly higher opacity (0.2 - 0.3) for better visibility
   const artStyle: React.CSSProperties = {
     position: 'absolute',
     pointerEvents: 'none',
     zIndex: 0,
-    opacity: 0.25, // Increased from 0.1
+    opacity: 0.25,
     color: 'var(--text-muted)',
     fontFamily: 'monospace',
     lineHeight: '1.2'
@@ -133,19 +106,6 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
       {/* ── Rocket ── */}
       <div style={{ ...artStyle, bottom: '30px', right: '8%', fontSize: '0.5em' }} className="hide-on-mobile">
         <pre>{ROCKET}</pre>
-      </div>
-
-      {/* ── Additional Space Objects ── */}
-      <div style={{ ...artStyle, top: '25%', left: '15%', fontSize: '0.6em', transform: 'rotate(-15deg)' }} className="hide-on-mobile">
-        <pre>{SATELLITE}</pre>
-      </div>
-
-      <div style={{ ...artStyle, bottom: '15%', left: '25%', fontSize: '0.5em', animation: 'float 6s ease-in-out infinite' }} className="hide-on-mobile">
-        <pre>{ASTRONAUT}</pre>
-      </div>
-
-      <div style={{ ...artStyle, top: '15%', right: '15%', fontSize: '0.6em' }} className="hide-on-mobile">
-        <pre>{ALIEN_SHIP}</pre>
       </div>
 
       {/* ── Logo ── */}
@@ -183,62 +143,54 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
       <h2 style={{ letterSpacing: '0.1em', marginBottom: '0.75rem', fontWeight: 300, position: 'relative', zIndex: 5, padding: '0 1rem' }}>
         Welcome to Canto
       </h2>
-      <p style={{ maxWidth: '480px', margin: '0 auto 1.75rem auto', color: 'var(--text-muted)', lineHeight: '1.8', position: 'relative', zIndex: 5, padding: '0 1.25rem' }}>
-        An infinite AI encyclopedia powered by real knowledge sources.
-        Search any topic and watch a comprehensive, fact-checked article materialize in real time.
+      <p style={{ maxWidth: '540px', margin: '0 auto 1.75rem auto', color: 'var(--text-color)', lineHeight: '1.8', position: 'relative', zIndex: 5, padding: '0 1.25rem', fontFamily: 'monospace', textAlign: 'justify' }}>
+        An infinite AI encyclopedia powered by real knowledge sources from Wikipedia, NASA, Academic CORE, and Internet Archive. Use the raw text entries to understand modern and historical concepts in exceptional depth.
       </p>
 
-      {/* ── Feature badges ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1.75rem', flexWrap: 'wrap', position: 'relative', zIndex: 5, padding: '0 1rem' }}>
+      {/* ── Feature badges — Encyclopedic text inline ── */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginBottom: '2rem', flexWrap: 'wrap', position: 'relative', zIndex: 5, padding: '0 1rem' }}>
         {[
-          { icon: '📚', label: 'Wikipedia' },
-          { icon: '🔬', label: 'NASA' },
-          { icon: '🎓', label: 'Academic' },
-          { icon: '🤖', label: 'AI Synthesis' },
-        ].map(({ icon, label }) => (
-          <span key={label} style={{ fontSize: '0.75em', fontFamily: 'monospace', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            {icon} {label}
+          'Wikipedia', 'NASA Technical Reports', 'CORE Academic Studies', 'Internet Archive Research', 'Encyclopedia Galactica'
+        ].map((label, index, arr) => (
+          <span key={label} style={{ fontSize: '0.8em', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+            {label}{index < arr.length - 1 && ' •'}
           </span>
         ))}
       </div>
       
       {onWordClick && (
-        <div style={{ marginTop: '1.5rem', position: 'relative', zIndex: 10, padding: '0 1rem' }}>
-          <p style={{ fontSize: '0.85em', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem' }}>Explore these portals</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center', maxWidth: '650px', margin: '0 auto' }}>
-            {exampleTopics.map(topic => (
-              <button
-                key={topic}
-                onClick={() => onWordClick(topic)}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--border-color)',
-                  padding: '0.55rem 1rem',
-                  borderRadius: '4px',
-                  color: 'var(--text-color)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  WebkitTapHighlightColor: 'transparent',
-                  fontFamily: 'monospace',
-                  fontSize: '0.85em',
-                  minHeight: '2.5rem',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; e.currentTarget.style.textShadow = 'var(--ascii-glow)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-color)'; e.currentTarget.style.textShadow = 'none'; }}
-              >
-                {topic}
-              </button>
+        <div style={{ marginTop: '2rem', position: 'relative', zIndex: 10, padding: '0 1rem' }}>
+          <p style={{ fontSize: '0.8em', letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', fontFamily: 'monospace' }}>Explore these portals</p>
+          <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.8rem', justifyContent: 'center', maxWidth: '650px', margin: '0 auto' }}>
+            {exampleTopics.map((topic, i) => (
+              <React.Fragment key={topic}>
+                <button
+                  onClick={() => onWordClick(topic)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: 'var(--text-color)',
+                    cursor: 'pointer',
+                    transition: 'color 0.2s ease',
+                    WebkitTapHighlightColor: 'transparent',
+                    fontFamily: 'monospace',
+                    fontSize: '0.9em',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '3px',
+                    lineHeight: '1.5'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                >
+                  {topic}
+                </button>
+                {i < exampleTopics.length - 1 && <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace' }}>•</span>}
+              </React.Fragment>
             ))}
           </div>
         </div>
       )}
-      <style>{`
-        @keyframes float {
-          0% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
-          100% { transform: translateY(0px) rotate(0deg); }
-        }
-      `}</style>
     </div>
   );
 };
