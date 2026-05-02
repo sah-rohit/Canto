@@ -86,7 +86,7 @@ const App: React.FC = () => {
   const { showToast } = useToast();
   const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
   const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
-  const [lastSources, setLastSources] = useState<{ wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
+  const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
   // Advanced features state
   const [depth, setDepth] = useState<'Mini' | 'Standard' | 'Deep'>('Standard');

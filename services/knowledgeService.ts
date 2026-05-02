@@ -6,6 +6,7 @@
 
 export interface KnowledgeContext {
   wikipedia?: string;
+  wikipediaTitle?: string;
   internetArchive?: string;
   nasa?: string;
   core?: string;

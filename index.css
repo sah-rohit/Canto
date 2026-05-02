@@ -44,3 +44,36 @@
   --border-color: #ffffff !important;
   --input-bg: #111111 !important;
 }
+
+/* ── Hover tooltip fade-in animation ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Interactive word hover highlight ── */
+.interactive-word.clickable-any-word:hover {
+  color: var(--accent-color);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* ── Print View ── */
+.print-view {
+  font-size: 1.05em;
+  line-height: 2;
+  color: #111 !important;
+  background: #fff !important;
+}
+
+@media print {
+  .content-actions,
+  .sticky,
+  [role="tooltip"] {
+    display: none !important;
+  }
+  .print-view {
+    font-size: 12pt;
+    line-height: 1.8;
+  }
+}

@@ -13,7 +13,7 @@ import {
 export interface ResearchPanelProps {
   topic: string;
   content: string;
-  sources: { wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
+  sources: { wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
   onTopicClick: (t: string) => void;
   isOpen: boolean;
 }
@@ -185,12 +185,17 @@ const FollowUps: React.FC<{ topic: string; content: string; onTopicClick: (t: st
 // ─── Section: Sources ─────────────────────────────────────────────────────────
 const Sources: React.FC<{ sources: ResearchPanelProps['sources'] }> = ({ sources }) => {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const enc = encodeURIComponent((sources as any).topic || '');
+  const wikiSlug = (sources as any).wikipediaTitle
+    ? encodeURIComponent(((sources as any).wikipediaTitle as string).replace(/ /g, '_'))
+    : enc;
+
   const entries = [
-    { key: 'wikipedia',       label: 'Wikipedia',     url: 'https://wikipedia.org' },
-    { key: 'nasa',            label: 'NASA',          url: 'https://images.nasa.gov' },
-    { key: 'core',            label: 'CORE Academic', url: 'https://core.ac.uk' },
-    { key: 'internetArchive', label: 'Open Library',  url: 'https://openlibrary.org' },
-    { key: 'crawler',         label: 'Web Search',    url: 'https://duckduckgo.com' },
+    { key: 'wikipedia',       label: 'Wikipedia',              url: `https://en.wikipedia.org/wiki/${wikiSlug}` },
+    { key: 'nasa',            label: 'NASA Images',            url: 'https://images.nasa.gov' },
+    { key: 'core',            label: 'CORE Academic',          url: 'https://core.ac.uk' },
+    { key: 'internetArchive', label: 'Open Library',           url: 'https://openlibrary.org' },
+    { key: 'crawler',         label: 'Web Search (DuckDuckGo)', url: 'https://duckduckgo.com' },
   ] as const;
 
   const active = entries.filter(e => !!(sources as any)[e.key]);

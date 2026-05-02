@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { playSearchComplete, playWordClick, isSoundEnabled, setSoundEnabled } from '../services/soundService';
@@ -8,6 +8,45 @@ declare global {
   interface Window {
     katex?: any;
   }
+}
+
+// ─── Precision Viewport Positioning ─────────────────────────────────────────
+interface TooltipRect {
+  top: number;
+  left: number;
+  placement: 'above' | 'below';
+  arrowLeft: number;
+}
+
+function computeTooltipPosition(
+  anchorRect: DOMRect,
+  tooltipWidth: number,
+  tooltipHeight: number,
+  margin = 8
+): TooltipRect {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Prefer above; fall back to below if not enough room
+  const spaceAbove = anchorRect.top;
+  const spaceBelow = vh - anchorRect.bottom;
+  const placement: 'above' | 'below' = spaceAbove >= tooltipHeight + margin ? 'above' : 'below';
+
+  // Horizontal: center on anchor, clamp to viewport with padding
+  const idealLeft = anchorRect.left + anchorRect.width / 2 - tooltipWidth / 2;
+  const clampedLeft = Math.max(8, Math.min(idealLeft, vw - tooltipWidth - 8));
+
+  // Arrow offset relative to tooltip box
+  const arrowLeft = Math.max(12, Math.min(
+    anchorRect.left + anchorRect.width / 2 - clampedLeft,
+    tooltipWidth - 12
+  ));
+
+  const top = placement === 'above'
+    ? anchorRect.top - tooltipHeight - margin
+    : anchorRect.bottom + margin;
+
+  return { top, left: clampedLeft, placement, arrowLeft };
 }
 
 interface ContentDisplayProps {
@@ -20,7 +59,70 @@ interface ContentDisplayProps {
   fontSize?: number;
   isReadingMode?: boolean;
   onExplainClick?: (action: 'Simplify' | 'Go deeper' | 'Show sources for this claim', text: string) => void;
-  sources?: { wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
+  sources?: { wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
+}
+
+// ─── Source URL builder ───────────────────────────────────────────────────────
+interface SourceEntry {
+  label: string;
+  url: string;
+  snippet?: string;
+  type: 'wikipedia' | 'nasa' | 'core' | 'internetArchive' | 'crawler';
+}
+
+function buildSourceEntries(
+  topic: string,
+  sources?: { wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }
+): SourceEntry[] {
+  if (!sources) return [];
+  const enc = encodeURIComponent(topic || '');
+  const entries: SourceEntry[] = [];
+
+  if (sources.wikipedia) {
+    // Use canonical Wikipedia title if available for a precise URL
+    const wikiSlug = sources.wikipediaTitle
+      ? encodeURIComponent(sources.wikipediaTitle.replace(/ /g, '_'))
+      : enc;
+    entries.push({
+      label: 'Wikipedia',
+      url: `https://en.wikipedia.org/wiki/${wikiSlug}`,
+      snippet: sources.wikipedia.slice(0, 200),
+      type: 'wikipedia',
+    });
+  }
+  if (sources.nasa) {
+    entries.push({
+      label: 'NASA Images',
+      url: `https://images.nasa.gov/search-results?q=${enc}`,
+      snippet: sources.nasa.slice(0, 200),
+      type: 'nasa',
+    });
+  }
+  if (sources.core) {
+    entries.push({
+      label: 'CORE Academic',
+      url: `https://core.ac.uk/search?q=${enc}`,
+      snippet: sources.core.slice(0, 200),
+      type: 'core',
+    });
+  }
+  if (sources.internetArchive) {
+    entries.push({
+      label: 'Open Library',
+      url: `https://openlibrary.org/search?q=${enc}`,
+      snippet: sources.internetArchive.slice(0, 200),
+      type: 'internetArchive',
+    });
+  }
+  if (sources.crawler) {
+    entries.push({
+      label: 'Web Search (DuckDuckGo)',
+      url: `https://duckduckgo.com/?q=${enc}`,
+      snippet: sources.crawler.slice(0, 200),
+      type: 'crawler',
+    });
+  }
+  return entries;
 }
 
 const InteractiveContent: React.FC<{
@@ -33,21 +135,31 @@ const InteractiveContent: React.FC<{
   fontSize?: number;
   isReadingMode?: boolean;
   onExplainClick?: (action: 'Simplify' | 'Go deeper' | 'Show sources for this claim', text: string) => void;
-  sources?: { wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
+  sources?: { wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
 }> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode, onExplainClick, sources }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
-  const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number; placement: 'above' | 'below'; arrowLeft: number } | null>(null);
   const [explainAnswer, setExplainAnswer] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState<boolean>(false);
   const [inArticleSearch, setInArticleSearch] = useState('');
   const [citationStyle, setCitationStyle] = useState<'APA' | 'MLA' | 'Chicago'>('APA');
   const [isTocVisible, setIsTocVisible] = useState(true);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [expandedSource, setExpandedSource] = useState<string | null>(null);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [complexityScore, setComplexityScore] = useState<number | null>(null);
+  const [isPrintView, setIsPrintView] = useState(false);
 
-  // Short definition popup on word double-click/hover
-  const [wordDefPos, setWordDefPos] = useState<{ x: number; y: number; word: string; def: string } | null>(null);
+  // Precision word/concept hover tooltip
+  const [wordDefPos, setWordDefPos] = useState<{
+    top: number; left: number; placement: 'above' | 'below'; arrowLeft: number;
+    word: string; def: string;
+  } | null>(null);
+  const wordDefRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
@@ -73,40 +185,74 @@ const InteractiveContent: React.FC<{
     };
   }, []);
 
-  const handleSelection = (e: React.MouseEvent) => {
+  // ─── Reading progress tracker ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = contentRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const total = el.offsetHeight;
+      const scrolled = Math.max(0, -rect.top);
+      setReadingProgress(Math.min(100, Math.round((scrolled / total) * 100)));
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // ─── Complexity score ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!content || content.length < 50) return;
+    const words = content.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean);
+    const longWords = words.filter(w => w.length > 8).length;
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10).length;
+    const avgSentLen = sentences > 0 ? words.length / sentences : 0;
+    // Flesch-Kincaid-inspired score (0-100, higher = more complex)
+    const score = Math.min(100, Math.round((longWords / Math.max(words.length, 1)) * 100 + avgSentLen * 0.5));
+    setComplexityScore(score);
+  }, [content]);
+
+  // ─── Precision selection popup ────────────────────────────────────────────
+  const handleSelection = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     const text = selection.toString().trim();
     if (text && text.length > 2) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top > 60 ? rect.top - 48 : rect.bottom + 12;
-      setPopupPos({ x, y });
+      // Popup width ~380px; height ~52px (without answer)
+      const pos = computeTooltipPosition(rect, 380, 52);
+      setPopupPos(pos);
       setSelectedText(text);
       setExplainAnswer(null);
     } else {
       setPopupPos(null);
     }
-  };
+  }, []);
 
-  const handleWordDoubleClick = (e: React.MouseEvent, word: string) => {
+  // ─── Precision word hover/double-click tooltip ───────────────────────────
+  const handleWordHover = useCallback((e: React.MouseEvent, word: string, def: string) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Tooltip ~240px wide, ~60px tall
+    const pos = computeTooltipPosition(rect, 240, 60);
+    setWordDefPos({ ...pos, word, def });
+  }, []);
+
+  const handleWordDoubleClick = useCallback((e: React.MouseEvent, word: string) => {
     if (!word || word.length < 3) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const pos = computeTooltipPosition(rect, 240, 60);
     setWordDefPos({
-      x: e.clientX,
-      y: e.clientY - 35,
+      ...pos,
       word,
-      def: `Retrieving direct AI context/definition for "${word}"...`
+      def: `Retrieving definition for "${word}"…`,
     });
-
-    // Simulate direct AI explanation/definition from local context
     setTimeout(() => {
-      setWordDefPos(prev => prev ? {
+      setWordDefPos(prev => prev && prev.word === word ? {
         ...prev,
-        def: `"${word}" is a key thematic term used to describe foundational principles in the related context of ${topic || 'the encyclopedia article'}.`
-      } : null);
-    }, 700);
-  };
+        def: `"${word}" — a key concept in the context of ${topic || 'this article'}. Click to explore the full entry.`,
+      } : prev);
+    }, 600);
+  }, [topic]);
 
   useEffect(() => {
     if (isStreaming && bottomRef.current) {
@@ -196,20 +342,11 @@ const InteractiveContent: React.FC<{
     const title = (topic || 'Untitled Article').toUpperCase();
     const dateStr = '2026';
     const site = 'Canto: AI Galactica Encyclopedia';
-    
-    // Build direct verified sources list instead of only citing the current window location
-    const citationUrls: string[] = [];
-    if (sources?.wikipedia) citationUrls.push(`https://en.wikipedia.org/wiki/${encodeURIComponent(topic || '')}`);
-    if (sources?.nasa) citationUrls.push(`https://images.nasa.gov/search-results?q=${encodeURIComponent(topic || '')}`);
-    if (sources?.core) citationUrls.push(`https://core.ac.uk/search?q=${encodeURIComponent(topic || '')}`);
-    if (sources?.internetArchive) citationUrls.push(`https://archive.org/search.php?query=${encodeURIComponent(topic || '')}`);
-
-    // Fallback to a valid direct link if no explicit sources were passed
-    if (citationUrls.length === 0) {
-      citationUrls.push(`https://en.wikipedia.org/wiki/${encodeURIComponent(topic || '')}`);
-    }
-
-    const url = citationUrls.join(', ');
+    const sourceEntries = buildSourceEntries(topic || '', sources);
+    const citationUrls = sourceEntries.length > 0
+      ? sourceEntries.map(s => s.url)
+      : [`https://en.wikipedia.org/wiki/${encodeURIComponent(topic || '')}`];
+    const url = citationUrls.join('; ');
 
     if (citationStyle === 'APA') {
       return `Canto. (${dateStr}). ${title}. ${site}. Retrieved from ${url}`;
@@ -283,13 +420,7 @@ const InteractiveContent: React.FC<{
             onDoubleClick={(e) => handleWordDoubleClick(e, phrase)}
             onMouseEnter={(e) => {
               if (isClickable) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setWordDefPos({
-                  x: rect.left + rect.width / 2,
-                  y: rect.top - 38,
-                  word: phrase,
-                  def: `Conceptual term related to ${topic || 'current article'}.`
-                });
+                handleWordHover(e, phrase, `Conceptual term related to ${topic || 'current article'}.`);
               }
             }}
             onMouseLeave={() => setWordDefPos(null)}
@@ -317,13 +448,7 @@ const InteractiveContent: React.FC<{
               onDoubleClick={(e) => handleWordDoubleClick(e, wordChunk)}
               onMouseEnter={(e) => {
                 if (isClickable) {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setWordDefPos({
-                    x: rect.left + rect.width / 2,
-                    y: rect.top - 38,
-                    word: wordChunk,
-                    def: `Context definition for "${wordChunk}" within raw AI synthesis.`
-                  });
+                  handleWordHover(e, wordChunk, `Context definition for "${wordChunk}" within this article.`);
                 }
               }}
               onMouseLeave={() => setWordDefPos(null)}
@@ -449,6 +574,58 @@ const InteractiveContent: React.FC<{
 
   return (
     <div style={{ position: 'relative' }} ref={contentRef}>
+
+      {/* ── Reading Progress Bar ── */}
+      {!isStreaming && content.length > 200 && (
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          height: '2px',
+          background: 'var(--border-color)',
+          marginBottom: '1rem',
+        }}>
+          <div style={{
+            height: '100%',
+            width: `${readingProgress}%`,
+            background: 'var(--accent-color)',
+            transition: 'width 0.2s ease',
+          }} />
+        </div>
+      )}
+
+      {/* ── Article Meta Bar ── */}
+      {!isStreaming && content.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          marginBottom: '1rem',
+          fontFamily: 'monospace',
+          fontSize: '0.75em',
+          color: 'var(--text-muted)',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}>
+          {complexityScore !== null && (
+            <span title="Lexical complexity score (0=simple, 100=dense)">
+              Complexity:{' '}
+              <span style={{ color: complexityScore > 65 ? 'var(--accent-color)' : 'var(--text-muted)' }}>
+                {complexityScore > 65 ? 'Advanced' : complexityScore > 35 ? 'Intermediate' : 'Accessible'}
+              </span>
+              {' '}({complexityScore}/100)
+            </span>
+          )}
+          <span>~{Math.max(1, Math.round(content.split(/\s+/).length / 200))} min read</span>
+          <span>{content.split(/\s+/).filter(Boolean).length} words</span>
+          <button
+            onClick={() => setIsPrintView(v => !v)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1em', textDecoration: 'underline', padding: 0 }}
+          >
+            {isPrintView ? 'Exit Print View' : 'Print View'}
+          </button>
+        </div>
+      )}
+
       {/* ── Table of Contents ── */}
       {headers.length > 0 && (
         <div style={{ marginBottom: '1.5rem', fontFamily: 'monospace', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
@@ -503,92 +680,184 @@ const InteractiveContent: React.FC<{
         </div>
       )}
 
-      <div className={`markdown-body tts-content${isStreaming ? ' streaming-active' : ''}`} onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
+      <div className={`markdown-body tts-content${isStreaming ? ' streaming-active' : ''}${isPrintView ? ' print-view' : ''}`} onMouseUp={handleSelection} style={{ lineHeight: '1.8', position: 'relative' }}>
         <Markdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
           {content}
         </Markdown>
         <div ref={bottomRef} style={{ height: 1, padding: 0, margin: 0 }} />
       </div>
 
-      {/* ── Citation & Sources toggle ── */}
-      {!isStreaming && content.length > 0 && (
-        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', fontFamily: 'monospace' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.85em', color: 'var(--text-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sources Citation</span>
-            <div style={{ display: 'flex', gap: '0.8rem' }}>
-              {(['APA', 'MLA', 'Chicago'] as const).map(style => (
-                <button
-                  key={style}
-                  onClick={() => setCitationStyle(style)}
-                  style={{ background: 'none', border: 'none', padding: 0, textDecoration: citationStyle === style ? 'underline' : 'none', color: citationStyle === style ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
-                >
-                  {style}
-                </button>
-              ))}
+      {/* ── Sources Citation ── */}
+      {!isStreaming && content.length > 0 && (() => {
+        const sourceEntries = buildSourceEntries(topic || '', sources);
+        return (
+          <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', fontFamily: 'monospace' }}>
+            {/* Citation style header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <button
+                onClick={() => setSourcesExpanded(v => !v)}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', color: 'var(--text-color)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8em' }}>{sourcesExpanded ? '▼' : '▶'}</span>
+                Sources &amp; Citation
+                {sourceEntries.length > 0 && (
+                  <span style={{ fontSize: '0.75em', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}>
+                    ({sourceEntries.length} verified)
+                  </span>
+                )}
+              </button>
+              <div style={{ display: 'flex', gap: '0.8rem' }}>
+                {(['APA', 'MLA', 'Chicago'] as const).map(style => (
+                  <button
+                    key={style}
+                    onClick={() => setCitationStyle(style)}
+                    style={{ background: 'none', border: 'none', padding: 0, textDecoration: citationStyle === style ? 'underline' : 'none', color: citationStyle === style ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Citation text */}
+            <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.82em', color: 'var(--text-muted)', wordBreak: 'break-word', lineHeight: '1.6', borderLeft: '2px solid var(--border-color)', paddingLeft: '0.8rem' }}>
+              {getCitation()}
+            </p>
+
+            {/* Expanded source list with real URLs and snippets */}
+            {sourcesExpanded && (
+              <div style={{ marginTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {sourceEntries.length === 0 ? (
+                  <span style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>No external sources were loaded for this article.</span>
+                ) : sourceEntries.map(entry => {
+                  const isOpen = expandedSource === entry.type;
+                  return (
+                    <div key={entry.type} style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '0.8rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setExpandedSource(isOpen ? null : entry.type)}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em', color: isOpen ? 'var(--accent-color)' : 'var(--text-color)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        >
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>{isOpen ? '[-]' : '[+]'}</span>
+                          {entry.label}
+                        </button>
+                        <a
+                          href={entry.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '0.75em', color: 'var(--accent-color)', textDecoration: 'underline', fontFamily: 'monospace' }}
+                        >
+                          ↗ {entry.url.replace(/^https?:\/\//, '').split('/')[0]}
+                        </a>
+                      </div>
+                      {isOpen && entry.snippet && (
+                        <p style={{ margin: '0.3rem 0 0.3rem 0.8rem', fontSize: '0.78em', color: 'var(--text-muted)', lineHeight: '1.5', fontStyle: 'italic' }}>
+                          &ldquo;{entry.snippet}{entry.snippet.length >= 200 ? '…' : ''}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85em', color: 'var(--text-muted)', wordBreak: 'break-word', lineHeight: '1.5' }}>
-            {getCitation()}
-          </p>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* Word / Concept popover explanation on hover/double click */}
+      {/* ── Precision Word/Concept Hover Tooltip ── */}
       {wordDefPos && (
-        <div style={{
-          position: 'fixed',
-          top: `${wordDefPos.y}px`,
-          left: `${wordDefPos.x}px`,
-          transform: 'translateX(-50%)',
-          background: 'var(--bg-color)',
-          border: '1px solid var(--accent-color)',
-          padding: '0.4rem 0.6rem',
-          zIndex: 9999,
-          fontFamily: 'monospace',
-          fontSize: '0.78em',
-          maxWidth: '240px',
-          animation: 'fade-in 0.1s ease'
-        }}>
-          <strong>{wordDefPos.word}</strong>: {wordDefPos.def}
-          <button onClick={() => setWordDefPos(null)} style={{ marginLeft: '0.4rem', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+        <div
+          ref={wordDefRef}
+          role="tooltip"
+          style={{
+            position: 'fixed',
+            top: `${wordDefPos.top}px`,
+            left: `${wordDefPos.left}px`,
+            background: 'var(--bg-color)',
+            border: '1px solid var(--accent-color)',
+            padding: '0.45rem 0.7rem',
+            zIndex: 9999,
+            fontFamily: 'monospace',
+            fontSize: '0.78em',
+            maxWidth: '240px',
+            width: 'max-content',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+            pointerEvents: 'none',
+            animation: 'fade-in 0.1s ease',
+            lineHeight: '1.4',
+          }}
+        >
+          {/* Arrow pointing to the word */}
+          <div style={{
+            position: 'absolute',
+            [wordDefPos.placement === 'above' ? 'bottom' : 'top']: '-6px',
+            left: `${wordDefPos.arrowLeft}px`,
+            transform: 'translateX(-50%)',
+            width: 0,
+            height: 0,
+            borderLeft: '5px solid transparent',
+            borderRight: '5px solid transparent',
+            ...(wordDefPos.placement === 'above'
+              ? { borderTop: '6px solid var(--accent-color)' }
+              : { borderBottom: '6px solid var(--accent-color)' }),
+          }} />
+          <strong style={{ color: 'var(--accent-color)' }}>{wordDefPos.word}</strong>
+          <span style={{ color: 'var(--text-muted)', margin: '0 0.3rem' }}>—</span>
+          <span>{wordDefPos.def}</span>
         </div>
       )}
 
+      {/* ── Precision Selection Popup ── */}
       {popupPos && (
-        <div style={{
-          position: 'fixed',
-          top: `${popupPos.y}px`,
-          left: `${popupPos.x}px`,
-          transform: 'translateX(-50%)',
-          background: 'var(--bg-color)',
-          border: '1px solid var(--accent-color)',
-          padding: '0.6rem 0.9rem',
-          borderRadius: '0',
-          boxShadow: '0 0 15px rgba(var(--accent-color-rgb), 0.4)',
-          zIndex: 9999,
-          fontFamily: 'monospace',
-          fontSize: '0.8em',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.6rem',
-          animation: 'fade-in 0.15s ease-out',
-          pointerEvents: 'auto',
-          maxWidth: '420px',
-          width: '100%'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
-            <button 
+        <div
+          ref={popupRef}
+          style={{
+            position: 'fixed',
+            top: `${popupPos.top}px`,
+            left: `${popupPos.left}px`,
+            background: 'var(--bg-color)',
+            border: '1px solid var(--accent-color)',
+            padding: '0.6rem 0.9rem',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            zIndex: 9999,
+            fontFamily: 'monospace',
+            fontSize: '0.8em',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.6rem',
+            animation: 'fade-in 0.15s ease-out',
+            pointerEvents: 'auto',
+            maxWidth: '380px',
+            width: 'max-content',
+          }}
+        >
+          {/* Arrow pointing to the selection */}
+          <div style={{
+            position: 'absolute',
+            [popupPos.placement === 'above' ? 'bottom' : 'top']: '-6px',
+            left: `${popupPos.arrowLeft}px`,
+            transform: 'translateX(-50%)',
+            width: 0,
+            height: 0,
+            borderLeft: '5px solid transparent',
+            borderRight: '5px solid transparent',
+            ...(popupPos.placement === 'above'
+              ? { borderTop: '6px solid var(--accent-color)' }
+              : { borderBottom: '6px solid var(--accent-color)' }),
+          }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
               onClick={() => { onWordClick(selectedText); setPopupPos(null); }}
-              style={{ background: 'var(--accent-color)', border: 'none', color: 'var(--bg-color, #0b0f19)', padding: '0.2rem 0.6rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85em', fontFamily: 'monospace' }}
+              style={{ background: 'var(--accent-color)', border: 'none', color: 'var(--bg-color, #0b0f19)', padding: '0.2rem 0.6rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85em', fontFamily: 'monospace', flexShrink: 0 }}
             >
-              "{selectedText.length > 12 ? selectedText.slice(0, 12) + '...' : selectedText}"
+              &ldquo;{selectedText.length > 14 ? selectedText.slice(0, 14) + '…' : selectedText}&rdquo;
             </button>
             {(['Simplify', 'Go Deeper', 'Show Sources'] as const).map(action => (
               <button
                 key={action}
                 onClick={async () => {
                   setIsExplaining(true);
-                  setExplainAnswer('Synthesizing verified knowledge...');
+                  setExplainAnswer('Synthesizing verified knowledge…');
                   try {
                     const res = await explainThis(selectedText, action);
                     setExplainAnswer(res);
@@ -604,7 +873,7 @@ const InteractiveContent: React.FC<{
                 {action}
               </button>
             ))}
-            <button 
+            <button
               onClick={() => setPopupPos(null)}
               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1.1em', padding: '0 0.2rem', marginLeft: 'auto' }}
             >
@@ -612,7 +881,7 @@ const InteractiveContent: React.FC<{
             </button>
           </div>
           {(isExplaining || explainAnswer) && (
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem', marginTop: '0.2rem', color: 'var(--text-color)', fontSize: '0.85em', lineHeight: '1.4', maxHeight: '180px', overflowY: 'auto' }}>
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem', color: 'var(--text-color)', fontSize: '0.85em', lineHeight: '1.5', maxHeight: '200px', overflowY: 'auto' }}>
               {explainAnswer}
             </div>
           )}

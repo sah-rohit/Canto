@@ -42,7 +42,11 @@ export const onRequest = async (context: any) => {
         );
         if (wikiRes.ok) {
           const data = await wikiRes.json();
-          if (data.extract) results.wikipedia = data.extract.slice(0, 1500);
+          if (data.extract) {
+            results.wikipedia = data.extract.slice(0, 1500);
+            // Store the canonical Wikipedia page title for accurate URL building
+            if (data.title) results.wikipediaTitle = data.title;
+          }
         }
       } catch (e) {}
     })(),
