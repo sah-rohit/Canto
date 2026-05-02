@@ -93,10 +93,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
             font: 'inherit',
             color: 'var(--text-color)',
             border: 'none',
-            borderBottom: '1px solid var(--border-color)',
             background: 'transparent',
             outline: 'none',
-            transition: 'border-color 0.2s',
             fontSize: '1.1em',
             fontFamily: 'monospace'
           }}
@@ -106,8 +104,6 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent-color)')}
-          onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = query ? 'var(--accent-color)' : 'var(--border-color)')}
         />
         {query && (
           <button 
@@ -188,20 +184,20 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onRandom, isLoading, pr
         onClick={onRandom} 
         disabled={isLoading}
         style={{
-          background: 'transparent',
-          border: '1px solid var(--border-color)',
-          padding: '0.65rem 1rem',
-          font: 'inherit',
+          background: 'none',
+          border: 'none',
           color: 'var(--text-color)',
           cursor: 'pointer',
-          transition: 'all 0.2s',
-          borderRadius: '0',
+          transition: 'color 0.2s',
           fontSize: '0.9em',
           fontFamily: 'monospace',
-          minHeight: '2.5rem',
+          textDecoration: 'underline',
+          textUnderlineOffset: '3px',
+          marginLeft: '0.5rem',
+          whiteSpace: 'nowrap',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-color)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-color)'; }}
       >
         Random
       </button>

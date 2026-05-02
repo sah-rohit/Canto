@@ -164,6 +164,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage, currentTopic]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
         setIsHistoryOpen(false);
@@ -626,26 +630,13 @@ const App: React.FC = () => {
 
         {!isReadingMode && currentPage !== 'landing' && (
           <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-              <svg width="100%" height="60" viewBox="0 0 600 60" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))', maxWidth: '420px' }}>
-                <defs>
-                  <linearGradient id="cantoHolo" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="var(--text-color)" />
-                    <stop offset="100%" stopColor="var(--text-muted)" />
-                  </linearGradient>
-                </defs>
-                <g transform="translate(50, 5) scale(0.7)">
-                  <path d="M 30 0 A 30 30 0 1 0 60 30 A 20 20 0 1 1 30 0 Z" fill="none" stroke="url(#cantoHolo)" strokeWidth="3" />
-                  <circle cx="20" cy="15" r="2" fill="var(--accent-color)" />
-                  <circle cx="35" cy="45" r="2" fill="var(--accent-color)" />
-                </g>
-                <text x="58%" y="45%" dominantBaseline="middle" textAnchor="middle" fill="url(#cantoHolo)" fontSize="48" fontFamily="Inter, sans-serif" fontWeight="900" letterSpacing="0.25em" style={{ textShadow: 'none' }}>
-                  CANTO
-                </text>
-                <text x="58%" y="85%" dominantBaseline="middle" textAnchor="middle" fill="var(--text-muted)" fontSize="12" fontFamily="monospace" letterSpacing="0.4em">
-                  [ INFINITE ENCYCLOPEDIA ]
-                </text>
-              </svg>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', padding: '0 1rem' }}>
+              <h1 style={{ fontSize: '2.8em', fontWeight: 'bold', letterSpacing: '0.2em', color: 'var(--text-color)', fontFamily: 'monospace', margin: 0 }}>
+                CANTO
+              </h1>
+              <p style={{ fontSize: '0.85em', letterSpacing: '0.35em', color: 'var(--text-muted)', fontFamily: 'monospace', margin: '0.4rem 0 0 0', textTransform: 'uppercase' }}>
+                [ AI Galactica Encyclopedia ]
+              </p>
             </div>
           </header>
         )}
@@ -779,12 +770,12 @@ const App: React.FC = () => {
           </ErrorBoundary>
         </main>
 
-        <footer style={{ marginTop: '4rem', padding: '2rem 0', borderTop: '1px solid var(--border-color)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85em', fontFamily: 'monospace' }}>
+        <footer style={{ marginTop: '4rem', padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85em', fontFamily: 'monospace' }}>
           <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
-            <button onClick={() => changeTheme('classic')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'classic' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'classic' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Classic</button>
-            <button onClick={() => changeTheme('obsidian')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Obsidian</button>
-            <button onClick={() => changeTheme('dark')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'dark' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'dark' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Dark Neon</button>
-            <button onClick={() => changeTheme('vintage')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: '1px solid', background: 'transparent', cursor: 'pointer', borderColor: theme === 'vintage' ? 'var(--accent-color)' : 'var(--border-color)', borderRadius: '2px', color: theme === 'vintage' ? 'var(--accent-color)' : 'var(--text-muted)' }}>Vintage</button>
+            <button onClick={() => changeTheme('classic')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'classic' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'classic' ? 'underline' : 'none' }}>Classic</button>
+            <button onClick={() => changeTheme('obsidian')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'obsidian' ? 'underline' : 'none' }}>Obsidian</button>
+            <button onClick={() => changeTheme('dark')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'dark' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'dark' ? 'underline' : 'none' }}>Dark Neon</button>
+            <button onClick={() => changeTheme('vintage')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'vintage' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'vintage' ? 'underline' : 'none' }}>Vintage</button>
           </div>
           <p>© {new Date().getFullYear()} Canto · Crafted by Sonata Interactive as a solo project</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', marginTop: '1rem', flexWrap: 'wrap' }}>

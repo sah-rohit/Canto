@@ -64,10 +64,10 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
       <div style={{ fontFamily: 'monospace', textAlign: 'justify', lineHeight: '1.8' }}>
         <p>Welcome to <strong>Canto</strong> — an infinite, real-time AI encyclopedia designed for robust academic synthesis, technical depth, and deep learning.</p>
         <p>
-          Traditional encyclopedias are static snapshots. Canto changes this by generating comprehensive, well-structured, and fact-checked documents in real-time. By sourcing raw factual material directly from verified data repositories, Canto creates thorough reference articles on any topic you choose.
+          Traditional encyclopedias are static snapshots. I created Canto to change this by generating comprehensive, well-structured, and fact-checked documents in real-time. By sourcing raw factual material directly from verified data repositories, I enable the creation of thorough reference articles on any topic you choose.
         </p>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Knowledge Integrations</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Knowledge Integrations</h3>
         <p>
           Canto leverages multiple authoritative information sources to prevent AI hallucination and ground content in objective data:
         </p>
@@ -86,12 +86,12 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
           </li>
         </ul>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Encyclopedia Galactica</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Encyclopedia Galactica</h3>
         <p>
-          The Encyclopedia Galactica serves as our premium knowledge processing model. It links nodes into continuous semantic graphs, turning single keywords into detailed technical concepts without limits.
+          The Encyclopedia Galactica serves as my premium knowledge processing model. It links nodes into continuous semantic graphs, turning single keywords into detailed technical concepts without limits.
         </p>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>AI-Assisted Research and Document Q&A</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>AI-Assisted Research and Document Q&A</h3>
         <p>
           In addition to generation, Canto acts as an interactive study assistant. Highlight text within any article to perform contextual sub-searches, open relevant research summaries, and explore related entities on the fly.
         </p>
@@ -99,28 +99,28 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
     )
   },
   pricing: {
-    title: 'Canto Plans and Pricing',
+    title: 'Canto Access and Availability',
     content: (
-      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
-        <p>We provide a fully accessible knowledge service without paywalls, login screens, or advertising networks.</p>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
+        <p>I provide a completely accessible knowledge service without paywalls, login screens, or advertising networks. Every user receives the exact same tier, functionality, and computational resources without any discrimination.</p>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Standard Free Tier</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Unified Free Access For All</h3>
         <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-          <li style={{ marginBottom: '0.8rem' }}>• <strong>20 searches per day:</strong> Refreshes automatically every 24 hours.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>20 new searches per day:</strong> Refreshes automatically every 24 hours.</li>
           <li style={{ marginBottom: '0.8rem' }}>• <strong>Synthesis Pipeline access:</strong> Fetches and combines real-time data from NASA, Wikipedia, CORE, and the Internet Archive.</li>
           <li style={{ marginBottom: '0.8rem' }}>• <strong>In-Article Deep Search:</strong> Scan and highlight information across thousands of words.</li>
-          <li style={{ marginBottom: '0.8rem' }}>• <strong>Unlimited Library browsing:</strong> Read and download cached files, search logs, and favorites anytime.</li>
+          <li style={{ marginBottom: '0.8rem' }}>• <strong>Unlimited Library browsing:</strong> Read and review cached files, search logs, and favorites anytime.</li>
           <li style={{ marginBottom: '0.8rem' }}>• <strong>Local storage data export:</strong> Export to TXT and PDF for complete offline reading.</li>
         </ul>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Enterprise and Contributor Plans</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Why is Canto Free?</h3>
         <p>
-          For researchers, academic institutions, and organizations needing elevated computational limits, API keys can be supplied directly through local configuration. Contact the Canto open-source community to find out more.
+          I built Canto as a pure solo project dedicated to open learning and accessible technology. My core mission is to provide equal research capabilities to everyone, whether you are a student, hobbyist, or professional researcher.
         </p>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>What happens when I hit my limit?</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Managing Search Limits</h3>
         <p>
-          Daily search credits are consumed only when generating new articles. You can always search cached history items, add items to folders, edit ASCII art, and export files without any restrictions.
+          The 20-search daily threshold exists solely to keep server operation expenses reasonable. You can continue scanning cached history items, accessing your folders, editing ASCII creations, and extracting documents indefinitely.
         </p>
       </div>
     )
@@ -128,20 +128,27 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   faq: {
     title: 'Frequently Asked Questions',
     content: (
-      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>What is Canto?</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
+        <p>Common questions about the Canto knowledge and research system:</p>
+        
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>What is Canto?</h3>
         <p>
-          Canto is an AI-driven research assistant that synthesizes direct evidence from Wikipedia, NASA, Academic CORE, and the Internet Archive. It transforms raw search prompts into structured, highly technical articles.
+          Canto is a complete real-time, AI-driven research platform that I designed to extract verified information from Wikipedia, NASA, CORE Academic, and the Internet Archive. It transforms raw prompts into structured, thorough technical entries.
         </p>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>How does the in-article search work?</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Who is behind this project?</h3>
         <p>
-          Every article features a real-time deep scanning engine. Type in any phrase, and Canto will instantly find and highlight matches in the reading mode without altering text flow.
+          Canto is my single, independent solo project. I designed, developed, and maintain Canto entirely on my own as a high-performance open repository.
         </p>
 
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>What is the Encyclopedia Galactica?</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>How does in-article search work?</h3>
         <p>
-          It is an advanced technical classification system within Canto that links complex entities, deep scientific theories, and speculative scenarios into organized, cross-referenced documentation.
+          Every article includes a real-time deep scanning engine that I built. Just type in any word or phrase, and the application highlights exact occurrences directly within the reading mode.
+        </p>
+
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Are my searches private?</h3>
+        <p>
+          Yes, completely. Your search history and configurations are stored directly in your browser's LocalStorage and local IndexedDB database.
         </p>
       </div>
     )
@@ -149,15 +156,22 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   privacy: {
     title: 'Privacy Policy',
     content: (
-      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
-        <p>We respect your right to total privacy. Here is how your data is secured:</p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>1. Direct Local Persistence</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
+        <p>I respect your right to total privacy. Here is how I protect your data:</p>
+        
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>1. Local Storage Persistence</h3>
         <p>
-          All of your search history, favorite lists, mind maps, and user settings are kept entirely in your browser's local storage and IndexedDB database. No data is sent to external cloud storage providers.
+          I do not collect, transmit, or store your queries, browsing profiles, search history, or modifications on external cloud servers. All persistent information remains strictly inside your local browser storage.
         </p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>2. Anonymous Queries</h3>
+        
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>2. Isolated Sourcing Pipeline</h3>
         <p>
-          Queries are proxied over our secure service layer. Personal identifiers, browsing patterns, and local configuration details are never transmitted to third-party language model providers.
+          I route information requests anonymously through my direct service proxy. No personal device identifiers, local data, or tracking tokens are sent to third-party data repositories or synthesis networks.
+        </p>
+
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>3. Data Control</h3>
+        <p>
+          You remain in full control of your local data. You can inspect, modify, clear, and export your personal reading logs directly from the Library menu.
         </p>
       </div>
     )
@@ -165,15 +179,17 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   terms: {
     title: 'Terms and Conditions',
     content: (
-      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
-        <p>Simple rules for using the Canto research platform:</p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>1. Rate Limits</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
+        <p>Simple rules for utilizing Canto:</p>
+        
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>1. Fair Use</h3>
         <p>
-          We ask that you observe the daily API request thresholds. This ensures fair use and computational availability for everyone on the platform.
+          Please respect the search limits provided. These exist solely to prevent computational abuse and ensure consistent accessibility for all independent learners.
         </p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>2. Academic Sourcing</h3>
+        
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>2. Data Grounding</h3>
         <p>
-          Canto pulls direct research context from trusted resources like NASA, Wikipedia, and the Internet Archive. However, always consult individual primary texts for critical research.
+          While I take great care to ground every output in direct data contexts from NASA, Wikipedia, and the Internet Archive, all generated content should be treated as dynamic research summaries. For academic or critical needs, please verify information via primary source documents.
         </p>
       </div>
     )
@@ -181,11 +197,15 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   opensource: {
     title: 'Open Source Development',
     content: (
-      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
-        <p>Canto is built with transparency and user privacy in mind.</p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Source Repository</h3>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
+        <p>I built Canto on a foundation of open, transparent, and auditable software.</p>
+        
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Public Repository</h3>
         <p>
-          The complete client codebase, including styling, services, and multi-source integrations, is fully accessible and licensed under the Apache 2.0 license.
+          The entire codebase for the client application, styling systems, and multi-source pipelines is openly accessible. I welcome forks, reviews, and local hosting configurations.
+        </p>
+        <p>
+          Visit the source repository on GitHub: <a href="https://github.com/sah-rohit/Canto" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)', textDecoration: 'underline' }}>github.com/sah-rohit/Canto</a>
         </p>
       </div>
     )
@@ -193,13 +213,13 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
   galactica: {
     title: 'Encyclopedia Galactica',
     content: (
-      <div style={{ fontFamily: 'monospace', lineHeight: '1.8' }}>
+      <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
         <p>Explore specialized technical concepts, scientific discoveries, advanced knowledge nodes, and cross-references.</p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Advanced Knowledge Network</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Advanced Knowledge Network</h3>
         <p>
-          Encyclopedia Galactica models deep technical entities as continuous semantic pathways. This lets you drill down from broad overviews into the exact scientific and philosophical contexts you need.
+          I designed the Encyclopedia Galactica to model deep technical entities as continuous semantic pathways. This lets you drill down from broad overviews into the exact scientific and philosophical contexts you need.
         </p>
-        <h3 style={{ marginTop: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>Primary Classifications</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Primary Classifications</h3>
         <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
           <li style={{ marginBottom: '0.8rem' }}>• <strong>Cosmology & Aerospace:</strong> Complex planetary physics, dark matter experiments, and satellite telemetry studies.</li>
           <li style={{ marginBottom: '0.8rem' }}>• <strong>Cybernetics & Machine Logic:</strong> Neural architectures, advanced AI reasoning, and recursive computational networks.</li>
@@ -226,13 +246,13 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
       <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
         <h2 style={{ marginBottom: '1rem', letterSpacing: '0.1em' }}>My Local Library</h2>
         {art && (
-          <pre className="ascii-art living-ascii" style={{ color: '#555', marginBottom: '2rem', overflowX: 'auto' }}>
+          <pre className="ascii-art living-ascii" style={{ color: '#555', marginBottom: '2rem', overflowX: 'auto', fontSize: '0.65em', lineHeight: '1.2' }}>
             {art}
           </pre>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem', marginTop: '2rem' }}>
           <section>
-            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</h3>
+            <h3 style={{ fontSize: '1em', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</h3>
             {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 {favorites.map(t => (
@@ -244,7 +264,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
             )}
           </section>
           <section>
-            <h3 style={{ fontSize: '1em', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recent History</h3>
+            <h3 style={{ fontSize: '1em', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recent History</h3>
             {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 {history.map(t => (

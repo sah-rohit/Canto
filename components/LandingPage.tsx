@@ -108,39 +108,17 @@ const LandingPage: React.FC<{ onWordClick?: (word: string) => void }> = ({ onWor
         <pre>{ROCKET}</pre>
       </div>
 
-      {/* ── Logo ── */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem', position: 'relative', zIndex: 5, padding: '0 1rem' }}>
-        <svg width="100%" height="auto" viewBox="0 0 700 130" style={{ filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.1))', maxWidth: '600px' }}>
-          <defs>
-            <linearGradient id="cantoHolo" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="var(--text-color)" />
-              <stop offset="100%" stopColor="var(--text-muted)" />
-            </linearGradient>
-            <pattern id="dotPattern" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="1" fill="var(--border-color)" />
-            </pattern>
-          </defs>
-          
-          <g transform="translate(160, 15) scale(0.9)">
-            <path d="M 30 0 A 30 30 0 1 0 60 30 A 20 20 0 1 1 30 0 Z" fill="none" stroke="url(#cantoHolo)" strokeWidth="3" />
-            <circle cx="20" cy="15" r="2" fill="var(--accent-color)" />
-            <circle cx="35" cy="45" r="2" fill="var(--accent-color)" />
-            <circle cx="15" cy="35" r="1.5" fill="var(--accent-color)" />
-          </g>
-
-          <text x="420" y="65" dominantBaseline="middle" textAnchor="middle" fill="url(#cantoHolo)" fontSize="72" fontFamily="Inter, sans-serif" fontWeight="900" letterSpacing="0.2em">
-            CANTO
-          </text>
-          <text x="420" y="65" dominantBaseline="middle" textAnchor="middle" fill="url(#dotPattern)" fontSize="72" fontFamily="Inter, sans-serif" fontWeight="900" letterSpacing="0.2em" style={{ mixBlendMode: 'overlay' }}>
-            CANTO
-          </text>
-          <text x="420" y="105" dominantBaseline="middle" textAnchor="middle" fill="var(--text-muted)" fontSize="14" fontFamily="monospace" letterSpacing="0.6em">
-            [ INFINITE ENCYCLOPEDIA ]
-          </text>
-        </svg>
+      {/* ── Logo in Plain Text ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '2.5rem', position: 'relative', zIndex: 5, padding: '0 1rem' }}>
+        <h1 style={{ fontSize: '3.5em', fontWeight: 'bold', letterSpacing: '0.25em', color: 'var(--text-color)', fontFamily: 'monospace', margin: 0 }}>
+          CANTO
+        </h1>
+        <p style={{ fontSize: '1em', letterSpacing: '0.4em', color: 'var(--text-muted)', fontFamily: 'monospace', margin: '0.5rem 0 0 0', textTransform: 'uppercase' }}>
+          [ AI Galactica Encyclopedia ]
+        </p>
       </div>
 
-      <h2 style={{ letterSpacing: '0.1em', marginBottom: '0.75rem', fontWeight: 300, position: 'relative', zIndex: 5, padding: '0 1rem' }}>
+      <h2 style={{ letterSpacing: '0.1em', marginBottom: '0.75rem', fontWeight: 300, position: 'relative', zIndex: 5, padding: '0 1rem', fontFamily: 'monospace' }}>
         Welcome to Canto
       </h2>
       <p style={{ maxWidth: '540px', margin: '0 auto 1.75rem auto', color: 'var(--text-color)', lineHeight: '1.8', position: 'relative', zIndex: 5, padding: '0 1.25rem', fontFamily: 'monospace', textAlign: 'justify' }}>
