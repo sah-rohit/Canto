@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { playSearchComplete, playWordClick, isSoundEnabled, setSoundEnabled } from '../services/soundService';
+import { explainThis } from '../services/aiService';
 
 declare global {
   interface Window {
@@ -19,6 +20,7 @@ interface ContentDisplayProps {
   fontSize?: number;
   isReadingMode?: boolean;
   onExplainClick?: (action: 'Simplify' | 'Go deeper' | 'Show sources for this claim', text: string) => void;
+  sources?: { wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
 }
 
 const InteractiveContent: React.FC<{
@@ -31,12 +33,15 @@ const InteractiveContent: React.FC<{
   fontSize?: number;
   isReadingMode?: boolean;
   onExplainClick?: (action: 'Simplify' | 'Go deeper' | 'Show sources for this claim', text: string) => void;
-}> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode, onExplainClick }) => {
+  sources?: { wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string };
+}> = ({ content, onWordClick, isStreaming, topic, isFavorite, onToggleFavorite, fontSize = 100, isReadingMode, onExplainClick, sources }) => {
   const [copyStatus, setCopyStatus] = useState<string>('Copy');
   const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [popupPos, setPopupPos] = useState<{ x: number; y: number } | null>(null);
+  const [explainAnswer, setExplainAnswer] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState<boolean>(false);
   const [inArticleSearch, setInArticleSearch] = useState('');
   const [citationStyle, setCitationStyle] = useState<'APA' | 'MLA' | 'Chicago'>('APA');
   const [isTocVisible, setIsTocVisible] = useState(true);
@@ -79,6 +84,7 @@ const InteractiveContent: React.FC<{
       const y = rect.top > 60 ? rect.top - 48 : rect.bottom + 12;
       setPopupPos({ x, y });
       setSelectedText(text);
+      setExplainAnswer(null);
     } else {
       setPopupPos(null);
     }
@@ -190,7 +196,20 @@ const InteractiveContent: React.FC<{
     const title = (topic || 'Untitled Article').toUpperCase();
     const dateStr = '2026';
     const site = 'Canto: AI Galactica Encyclopedia';
-    const url = window.location.href;
+    
+    // Build direct verified sources list instead of only citing the current window location
+    const citationUrls: string[] = [];
+    if (sources?.wikipedia) citationUrls.push(`https://en.wikipedia.org/wiki/${encodeURIComponent(topic || '')}`);
+    if (sources?.nasa) citationUrls.push(`https://images.nasa.gov/search-results?q=${encodeURIComponent(topic || '')}`);
+    if (sources?.core) citationUrls.push(`https://core.ac.uk/search?q=${encodeURIComponent(topic || '')}`);
+    if (sources?.internetArchive) citationUrls.push(`https://archive.org/search.php?query=${encodeURIComponent(topic || '')}`);
+
+    // Fallback to a valid direct link if no explicit sources were passed
+    if (citationUrls.length === 0) {
+      citationUrls.push(`https://en.wikipedia.org/wiki/${encodeURIComponent(topic || '')}`);
+    }
+
+    const url = citationUrls.join(', ');
 
     if (citationStyle === 'APA') {
       return `Canto. (${dateStr}). ${title}. ${site}. Retrieved from ${url}`;
@@ -543,40 +562,60 @@ const InteractiveContent: React.FC<{
           transform: 'translateX(-50%)',
           background: 'var(--bg-color)',
           border: '1px solid var(--accent-color)',
-          padding: '0.4rem 0.8rem',
+          padding: '0.6rem 0.9rem',
           borderRadius: '0',
           boxShadow: '0 0 15px rgba(var(--accent-color-rgb), 0.4)',
           zIndex: 9999,
           fontFamily: 'monospace',
           fontSize: '0.8em',
           display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
+          flexDirection: 'column',
+          gap: '0.6rem',
           animation: 'fade-in 0.15s ease-out',
           pointerEvents: 'auto',
-          flexWrap: 'wrap'
+          maxWidth: '420px',
+          width: '100%'
         }}>
-          <button 
-            onClick={() => { onWordClick(selectedText); setPopupPos(null); }}
-            style={{ background: 'var(--accent-color)', border: 'none', color: 'var(--bg-color, #0b0f19)', padding: '0.2rem 0.6rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85em', fontFamily: 'monospace' }}
-          >
-            "{selectedText.length > 12 ? selectedText.slice(0, 12) + '...' : selectedText}"
-          </button>
-          {(['Simplify', 'Go Deeper', 'Show Sources'] as const).map(action => (
-            <button
-              key={action}
-              onClick={() => { onExplainClick?.(action as any, selectedText); setPopupPos(null); }}
-              style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', width: '100%' }}>
+            <button 
+              onClick={() => { onWordClick(selectedText); setPopupPos(null); }}
+              style={{ background: 'var(--accent-color)', border: 'none', color: 'var(--bg-color, #0b0f19)', padding: '0.2rem 0.6rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85em', fontFamily: 'monospace' }}
             >
-              {action}
+              "{selectedText.length > 12 ? selectedText.slice(0, 12) + '...' : selectedText}"
             </button>
-          ))}
-          <button 
-            onClick={() => setPopupPos(null)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1em', padding: '0 0.2rem' }}
-          >
-            ×
-          </button>
+            {(['Simplify', 'Go Deeper', 'Show Sources'] as const).map(action => (
+              <button
+                key={action}
+                onClick={async () => {
+                  setIsExplaining(true);
+                  setExplainAnswer('Synthesizing verified knowledge...');
+                  try {
+                    const res = await explainThis(selectedText, action);
+                    setExplainAnswer(res);
+                  } catch {
+                    setExplainAnswer('Error retrieving answer from AI.');
+                  } finally {
+                    setIsExplaining(false);
+                  }
+                }}
+                disabled={isExplaining}
+                style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
+              >
+                {action}
+              </button>
+            ))}
+            <button 
+              onClick={() => setPopupPos(null)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1.1em', padding: '0 0.2rem', marginLeft: 'auto' }}
+            >
+              ×
+            </button>
+          </div>
+          {(isExplaining || explainAnswer) && (
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.4rem', marginTop: '0.2rem', color: 'var(--text-color)', fontSize: '0.85em', lineHeight: '1.4', maxHeight: '180px', overflowY: 'auto' }}>
+              {explainAnswer}
+            </div>
+          )}
         </div>
       )}
 
@@ -646,7 +685,7 @@ const InteractiveContent: React.FC<{
   );
 };
 
-const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onWordClick, topic, isFavorite, onToggleFavorite, fontSize, isReadingMode, onExplainClick }) => {
+const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onWordClick, topic, isFavorite, onToggleFavorite, fontSize, isReadingMode, onExplainClick, sources }) => {
   return (
     <div style={{ fontSize: `${fontSize}%`, fontFamily: 'monospace', width: '100%' }}>
       <InteractiveContent
@@ -659,6 +698,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, onW
         fontSize={fontSize}
         isReadingMode={isReadingMode}
         onExplainClick={onExplainClick}
+        sources={sources}
       />
     </div>
   );

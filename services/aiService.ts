@@ -418,3 +418,26 @@ export async function generateSummary(topic: string, content: string): Promise<s
     return `A comprehensive entry about ${topic}.`;
   }
 }
+
+export async function explainThis(selectedText: string, action: 'Simplify' | 'Go Deeper' | 'Show Sources'): Promise<string> {
+  const prompt = `Perform this task on the following text selected by the user: "${selectedText}"
+Action: "${action}"
+
+If "Simplify": Provide a very simple, concise explanation using easy words.
+If "Go Deeper": Provide highly advanced, specialized technical details or historical context.
+If "Show Sources": Cite potential specific Wikipedia pages, academic articles, or primary sources where this concept is mentioned.
+
+Please provide a highly polished, professional paragraph. Maintain the same Raw Encyclopedic Format and Structure (no emojis, no markdown headers).`;
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: 'You are an advanced AI research assistant for the AI Galactica Encyclopedia.' },
+    { role: 'user', content: prompt }
+  ];
+
+  try {
+    return await callWithFallback(messages);
+  } catch {
+    return "Error: Could not retrieve answer from AI context.";
+  }
+}
+

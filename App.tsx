@@ -994,6 +994,7 @@ const App: React.FC = () => {
                               fontSize={fontSize}
                               isReadingMode={isReadingMode}
                               onExplainClick={handleExplainClick}
+                              sources={lastSources}
                             />
                           </div>
                           <div style={{ width: '50%' }}>
@@ -1008,6 +1009,7 @@ const App: React.FC = () => {
                               fontSize={fontSize}
                               isReadingMode={isReadingMode}
                               onExplainClick={handleExplainClick}
+                              sources={lastSources}
                             />
                           </div>
                         </div>
@@ -1022,6 +1024,7 @@ const App: React.FC = () => {
                           fontSize={fontSize}
                           isReadingMode={isReadingMode}
                           onExplainClick={handleExplainClick}
+                          sources={lastSources}
                         />
                       )}
                       {!isLoading && (
