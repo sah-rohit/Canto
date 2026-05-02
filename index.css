@@ -24,7 +24,7 @@
 }
 
 /* Dyslexic font family if enabled */
-.dyslexic {
+.dyslexic, .dyslexic * {
   font-family: 'OpenDyslexic', sans-serif !important;
 }
 

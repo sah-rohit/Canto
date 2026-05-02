@@ -70,12 +70,14 @@ const InteractiveContent: React.FC<{
 
   const handleSelection = (e: React.MouseEvent) => {
     const selection = window.getSelection();
-    if (!selection) return;
+    if (!selection || selection.rangeCount === 0) return;
     const text = selection.toString().trim();
     if (text && text.length > 2) {
-      const vw = window.innerWidth;
-      const x = Math.min(Math.max(e.clientX, 80), vw - 80);
-      setPopupPos({ x, y: e.clientY - 48 });
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top > 60 ? rect.top - 48 : rect.bottom + 12;
+      setPopupPos({ x, y });
       setSelectedText(text);
     } else {
       setPopupPos(null);
@@ -262,9 +264,10 @@ const InteractiveContent: React.FC<{
             onDoubleClick={(e) => handleWordDoubleClick(e, phrase)}
             onMouseEnter={(e) => {
               if (isClickable) {
+                const rect = e.currentTarget.getBoundingClientRect();
                 setWordDefPos({
-                  x: e.clientX,
-                  y: e.clientY - 35,
+                  x: rect.left + rect.width / 2,
+                  y: rect.top - 38,
                   word: phrase,
                   def: `Conceptual term related to ${topic || 'current article'}.`
                 });
@@ -295,9 +298,10 @@ const InteractiveContent: React.FC<{
               onDoubleClick={(e) => handleWordDoubleClick(e, wordChunk)}
               onMouseEnter={(e) => {
                 if (isClickable) {
+                  const rect = e.currentTarget.getBoundingClientRect();
                   setWordDefPos({
-                    x: e.clientX,
-                    y: e.clientY - 35,
+                    x: rect.left + rect.width / 2,
+                    y: rect.top - 38,
                     word: wordChunk,
                     def: `Context definition for "${wordChunk}" within raw AI synthesis.`
                   });

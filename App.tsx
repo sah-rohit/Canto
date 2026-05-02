@@ -85,6 +85,7 @@ const App: React.FC = () => {
   const historyRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
+  const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
   // Advanced features state
@@ -703,9 +704,20 @@ const App: React.FC = () => {
         <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
 
         {/* ── Advanced Search Modifiers & Filters ── */}
+        <div style={{ textAlign: 'center', margin: '0.5rem 0 1.2rem 0' }}>
+          <button
+            onClick={() => setIsResearchOptionsOpen(!isResearchOptionsOpen)}
+            style={{ background: 'none', border: 'none', textDecoration: 'underline', color: isResearchOptionsOpen ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
+          >
+            {isResearchOptionsOpen ? 'Hide Research Options' : 'Show Research Options'}
+          </button>
+        </div>
+
         <div style={{ maxWidth: '800px', margin: '0.75rem auto 2rem auto', padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: 'monospace', fontSize: '0.82em', color: 'var(--text-muted)' }}>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-            <span>Lens:</span>
+          {isResearchOptionsOpen && (
+            <>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+                <span>Lens:</span>
             {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
               <button
                 key={lens}
@@ -800,6 +812,8 @@ const App: React.FC = () => {
               High Contrast Theme: {theme === 'high-contrast' ? 'On' : 'Off'}
             </button>
           </div>
+            </>
+          )}
 
           {/* ── AI Followups as Branching Conversation Tree ── */}
           {conversationBranch.length > 1 && (
@@ -893,11 +907,11 @@ const App: React.FC = () => {
                     {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{readingTime} min read</span>}
                     <button 
                       onClick={() => setIsReadingMode(!isReadingMode)}
-                      style={{ background: 'transparent', border: '1px solid var(--border-color)', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.3rem 0.7rem', fontSize: '0.75em', borderRadius: '4px', cursor: 'pointer', fontFamily: 'monospace', minHeight: '2rem' }}
+                      style={{ background: 'transparent', border: 'none', textDecoration: 'underline', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.3rem 0.7rem', fontSize: '0.75em', cursor: 'pointer', fontFamily: 'monospace' }}
                     >
                       {isReadingMode ? 'Reading Mode: On' : 'Reading Mode: Off'}
                     </button>
-                    <div style={{ width: '110px' }}>
+                    <div style={{ width: '160px', whiteSpace: 'nowrap' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
                     </div>
                     {/* Research toggle — in the controls row so it's always visible at top */}

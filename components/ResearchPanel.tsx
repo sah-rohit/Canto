@@ -427,10 +427,10 @@ const Analytics: React.FC = () => {
 
 // ─── Main: inline section ─────────────────────────────────────────────────────
 const SECTIONS = [
-  { id: 'tldr',      label: 'TL;DR Summary', icon: '📝' },
-  { id: 'mindmap',   label: 'Mind Map',      icon: '🧠' },
+  { id: 'tldr',      label: 'TL;DR Summary', icon: '✦' },
+  { id: 'mindmap',   label: 'Mind Map',      icon: '◈' },
   { id: 'followups', label: 'Follow-ups',    icon: '✦' },
-  { id: 'sources',   label: 'Sources',       icon: '📡' },
+  { id: 'sources',   label: 'Sources',       icon: '⌕' },
   { id: 'search',    label: 'Search',        icon: '⌕' },
   { id: 'library',   label: 'Library',       icon: '◫' },
   { id: 'analytics', label: 'Analytics',     icon: '◈' },
