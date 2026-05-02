@@ -470,6 +470,27 @@ const App: React.FC = () => {
     try { localStorage.setItem('canto_theme', newTheme); } catch(e) {}
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        window.history.back();
+      } else if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        handleRandom();
+      } else if (e.altKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        navigateToPage('library');
+      } else if (e.altKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        navigateToPage('landing');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRandom, navigateToPage]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const searchLimitBadge = searchesRemaining !== null && (

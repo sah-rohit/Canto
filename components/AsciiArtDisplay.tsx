@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AsciiArtData } from '../services/aiService';
 
 interface AsciiArtDisplayProps {
@@ -10,58 +10,15 @@ interface AsciiArtDisplayProps {
 const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWordClick }) => {
   const [copyStatus, setCopyStatus] = useState('Copy Art');
   const [mutatedArt, setMutatedArt] = useState<string>('');
-  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+
   useEffect(() => {
     if (artData) {
       setMutatedArt(artData.art);
+      setEditText(artData.art);
     }
   }, [artData]);
-
-  // Occasional random mutation
-  useEffect(() => {
-    if (!artData || !mutatedArt) return;
-    
-    const interval = setInterval(() => {
-      if (Math.random() > 0.4) { // 60% chance to mutate a character
-         const chars = mutatedArt.split('');
-         // Find indices of non-space, non-newline characters
-         const validIndices = chars.map((c, i) => (c !== ' ' && c !== '\n' ? i : -1)).filter(i => i !== -1);
-         if (validIndices.length > 0) {
-            const indexToMutate = validIndices[Math.floor(Math.random() * validIndices.length)];
-            const oldChar = chars[indexToMutate];
-            // Mutate with a similar looking character
-            const mutationMap: Record<string, string[]> = {
-               '|': ['!', 'l', '1', '¦', 'I'],
-               '-': ['_', '~', '=', '-'],
-               '/': ['|', '\\', '('],
-               '\\': ['|', '/', ')'],
-               '_': ['-', '.', ' '],
-               '.': [',', '`', '\''],
-               'O': ['0', 'o', 'C'],
-               'o': ['c', 'e', '*', '°'],
-               '*': ['+', 'x', '·', '∗'],
-               '┌': ['+', '╔'],
-               '┐': ['+', '╗'],
-               '└': ['+', '╚'],
-               '┘': ['+', '╝'],
-               '│': ['|', '║'],
-               '─': ['-', '═']
-            };
-            if (mutationMap[oldChar]) {
-                const options = mutationMap[oldChar];
-                chars[indexToMutate] = options[Math.floor(Math.random() * options.length)];
-                setMutatedArt(chars.join(''));
-                
-                // Revert back after a short time
-                setTimeout(() => {
-                   setMutatedArt(artData.art);
-                }, 300);
-            }
-         }
-      }
-    }, 1500);
-    return () => clearInterval(interval);
-  }, [artData, mutatedArt]);
 
   if (!artData) return null;
 
@@ -71,7 +28,6 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
 
   const renderInteractiveArt = (text: string) => {
     if (isStreaming) return text;
-    // Match words OR any non-whitespace character
     const regex = /([a-zA-Z0-9]{3,})|(\S)/g;
     const parts = [];
     let lastIndex = 0;
@@ -81,10 +37,9 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
       if (match.index > lastIndex) {
         parts.push(text.slice(lastIndex, match.index));
       }
-      
       const wordMatch = match[1];
       const charMatch = match[2];
-      
+
       if (wordMatch && onWordClick) {
         parts.push(
           <span 
@@ -93,7 +48,6 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
             className="interactive-word"
             style={{ cursor: 'pointer', position: 'relative', zIndex: 2 }}
             title={`Search ${wordMatch}`}
-            aria-label={`Search for ${wordMatch}`}
           >
             {wordMatch}
           </span>
@@ -103,11 +57,6 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
             <span 
               key={keyCount++} 
               className="interactive-char"
-              onClick={(e) => {
-                 const el = e.currentTarget;
-                 el.classList.add('char-clicked');
-                 setTimeout(() => el.classList.remove('char-clicked'), 300);
-              }}
             >
                {charMatch}
             </span>
@@ -153,19 +102,94 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
     document.body.removeChild(textarea);
   };
 
+  const handleSaveEdit = () => {
+    setMutatedArt(editText);
+    setIsEditing(false);
+    // Download as text file option
+    const blob = new Blob([editText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${topic.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-art.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <pre className="ascii-art ascii-breathing" aria-label={accessibilityLabel}>
-        {renderInteractiveArt(visibleContent)}
-        {isStreaming && <span className="blinking-cursor">|</span>}
-      </pre>
-      {!isStreaming && (
-        <button 
-          onClick={handleCopy}
-          style={{ textDecoration: 'underline', color: '#666', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.8em', marginTop: '0.5rem' }}
-        >
-          {copyStatus}
-        </button>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      {isEditing ? (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={visibleContent.split('\n').length + 2}
+            style={{
+              width: '100%',
+              backgroundColor: 'var(--input-bg)',
+              color: 'var(--text-color)',
+              border: '1px solid var(--border-color)',
+              fontFamily: 'monospace',
+              fontSize: '0.85em',
+              padding: '1rem',
+              outline: 'none',
+              borderRadius: '2px',
+              whiteSpace: 'pre'
+            }}
+          />
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+            <button 
+              onClick={handleSaveEdit}
+              style={{ padding: '0.4rem 0.8rem', border: '1px solid var(--border-color)', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', borderRadius: '4px' }}
+            >
+              💾 Save & Download
+            </button>
+            <button 
+              onClick={() => setIsEditing(false)}
+              style={{ padding: '0.4rem 0.8rem', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', borderRadius: '4px' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <pre 
+            className="ascii-art" 
+            aria-label={accessibilityLabel}
+            style={{
+              whiteSpace: 'pre',
+              overflowX: 'auto',
+              maxWidth: '100%',
+              textAlign: 'left',
+              fontFamily: 'monospace',
+              lineHeight: '1.2',
+              fontSize: '0.85em',
+              color: 'var(--text-muted)',
+              marginBottom: '1rem'
+            }}
+          >
+            {renderInteractiveArt(visibleContent)}
+            {isStreaming && <span className="blinking-cursor">|</span>}
+          </pre>
+          {!isStreaming && (
+            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.5rem' }}>
+              <button 
+                onClick={handleCopy}
+                style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
+              >
+                {copyStatus}
+              </button>
+              <button 
+                onClick={() => { setEditText(visibleContent); setIsEditing(true); }}
+                style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
+              >
+                ✏️ Edit Art
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
