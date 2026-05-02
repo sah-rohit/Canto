@@ -21,6 +21,7 @@ import ResearchPanel from './components/ResearchPanel';
 import { useToast } from './components/ToastContext';
 import { StartupAnimation } from './components/StartupAnimation';
 import { CantoDialog, CantoSlider } from './components/UIComponents';
+import CantoLabs from './components/CantoLabs';
 import {
   dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
   dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics
@@ -1029,6 +1030,7 @@ const App: React.FC = () => {
                       )}
                       {!isLoading && (
                         <>
+                          <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />
                           <DidYouKnow topic={currentTopic} />
                           <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
                         </>
