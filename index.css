@@ -22,3 +22,25 @@
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) var(--bg-color);
 }
+
+/* Dyslexic font family if enabled */
+.dyslexic {
+  font-family: 'OpenDyslexic', sans-serif !important;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* High Contrast Theme support */
+[data-theme='high-contrast'] {
+  --bg-color: #000000 !important;
+  --text-color: #ffffff !important;
+  --accent-color: #ffff00 !important;
+  --text-muted: #e0e0e0 !important;
+  --border-color: #ffffff !important;
+  --input-bg: #111111 !important;
+}

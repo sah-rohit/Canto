@@ -29,14 +29,14 @@ const RelatedTopics: React.FC<RelatedTopicsProps> = ({ topic, onWordClick }) => 
   if (!topic || (!loading && topics.length === 0)) return null;
 
   return (
-    <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '0' }}>
-      <h3 style={{ fontSize: '0.9em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+    <div style={{ marginTop: '1.5rem', fontFamily: 'monospace' }}>
+      <h3 style={{ fontSize: '0.9em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.6rem', color: 'var(--text-color)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.2rem' }}>
         Related Topics
       </h3>
       {loading ? (
-        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9em', margin: 0, fontFamily: 'monospace' }}>Mapping connections...</p>
+        <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.9em', margin: 0 }}>Mapping connections...</p>
       ) : (
-        <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.8rem', fontFamily: 'monospace' }}>
+        <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.8rem' }}>
            {topics.map((t, idx) => (
              <React.Fragment key={idx}>
                <button

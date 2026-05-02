@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const asciiArtMap: Record<string, string> = {
   about: `
@@ -10,7 +10,7 @@ const asciiArtMap: Record<string, string> = {
   faq: `
      ____   __     __   
     (  __) / _\\  /  \\  
-     ) _) /    \\(  O ) 
+   ( _) /    \\(  O ) 
     (__)  \\_/\\_/ \\___\\ 
   `,
   pricing: `
@@ -148,7 +148,7 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
 
         <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>Are my searches private?</h3>
         <p>
-          Yes, completely. Your search history and configurations are stored directly in your browser's LocalStorage and local IndexedDB database.
+          Yes. All search history, stored reading logs, saved entries, and folders are strictly contained within your personal browser's local cache. No individual user telemetry is ever tracked or transmitted to central databases.
         </p>
       </div>
     )
@@ -157,36 +157,27 @@ const pagesData: Record<string, { title: string, content: React.ReactNode }> = {
     title: 'Privacy Policy',
     content: (
       <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
-        <p>I respect your right to total privacy. Here is how I protect your data:</p>
-        
-        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>1. Local Storage Persistence</h3>
+        <p>Canto upholds complete personal confidentiality across all digital research spaces.</p>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>1. Information We Do Not Collect</h3>
         <p>
-          I do not collect, transmit, or store your queries, browsing profiles, search history, or modifications on external cloud servers. All persistent information remains strictly inside your local browser storage.
+          Canto does not log individual search queries, user IP addresses, reading logs, or browser configurations. All processed contexts, library backups, and user settings stay entirely inside your personal local device memory.
         </p>
-        
-        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>2. Isolated Sourcing Pipeline</h3>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>2. Data Exfiltration Prevention</h3>
         <p>
-          I route information requests anonymously through my direct service proxy. No personal device identifiers, local data, or tracking tokens are sent to third-party data repositories or synthesis networks.
-        </p>
-
-        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>3. Data Control</h3>
-        <p>
-          You remain in full control of your local data. You can inspect, modify, clear, and export your personal reading logs directly from the Library menu.
+          There are no ad networks, tracking scripts, or profiling analytics installed on Canto. The browser handles direct communication with knowledge and research retrieval endpoints directly via the multi-source crawler pipeline.
         </p>
       </div>
     )
   },
   terms: {
-    title: 'Terms and Conditions',
+    title: 'Terms of Use',
     content: (
       <div style={{ fontFamily: 'monospace', lineHeight: '1.8', textAlign: 'justify' }}>
-        <p>Simple rules for utilizing Canto:</p>
-        
-        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>1. Fair Use</h3>
+        <p>Please review our open access conditions:</p>
+        <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>1. Unrestricted Access</h3>
         <p>
-          Please respect the search limits provided. These exist solely to prevent computational abuse and ensure consistent accessibility for all independent learners.
+          You are free to leverage all synthesized documents for professional, personal, or educational needs without limitations. There are no proprietary restrictions on exported text contents, mind maps, or ASCII artwork generated during research.
         </p>
-        
         <h3 style={{ marginTop: '2rem', paddingBottom: '0.4rem' }}>2. Data Grounding</h3>
         <p>
           While I take great care to ground every output in direct data contexts from NASA, Wikipedia, and the Internet Archive, all generated content should be treated as dynamic research summaries. For academic or critical needs, please verify information via primary source documents.
@@ -237,9 +228,49 @@ interface StaticPageProps {
   onTopicClick?: (topic: string) => void;
 }
 
+interface Note {
+  id: string;
+  title: string;
+  content: string;
+  timestamp: number;
+}
+
 const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites = [], onTopicClick }) => {
   const page = pagesData[pageId];
   const art = asciiArtMap[pageId] || '';
+
+  // Private notes / Wiki state
+  const [notes, setNotes] = useState<Note[]>(() => {
+    try {
+      const raw = localStorage.getItem('canto_notes');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteContent, setNoteContent] = useState('');
+  const [notesSearch, setNotesSearch] = useState('');
+
+  const handleCreateNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noteTitle.trim() || !noteContent.trim()) return;
+    const newNote: Note = {
+      id: crypto.randomUUID(),
+      title: noteTitle.trim(),
+      content: noteContent.trim(),
+      timestamp: Date.now()
+    };
+    const next = [newNote, ...notes];
+    setNotes(next);
+    localStorage.setItem('canto_notes', JSON.stringify(next));
+    setNoteTitle('');
+    setNoteContent('');
+  };
+
+  const handleDeleteNote = (id: string) => {
+    const next = notes.filter(n => n.id !== id);
+    setNotes(next);
+    localStorage.setItem('canto_notes', JSON.stringify(next));
+  };
 
   const handleExportLibrary = () => {
     const data = {
@@ -247,6 +278,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
       history,
       collections: JSON.parse(localStorage.getItem('canto_collections') || '{}'),
       artHistory: JSON.parse(localStorage.getItem('canto_art_history') || '[]'),
+      notes
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -268,7 +300,8 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
         if (parsed.history) localStorage.setItem('canto_history', JSON.stringify(parsed.history));
         if (parsed.collections) localStorage.setItem('canto_collections', JSON.stringify(parsed.collections));
         if (parsed.artHistory) localStorage.setItem('canto_art_history', JSON.stringify(parsed.artHistory));
-        alert('Library re-imported successfully! Reload the application to view changes.');
+        if (parsed.notes) localStorage.setItem('canto_notes', JSON.stringify(parsed.notes));
+        alert('Library re-imported successfully! Reloading...');
         window.location.reload();
       } catch (err) {
         alert('Invalid library JSON backup file.');
@@ -278,6 +311,11 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
   };
 
   if (pageId === 'library') {
+    const filteredNotes = notes.filter(n => 
+      n.title.toLowerCase().includes(notesSearch.toLowerCase()) || 
+      n.content.toLowerCase().includes(notesSearch.toLowerCase())
+    );
+
     return (
       <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
         <h2 style={{ marginBottom: '1rem', letterSpacing: '0.1em' }}>My Local Library</h2>
@@ -323,7 +361,76 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
             )}
           </section>
         </div>
-        <div style={{ marginTop: '4rem', padding: '1.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '0' }}>
+
+        {/* ── Private Notes / Personal Wiki ── */}
+        <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '4rem', paddingTop: '2.5rem' }}>
+          <h2 style={{ letterSpacing: '0.1em', marginBottom: '1.5rem', textTransform: 'uppercase' }}>Private Knowledge Base</h2>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem' }}>
+            {/* Form */}
+            <form onSubmit={handleCreateNote} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9em', letterSpacing: '0.1em' }}>Add Note / Article</h4>
+              <input
+                type="text"
+                placeholder="Note Title..."
+                value={noteTitle}
+                onChange={e => setNoteTitle(e.target.value)}
+                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', color: 'var(--text-color)', fontFamily: 'monospace', padding: '0.3rem 0', outline: 'none' }}
+              />
+              <textarea
+                placeholder="Write private notes. Link to Canto articles by placing the title exactly in text..."
+                value={noteContent}
+                onChange={e => setNoteContent(e.target.value)}
+                rows={4}
+                style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)', fontFamily: 'monospace', padding: '0.5rem', outline: 'none' }}
+              />
+              <button type="submit" style={{ background: 'transparent', border: '1px solid var(--accent-color)', color: 'var(--accent-color)', cursor: 'pointer', padding: '0.4rem', fontFamily: 'monospace', fontSize: '0.85em' }}>
+                Save Private Entry
+              </button>
+            </form>
+
+            {/* Notes List */}
+            <div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>Find:</span>
+                <input
+                  type="text"
+                  placeholder="Search notes..."
+                  value={notesSearch}
+                  onChange={e => setNotesSearch(e.target.value)}
+                  style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', color: 'var(--text-color)', fontFamily: 'monospace', padding: '0.2rem', flex: 1, outline: 'none' }}
+                />
+              </div>
+              {filteredNotes.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>No entries found.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                  {filteredNotes.map(n => (
+                    <li key={n.id} style={{ marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '0.95em' }}>{n.title}</strong>
+                        <button onClick={() => handleDeleteNote(n.id)} style={{ border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+                      </div>
+                      <p style={{ margin: '0.4rem 0', color: 'var(--text-color)', fontSize: '0.88em', whiteSpace: 'pre-wrap' }}>
+                        {n.content}
+                      </p>
+                      {onTopicClick && (
+                        <button
+                          onClick={() => onTopicClick(n.title)}
+                          style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', padding: 0 }}
+                        >
+                          Generate AI Wiki Entry on This
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '4rem', padding: '1rem 0', borderTop: '1px solid var(--border-color)' }}>
           <p style={{ fontSize: '0.85em', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
             Privacy Note: All library data is stored exclusively in your browser's local storage. Clearing site data will permanently remove your stored reading logs.
           </p>

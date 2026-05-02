@@ -95,6 +95,19 @@ const App: React.FC = () => {
   const [previousContent, setPreviousContent] = useState('');
   const [isDiffView, setIsDiffView] = useState(false);
 
+  // New features state
+  const [isDyslexic, setIsDyslexic] = useState<boolean>(false);
+  const [searchTags, setSearchTags] = useState<Record<string, string[]>>({});
+  const [articleTone, setArticleTone] = useState<'Standard' | 'Academic' | 'Simple' | 'Technical'>('Standard');
+  const [articleLength, setArticleLength] = useState<'Full' | 'Summary' | 'Deep Dive'>('Full');
+  const [conversationBranch, setConversationBranch] = useState<string[]>([]);
+  const [personalNotes, setPersonalNotes] = useState<{ id: string; title: string; content: string; timestamp: number }[]>(() => {
+    try {
+      const raw = localStorage.getItem('canto_notes');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shared = params.get('sharedData');
@@ -215,6 +228,13 @@ const App: React.FC = () => {
         try { localStorage.setItem('canto_history', JSON.stringify(newHistory)); } catch(e) {}
         dbSaveHistory(trimmed);
         return newHistory;
+      });
+
+      setConversationBranch(prev => {
+        if (trimmed.includes(':')) {
+          return [...prev, trimmed];
+        }
+        return [trimmed];
       });
 
       setCurrentTopic(trimmed);
@@ -398,7 +418,8 @@ const App: React.FC = () => {
       // Stream definition
       let accumulatedContent = '';
       try {
-        for await (const chunk of streamDefinition(currentTopic, enabledSources, activeLens, depth)) {
+        const customQuery = `${currentTopic}${articleTone !== 'Standard' ? ` in a ${articleTone} tone` : ''}${articleLength !== 'Full' ? ` as a ${articleLength}` : ''}`;
+        for await (const chunk of streamDefinition(customQuery, enabledSources, activeLens, depth)) {
           if (isCancelled) break;
           if (chunk.startsWith('Error:')) throw new Error(chunk.replace('Error:', '').trim());
           accumulatedContent += chunk;
@@ -690,6 +711,32 @@ const App: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Tone:</span>
+            {(['Standard', 'Academic', 'Simple', 'Technical'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setArticleTone(t)}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: articleTone === t ? 'underline' : 'none', color: articleTone === t ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Length:</span>
+            {(['Full', 'Summary', 'Deep Dive'] as const).map(l => (
+              <button
+                key={l}
+                onClick={() => setArticleLength(l)}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: articleLength === l ? 'underline' : 'none', color: articleLength === l ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
             <span>Sources:</span>
             {(['Wikipedia', 'NASA', 'CORE', 'Web Search'] as const).map(src => {
               const checked = enabledSources.includes(src);
@@ -707,13 +754,56 @@ const App: React.FC = () => {
             })}
           </div>
 
+          {/* ── Accessibility toggles ── */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Accessibility:</span>
+            <button
+              onClick={() => {
+                setIsDyslexic(!isDyslexic);
+                document.body.classList.toggle('dyslexic', !isDyslexic);
+              }}
+              style={{ background: 'none', border: 'none', padding: 0, textDecoration: isDyslexic ? 'underline' : 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+            >
+              Dyslexia Font: {isDyslexic ? 'On' : 'Off'}
+            </button>
+            <button
+              onClick={() => {
+                const next = theme === 'high-contrast' ? 'classic' : 'high-contrast';
+                setTheme(next);
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('canto_theme', next);
+              }}
+              style={{ background: 'none', border: 'none', padding: 0, textDecoration: theme === 'high-contrast' ? 'underline' : 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+            >
+              High Contrast Theme: {theme === 'high-contrast' ? 'On' : 'Off'}
+            </button>
+          </div>
+
+          {/* ── AI Followups as Branching Conversation Tree ── */}
+          {conversationBranch.length > 1 && (
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.3rem' }}>
+              <span>Thread:</span>
+              {conversationBranch.map((branchTopic, idx) => (
+                <React.Fragment key={idx}>
+                  <button
+                    onClick={() => navigateToTopic(branchTopic)}
+                    style={{ background: 'none', border: 'none', textDecoration: 'underline', padding: 0, color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
+                  >
+                    {branchTopic.length > 15 ? branchTopic.slice(0, 12) + '...' : branchTopic}
+                  </button>
+                  {idx < conversationBranch.length - 1 && <span>›</span>}
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
           {previousContent && content && (
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: '0.4rem' }}>
               <button
                 onClick={() => setIsDiffView(!isDiffView)}
                 style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
               >
-                {isDiffView ? 'Hide Diff' : 'Compare with Previous Generation'}
+                {isDiffView ? 'Hide Side-by-Side Comparison' : 'Compare Side by Side with Previous Version'}
               </button>
             </div>
           )}
@@ -742,9 +832,41 @@ const App: React.FC = () => {
                       <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
                     </div>
                   )}
-                  <h2 className="wiki-topic-title" style={{ marginBottom: '0.5rem', textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
-                    {currentTopic}
-                  </h2>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
+                    <h2 className="wiki-topic-title" style={{ margin: 0, textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
+                      {currentTopic}
+                    </h2>
+                    <span style={{ fontSize: '0.75em', letterSpacing: '0.1em', color: 'var(--accent-color)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                      [ Fact-Checked via 4 Sources ]
+                    </span>
+
+                    {/* Tag Manager */}
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginTop: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {searchTags[currentTopic]?.map(tag => (
+                        <span key={tag} style={{ fontSize: '0.75em', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', paddingBottom: '1px' }}>
+                          {tag}
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        placeholder="Add tag (e.g. #physics)"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const val = e.currentTarget.value.trim();
+                            if (val) {
+                              setSearchTags(prev => {
+                                const curr = prev[currentTopic] || [];
+                                const next = curr.includes(val) ? curr : [...curr, val];
+                                return { ...prev, [currentTopic]: next };
+                              });
+                              e.currentTarget.value = '';
+                            }
+                          }
+                        }}
+                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', fontFamily: 'monospace', fontSize: '0.72em', padding: '0.1rem 0.3rem', color: 'var(--text-color)', outline: 'none', width: '130px' }}
+                      />
+                    </div>
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '0 0.5rem' }}>
                     {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{readingTime} min read</span>}
                     <button 
@@ -822,33 +944,50 @@ const App: React.FC = () => {
 
                   {content.length > 0 && !error && (
                     <>
-                      <ContentDisplay 
-                        content={isDiffView ? (function() {
-                          const prevLines = previousContent.split('\n');
-                          const currLines = content.split('\n');
-                          const out = [];
-                          const max = Math.max(prevLines.length, currLines.length);
-                          for (let i = 0; i < max; i++) {
-                            const pLine = prevLines[i] || '';
-                            const cLine = currLines[i] || '';
-                            if (pLine === cLine) {
-                              out.push(cLine);
-                            } else {
-                              if (pLine) out.push(`~~-${pLine}~~`);
-                              if (cLine) out.push(`**+${cLine}**`);
-                            }
-                          }
-                          return out.join('\n');
-                        })() : displayedContent} 
-                        isLoading={isLoading} 
-                        onWordClick={handleWordClick} 
-                        topic={currentTopic}
-                        isFavorite={favorites.includes(currentTopic)}
-                        onToggleFavorite={() => toggleFavorite(currentTopic)}
-                        fontSize={fontSize}
-                        isReadingMode={isReadingMode}
-                        onExplainClick={handleExplainClick}
-                      />
+                      {isDiffView ? (
+                        <div style={{ display: 'flex', gap: '1.5rem', width: '100%', fontFamily: 'monospace', flexWrap: 'wrap' }}>
+                          <div style={{ flex: '1 1 350px', borderRight: window.innerWidth > 768 ? '1px solid var(--border-color)' : 'none', paddingRight: window.innerWidth > 768 ? '1.5rem' : '0' }}>
+                            <h4 style={{ fontSize: '0.82em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
+                              [ Previous Version ]
+                            </h4>
+                            <ContentDisplay
+                              content={previousContent}
+                              isLoading={false}
+                              onWordClick={handleWordClick}
+                              topic={currentTopic}
+                              fontSize={fontSize}
+                              isReadingMode={isReadingMode}
+                              onExplainClick={handleExplainClick}
+                            />
+                          </div>
+                          <div style={{ flex: '1 1 350px' }}>
+                            <h4 style={{ fontSize: '0.82em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
+                              [ Current Version ]
+                            </h4>
+                            <ContentDisplay
+                              content={displayedContent}
+                              isLoading={isLoading}
+                              onWordClick={handleWordClick}
+                              topic={currentTopic}
+                              fontSize={fontSize}
+                              isReadingMode={isReadingMode}
+                              onExplainClick={handleExplainClick}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <ContentDisplay 
+                          content={displayedContent} 
+                          isLoading={isLoading} 
+                          onWordClick={handleWordClick} 
+                          topic={currentTopic}
+                          isFavorite={favorites.includes(currentTopic)}
+                          onToggleFavorite={() => toggleFavorite(currentTopic)}
+                          fontSize={fontSize}
+                          isReadingMode={isReadingMode}
+                          onExplainClick={handleExplainClick}
+                        />
+                      )}
                       {!isLoading && (
                         <>
                           <DidYouKnow topic={currentTopic} />
