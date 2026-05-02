@@ -125,14 +125,14 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
   return { allowed: remaining > 0, remaining, limit: DAILY_LIMIT, resetsAt: 'midnight tonight', timeUntilReset };
 }
 
-/** Record one search. */
-export async function recordSearch(): Promise<void> {
+/** Record one search with specific cost. */
+export async function recordSearch(cost: number = 1): Promise<void> {
   // Record on server (IP-keyed)
   try {
     await fetch('/api/rate-limit-record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ cost }),
     });
   } catch {}
 
@@ -140,9 +140,9 @@ export async function recordSearch(): Promise<void> {
   const today = todayStr();
   const state = loadState();
   if (!state || state.date !== today) {
-    saveState({ date: today, count: 1, limit: DAILY_LIMIT });
+    saveState({ date: today, count: cost, limit: DAILY_LIMIT });
   } else {
-    saveState({ ...state, count: state.count + 1 });
+    saveState({ ...state, count: state.count + cost });
   }
 }
 

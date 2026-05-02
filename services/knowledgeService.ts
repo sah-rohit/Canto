@@ -67,10 +67,10 @@ export async function fetchKnowledgeContext(topic: string, options: CrawlOptions
 /**
  * Build a context block from knowledge sources for the AI prompt.
  */
-export function buildContextBlock(ctx: KnowledgeContext): string {
+export function buildContextBlock(ctx: KnowledgeContext, enabledSources: string[] = ['Wikipedia', 'NASA', 'CORE', 'Web Search']): string {
   const sections: string[] = [];
 
-  if (ctx.wikipedia) {
+  if (enabledSources.includes('Wikipedia') && ctx.wikipedia) {
     const clean = ctx.wikipedia
       .replace(/\[\d+\]/g, '')
       .replace(/={2,}[^=]+=+/g, '')
@@ -81,13 +81,13 @@ export function buildContextBlock(ctx: KnowledgeContext): string {
   if (ctx.internetArchive) {
     sections.push(`[Related books] ${ctx.internetArchive}`);
   }
-  if (ctx.nasa) {
+  if (enabledSources.includes('NASA') && ctx.nasa) {
     sections.push(`[NASA image data] ${ctx.nasa}`);
   }
-  if (ctx.core) {
+  if (enabledSources.includes('CORE') && ctx.core) {
     sections.push(`[Academic papers] ${ctx.core}`);
   }
-  if (ctx.crawler) {
+  if (enabledSources.includes('Web Search') && ctx.crawler) {
     sections.push(`[Web crawled snippets] ${ctx.crawler}`);
   }
 

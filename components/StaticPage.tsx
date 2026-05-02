@@ -241,6 +241,42 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
   const page = pagesData[pageId];
   const art = asciiArtMap[pageId] || '';
 
+  const handleExportLibrary = () => {
+    const data = {
+      favorites,
+      history,
+      collections: JSON.parse(localStorage.getItem('canto_collections') || '{}'),
+      artHistory: JSON.parse(localStorage.getItem('canto_art_history') || '[]'),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `canto-library-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportLibrary = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (parsed.favorites) localStorage.setItem('canto_favs', JSON.stringify(parsed.favorites));
+        if (parsed.history) localStorage.setItem('canto_history', JSON.stringify(parsed.history));
+        if (parsed.collections) localStorage.setItem('canto_collections', JSON.stringify(parsed.collections));
+        if (parsed.artHistory) localStorage.setItem('canto_art_history', JSON.stringify(parsed.artHistory));
+        alert('Library re-imported successfully! Reload the application to view changes.');
+        window.location.reload();
+      } catch (err) {
+        alert('Invalid library JSON backup file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   if (pageId === 'library') {
     return (
       <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
@@ -250,6 +286,17 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
             {art}
           </pre>
         )}
+
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={handleExportLibrary} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}>
+            Export Backup
+          </button>
+          <label style={{ textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}>
+            Import Backup
+            <input type="file" accept=".json" onChange={handleImportLibrary} style={{ display: 'none' }} />
+          </label>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem', marginTop: '2rem' }}>
           <section>
             <h3 style={{ fontSize: '1em', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</h3>

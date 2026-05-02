@@ -158,30 +158,43 @@ async function callWithFallback(
  */
 export async function* streamDefinition(
   topic: string,
+  enabledSources: string[] = ['Wikipedia', 'NASA', 'CORE', 'Web Search'],
+  lens: string = 'Standard',
+  depth: string = 'Standard'
 ): AsyncGenerator<string, void, undefined> {
   // Fetch knowledge context in parallel with starting the stream
   let contextBlock = '';
   try {
     const ctx = await fetchKnowledgeContext(topic);
-    contextBlock = buildContextBlock(ctx);
+    contextBlock = buildContextBlock(ctx, enabledSources);
   } catch {
     // Continue without context if knowledge fetch fails
+  }
+
+  let depthPrompt = `Break down the text logically into exactly 3 clear paragraphs.`;
+  if (depth === 'Mini') {
+    depthPrompt = `Break down the text into exactly 1 clear paragraph. Be extremely concise.`;
+  } else if (depth === 'Deep') {
+    depthPrompt = `Break down the text into at least 5-6 paragraphs. Include exhaustive bullet points and edge cases.`;
+  }
+
+  let lensPrompt = '';
+  if (lens !== 'Standard') {
+    lensPrompt = `\nLENS / PERSPECTIVE: Write strictly from a "${lens}" viewpoint, focusing on that specific tone and angle.`;
   }
 
   const prompt = `Provide a rich, encyclopedia-style entry for: "${topic}".
 ${contextBlock}
 
 FORMATTING RULES:
-1. Break down the text logically into exactly 3 clear paragraphs:
-   - Paragraph 1: Core definition, significance, etymology, and overview.
-   - Paragraph 2: Historical context, key mechanics, or technical details.
-   - Paragraph 3: Future impact, modern applications, and broader legacy.
+1. ${depthPrompt}
+   ${lensPrompt}
 2. Identify at least 15-20 relevant nouns, key concepts, technologies, terms, and topics, and format them as Markdown links: [Key Term](Key Term). This allows the user to click any of these words to instantly search them.
    Do NOT link the current topic "${topic}" itself.
 3. Use **bold** for critical concepts, *italic* for nuance or etymology.
 4. Use bullet lists (* item) or numbered lists (1. item) for enumerations.
 5. Use Markdown tables when comparing multiple items.
-6. Do NOT use headers (no # ## ###).
+6. For headers, use ## and ### for sections to auto-generate a Table of Contents.
 7. CRITICAL: Do NOT reproduce, echo, or quote the REFERENCE CONTEXT labels, source names, or raw metadata. Weave verified facts naturally into flowing prose only.
 8. Present a clean, well-structured, professional article. Do NOT output raw section labels, file paths, IDs, citation markers, or any text that looks like system metadata.
 9. CRITICAL: Heavily prioritize facts, dates, and version numbers from the REFERENCE CONTEXT over your internal weights. Always use 2026 as the baseline present-day temporal context.

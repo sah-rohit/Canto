@@ -12,13 +12,25 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
   const [mutatedArt, setMutatedArt] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [artStylePicker, setArtStylePicker] = useState<'minimalist' | 'retro' | 'scientific'>('minimalist');
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [artHistory, setArtHistory] = useState<{ topic: string; art: string }[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('canto_art_history') || '[]');
+    } catch { return []; }
+  });
 
   useEffect(() => {
     if (artData) {
       setMutatedArt(artData.art);
       setEditText(artData.art);
+      setArtHistory(prev => {
+        const next = [{ topic, art: artData.art }, ...prev.filter(x => x.topic !== topic)].slice(0, 30);
+        localStorage.setItem('canto_art_history', JSON.stringify(next));
+        return next;
+      });
     }
-  }, [artData]);
+  }, [artData, topic]);
 
   if (!artData) return null;
 
@@ -105,7 +117,6 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
   const handleSaveEdit = () => {
     setMutatedArt(editText);
     setIsEditing(false);
-    // Download as text file option
     const blob = new Blob([editText], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -117,8 +128,99 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPNG = () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const lines = visibleContent.split('\n');
+    canvas.width = 650;
+    canvas.height = lines.length * 18 + 40;
+
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '14px monospace';
+    ctx.fillStyle = '#00ff66';
+    lines.forEach((line, i) => {
+      ctx.fillText(line, 20, i * 18 + 30);
+    });
+
+    const link = document.createElement('a');
+    link.download = `${topic.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-art.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const currentPreStyle: React.CSSProperties = {
+    whiteSpace: 'pre',
+    overflowX: 'auto',
+    maxWidth: '100%',
+    textAlign: 'left',
+    fontFamily: 'monospace',
+    lineHeight: '1.2',
+    fontSize: '0.85em',
+    color: 'var(--text-color)',
+    marginBottom: '1rem',
+    background: artStylePicker === 'retro' ? '#001100' : artStylePicker === 'scientific' ? 'var(--input-bg)' : 'transparent',
+    border: artStylePicker === 'scientific' ? '1px solid var(--border-color)' : 'none',
+    padding: artStylePicker === 'minimalist' ? '0' : '1rem',
+    boxShadow: artStylePicker === 'retro' ? 'inset 0 0 10px rgba(0,255,0,0.1)' : 'none'
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      {/* ── Art Gallery & Style Pickers ── */}
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem', fontFamily: 'monospace', fontSize: '0.85em' }}>
+        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-muted)' }}>Style:</span>
+          {(['minimalist', 'retro', 'scientific'] as const).map(style => (
+            <button
+              key={style}
+              onClick={() => setArtStylePicker(style)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: artStylePicker === style ? 'var(--accent-color)' : 'var(--text-muted)',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                textDecoration: artStylePicker === style ? 'underline' : 'none'
+              }}
+            >
+              {style}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setGalleryOpen(!galleryOpen)}
+          style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+        >
+          {galleryOpen ? 'Close Gallery' : 'Art Gallery'}
+        </button>
+      </div>
+
+      {galleryOpen && (
+        <div style={{ width: '100%', border: '1px solid var(--border-color)', background: 'var(--input-bg)', padding: '1rem', marginBottom: '1.5rem', fontFamily: 'monospace', fontSize: '0.85em' }}>
+          <h4 style={{ margin: '0 0 0.75rem 0', letterSpacing: '0.1em' }}>BROWSE ART GALLERY</h4>
+          {artHistory.length === 0 ? <p style={{ margin: 0, color: 'var(--text-muted)' }}>No art stored yet.</p> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {artHistory.map((item, idx) => (
+                <div key={idx} style={{ borderBottom: idx < artHistory.length - 1 ? '1px dotted var(--border-color)' : 'none', paddingBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <strong>{item.topic}</strong>
+                    <button onClick={() => setMutatedArt(item.art)} style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}>
+                      Load Art
+                    </button>
+                  </div>
+                  <pre style={{ whiteSpace: 'pre', overflowX: 'auto', fontSize: '0.7em', color: 'var(--text-muted)', background: '#0b0f19', padding: '0.4rem', border: '1px solid var(--border-color)' }}>
+                    {item.art}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {isEditing ? (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <textarea
@@ -141,13 +243,13 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
             <button 
               onClick={handleSaveEdit}
-              style={{ padding: '0.4rem 0.8rem', border: '1px solid var(--border-color)', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', borderRadius: '4px' }}
+              style={{ padding: '0.4rem 0.8rem', border: '1px solid var(--border-color)', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', borderRadius: '4px', background: 'none' }}
             >
-              💾 Save & Download
+              Save & Download
             </button>
             <button 
               onClick={() => setIsEditing(false)}
-              style={{ padding: '0.4rem 0.8rem', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', borderRadius: '4px' }}
+              style={{ padding: '0.4rem 0.8rem', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', borderRadius: '4px', background: 'none' }}
             >
               Cancel
             </button>
@@ -158,23 +260,13 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
           <pre 
             className="ascii-art" 
             aria-label={accessibilityLabel}
-            style={{
-              whiteSpace: 'pre',
-              overflowX: 'auto',
-              maxWidth: '100%',
-              textAlign: 'left',
-              fontFamily: 'monospace',
-              lineHeight: '1.2',
-              fontSize: '0.85em',
-              color: 'var(--text-muted)',
-              marginBottom: '1rem'
-            }}
+            style={currentPreStyle}
           >
             {renderInteractiveArt(visibleContent)}
             {isStreaming && <span className="blinking-cursor">|</span>}
           </pre>
           {!isStreaming && (
-            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
               <button 
                 onClick={handleCopy}
                 style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
@@ -185,7 +277,13 @@ const AsciiArtDisplay: React.FC<AsciiArtDisplayProps> = ({ artData, topic, onWor
                 onClick={() => { setEditText(visibleContent); setIsEditing(true); }}
                 style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
               >
-                ✏️ Edit Art
+                Edit Art
+              </button>
+              <button 
+                onClick={handleExportPNG}
+                style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
+              >
+                Export PNG
               </button>
             </div>
           )}

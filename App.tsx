@@ -84,9 +84,16 @@ const App: React.FC = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
-  // Research panel
   const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
+
+  // Advanced features state
+  const [depth, setDepth] = useState<'Mini' | 'Standard' | 'Deep'>('Standard');
+  const [activeLens, setActiveLens] = useState<'Standard' | 'Academic' | 'Beginner' | 'Historical' | 'Controversial' | 'Future Implications'>('Standard');
+  const [enabledSources, setEnabledSources] = useState<string[]>(['Wikipedia', 'NASA', 'CORE', 'Web Search']);
+  const [displayedContent, setDisplayedContent] = useState('');
+  const [previousContent, setPreviousContent] = useState('');
+  const [isDiffView, setIsDiffView] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -166,6 +173,24 @@ const App: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPage, currentTopic]);
+
+  useEffect(() => {
+    if (content.length > displayedContent.length) {
+      const interval = setInterval(() => {
+        setDisplayedContent(prev => {
+          const nextLen = prev.length + 25; // 25 characters at a time for fast smooth streaming
+          if (nextLen >= content.length) {
+            clearInterval(interval);
+            return content;
+          }
+          return content.slice(0, nextLen);
+        });
+      }, 10);
+      return () => clearInterval(interval);
+    } else if (content.length < displayedContent.length) {
+      setDisplayedContent(content);
+    }
+  }, [content, displayedContent.length]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -299,25 +324,28 @@ const App: React.FC = () => {
 
       const normalizedTopic = currentTopic.toLowerCase().trim();
       
-      // ── Check Cache First ──────────────────────────────────────────────────
-      if (cache[normalizedTopic]) {
-        setIsLoading(false);
-        setError(null);
-        setContent(cache[normalizedTopic].content);
-        setAsciiArt(cache[normalizedTopic].asciiArt);
-        setGenerationTime(null);
-        return;
-      }
+      // ── Check Cache First (only for Standard) ──────────────────────────────────────────────────
+      const isAdvanced = depth !== 'Standard' || activeLens !== 'Standard' || enabledSources.length < 4;
+      if (!isAdvanced) {
+        if (cache[normalizedTopic]) {
+          setIsLoading(false);
+          setError(null);
+          setContent(cache[normalizedTopic].content);
+          setAsciiArt(cache[normalizedTopic].asciiArt);
+          setGenerationTime(null);
+          return;
+        }
 
-      const dbCached = await dbGetCache(normalizedTopic);
-      if (dbCached) {
-        setIsLoading(false);
-        setError(null);
-        setContent(dbCached.content);
-        setAsciiArt(dbCached.asciiArt);
-        setGenerationTime(null);
-        setCache(prev => ({ ...prev, [normalizedTopic]: dbCached }));
-        return;
+        const dbCached = await dbGetCache(normalizedTopic);
+        if (dbCached) {
+          setIsLoading(false);
+          setError(null);
+          setContent(dbCached.content);
+          setAsciiArt(dbCached.asciiArt);
+          setGenerationTime(null);
+          setCache(prev => ({ ...prev, [normalizedTopic]: dbCached }));
+          return;
+        }
       }
 
       // ── Rate limit check ──────────────────────────────────────────────────
@@ -333,13 +361,15 @@ const App: React.FC = () => {
 
       setIsLoading(true);
       setError(null);
+      setPreviousContent(content);
       setContent('');
       setAsciiArt(null);
       setGenerationTime(null);
       const startTime = performance.now();
 
-      // Record the search and update UI counter
-      await recordSearch();
+      // Record the search with variable cost and update UI counter
+      const cost = depth === 'Mini' ? 0.5 : depth === 'Deep' ? 2 : 1;
+      await recordSearch(cost);
       const { remaining, limit } = await getRemainingSearches();
       setSearchesRemaining(remaining);
       setSearchesLimit(limit);
@@ -368,7 +398,7 @@ const App: React.FC = () => {
       // Stream definition
       let accumulatedContent = '';
       try {
-        for await (const chunk of streamDefinition(currentTopic)) {
+        for await (const chunk of streamDefinition(currentTopic, enabledSources, activeLens, depth)) {
           if (isCancelled) break;
           if (chunk.startsWith('Error:')) throw new Error(chunk.replace('Error:', '').trim());
           accumulatedContent += chunk;
@@ -436,6 +466,9 @@ const App: React.FC = () => {
 
   const handleWordClick = useCallback((word: string) => navigateToTopic(word), [navigateToTopic]);
   const handleSearch = useCallback((topic: string) => navigateToTopic(topic), [navigateToTopic]);
+  const handleExplainClick = useCallback((action: string, text: string) => {
+    navigateToTopic(`${action}: ${text}`);
+  }, [navigateToTopic]);
 
   const handleRandom = useCallback(async () => {
     // Rate limit check before random too
@@ -628,6 +661,64 @@ const App: React.FC = () => {
 
         <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
 
+        {/* ── Advanced Search Modifiers & Filters ── */}
+        <div style={{ maxWidth: '800px', margin: '0.75rem auto 2rem auto', padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: 'monospace', fontSize: '0.82em', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Lens:</span>
+            {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
+              <button
+                key={lens}
+                onClick={() => setActiveLens(lens)}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: activeLens === lens ? 'underline' : 'none', color: activeLens === lens ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+              >
+                {lens}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Search Depth:</span>
+            {(['Mini', 'Standard', 'Deep'] as const).map(d => (
+              <button
+                key={d}
+                onClick={() => setDepth(d)}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: depth === d ? 'underline' : 'none', color: depth === d ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
+              >
+                {d} {d === 'Mini' ? '(0.5 cr)' : d === 'Deep' ? '(2 cr)' : '(1 cr)'}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Sources:</span>
+            {(['Wikipedia', 'NASA', 'CORE', 'Web Search'] as const).map(src => {
+              const checked = enabledSources.includes(src);
+              return (
+                <label key={src} style={{ cursor: 'pointer', userSelect: 'none', textDecoration: checked ? 'none' : 'line-through' }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => setEnabledSources(prev => checked ? prev.filter(s => s !== src) : [...prev, src])}
+                    style={{ marginRight: '0.3rem' }}
+                  />
+                  {src}
+                </label>
+              );
+            })}
+          </div>
+
+          {previousContent && content && (
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: '0.4rem' }}>
+              <button
+                onClick={() => setIsDiffView(!isDiffView)}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
+              >
+                {isDiffView ? 'Hide Diff' : 'Compare with Previous Generation'}
+              </button>
+            </div>
+          )}
+        </div>
+
         {!isReadingMode && currentPage !== 'landing' && (
           <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', padding: '0 1rem' }}>
@@ -732,7 +823,23 @@ const App: React.FC = () => {
                   {content.length > 0 && !error && (
                     <>
                       <ContentDisplay 
-                        content={content} 
+                        content={isDiffView ? (function() {
+                          const prevLines = previousContent.split('\n');
+                          const currLines = content.split('\n');
+                          const out = [];
+                          const max = Math.max(prevLines.length, currLines.length);
+                          for (let i = 0; i < max; i++) {
+                            const pLine = prevLines[i] || '';
+                            const cLine = currLines[i] || '';
+                            if (pLine === cLine) {
+                              out.push(cLine);
+                            } else {
+                              if (pLine) out.push(`~~-${pLine}~~`);
+                              if (cLine) out.push(`**+${cLine}**`);
+                            }
+                          }
+                          return out.join('\n');
+                        })() : displayedContent} 
                         isLoading={isLoading} 
                         onWordClick={handleWordClick} 
                         topic={currentTopic}
@@ -740,6 +847,7 @@ const App: React.FC = () => {
                         onToggleFavorite={() => toggleFavorite(currentTopic)}
                         fontSize={fontSize}
                         isReadingMode={isReadingMode}
+                        onExplainClick={handleExplainClick}
                       />
                       {!isLoading && (
                         <>
