@@ -130,6 +130,14 @@ const App: React.FC = () => {
 
   // Load persisted state on mount
   useEffect(() => {
+    try {
+      const savedDys = localStorage.getItem('canto_dyslexic') === 'true';
+      if (savedDys) {
+        setIsDyslexic(true);
+        document.body.classList.add('dyslexic');
+      }
+    } catch (e) {}
+
     initRateLimit().then(() => {
       checkRateLimit().then((status) => {
         setSearchesRemaining(status.remaining);
@@ -258,7 +266,19 @@ const App: React.FC = () => {
     });
   }, [showToast]);
 
-  const handleRegenerate = useCallback(() => {
+  const handleRegenerate = useCallback(async () => {
+    // Rate limit check
+    const rlStatus = await checkRateLimit();
+    if (!rlStatus.allowed) {
+      showToast(`Daily search limit reached. API quotas reset at midnight.`, 'warning');
+      return;
+    }
+    const cost = depth === 'Mini' ? 0.5 : depth === 'Deep' ? 2 : 1;
+    await recordSearch(cost);
+    const { remaining, limit } = await getRemainingSearches();
+    setSearchesRemaining(remaining);
+    setSearchesLimit(limit);
+
     const normalized = currentTopic.toLowerCase().trim();
     setCache(prev => {
       const newCache = { ...prev };
@@ -269,7 +289,7 @@ const App: React.FC = () => {
     dbDeleteCache(normalized);
     setRetryTrigger(prev => prev + 1);
     showToast('Regenerating content...', 'info');
-  }, [currentTopic, showToast]);
+  }, [currentTopic, depth, showToast]);
 
   const navigateToPage = useCallback((page: string) => {
     const newUrl = new URL(window.location.href);
@@ -457,7 +477,7 @@ const App: React.FC = () => {
               let existingFull: any[] = [];
               const savedFull = localStorage.getItem('canto_history_full');
               if (savedFull) existingFull = JSON.parse(savedFull);
-              existingFull = [fullHistoryEntry, ...existingFull.filter(h => h.topic.toLowerCase() !== currentTopic.toLowerCase())];
+              existingFull = [fullHistoryEntry, ...existingFull];
               localStorage.setItem('canto_history_full', JSON.stringify(existingFull));
             } catch (e) {}
             dbSaveCache(currentTopic, accumulatedContent, finalArt);
@@ -759,8 +779,10 @@ const App: React.FC = () => {
             <span>Accessibility:</span>
             <button
               onClick={() => {
-                setIsDyslexic(!isDyslexic);
-                document.body.classList.toggle('dyslexic', !isDyslexic);
+                const next = !isDyslexic;
+                setIsDyslexic(next);
+                document.body.classList.toggle('dyslexic', next);
+                localStorage.setItem('canto_dyslexic', String(next));
               }}
               style={{ background: 'none', border: 'none', padding: 0, textDecoration: isDyslexic ? 'underline' : 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
             >
@@ -917,11 +939,11 @@ const App: React.FC = () => {
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                       <button 
                         onClick={handleRegenerate}
-                        style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.3rem 0.8rem', borderRadius: '4px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8em', fontFamily: 'monospace' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em', fontFamily: 'monospace', textDecoration: 'underline' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
-                        ⟳ Regenerate (Uses 1 Credit)
+                        Regenerate (Uses {depth === 'Mini' ? '0.5' : depth === 'Deep' ? '2' : '1'} Credit)
                       </button>
                     </div>
                   )}
@@ -945,8 +967,8 @@ const App: React.FC = () => {
                   {content.length > 0 && !error && (
                     <>
                       {isDiffView ? (
-                        <div style={{ display: 'flex', gap: '1.5rem', width: '100%', fontFamily: 'monospace', flexWrap: 'wrap' }}>
-                          <div style={{ flex: '1 1 350px', borderRight: window.innerWidth > 768 ? '1px solid var(--border-color)' : 'none', paddingRight: window.innerWidth > 768 ? '1.5rem' : '0' }}>
+                        <div style={{ display: 'flex', gap: '2rem', width: '100%', fontFamily: 'monospace', flexWrap: 'nowrap' }}>
+                          <div style={{ width: '50%', borderRight: '1px solid var(--border-color)', paddingRight: '1.5rem' }}>
                             <h4 style={{ fontSize: '0.82em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
                               [ Previous Version ]
                             </h4>
@@ -960,7 +982,7 @@ const App: React.FC = () => {
                               onExplainClick={handleExplainClick}
                             />
                           </div>
-                          <div style={{ flex: '1 1 350px' }}>
+                          <div style={{ width: '50%' }}>
                             <h4 style={{ fontSize: '0.82em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
                               [ Current Version ]
                             </h4>

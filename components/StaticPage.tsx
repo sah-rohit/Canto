@@ -316,6 +316,12 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
       n.content.toLowerCase().includes(notesSearch.toLowerCase())
     );
 
+    // Compute top searches/frequent topics index for balanced right-hand space
+    const allTopics = [...history, ...favorites];
+    const freq: Record<string, number> = {};
+    allTopics.forEach(t => freq[t] = (freq[t] || 0) + 1);
+    const topTopics = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(e => e[0]);
+
     return (
       <div style={{ paddingBottom: '2rem', fontFamily: 'monospace' }}>
         <h2 style={{ marginBottom: '1rem', letterSpacing: '0.1em' }}>My Local Library</h2>
@@ -338,27 +344,47 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem', marginTop: '2rem' }}>
           <section>
             <h3 style={{ fontSize: '1em', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</h3>
-            {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
-              <ul style={{ listStyle: 'none', padding: 0 }}>
-                {favorites.map(t => (
-                  <li key={t} style={{ marginBottom: '0.6rem' }}>
-                    <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div style={{ height: '280px', overflowY: 'auto' }}>
+              {favorites.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No starred topics yet.</p> : (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                  {favorites.map(t => (
+                    <li key={t} style={{ marginBottom: '0.6rem' }}>
+                      <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
+
           <section>
             <h3 style={{ fontSize: '1em', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Recent History</h3>
-            {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
-              <ul style={{ listStyle: 'none', padding: 0 }}>
-                {history.map(t => (
-                  <li key={t} style={{ marginBottom: '0.6rem' }}>
-                    <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div style={{ height: '280px', overflowY: 'auto' }}>
+              {history.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No browsing history.</p> : (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                  {history.map((t, idx) => (
+                    <li key={idx} style={{ marginBottom: '0.6rem' }}>
+                      <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section>
+            <h3 style={{ fontSize: '1em', paddingBottom: '0.5rem', marginBottom: '1.2rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Frequently Searched</h3>
+            <div style={{ height: '280px', overflowY: 'auto' }}>
+              {topTopics.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No frequent topics yet.</p> : (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                  {topTopics.map((t, idx) => (
+                    <li key={idx} style={{ marginBottom: '0.6rem' }}>
+                      <button onClick={() => onTopicClick?.(t)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1.05em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>{t}</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         </div>
 
@@ -368,7 +394,7 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2.5rem' }}>
             {/* Form */}
-            <form onSubmit={handleCreateNote} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            <form onSubmit={handleCreateNote} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', height: '350px', overflowY: 'auto' }}>
               <h4 style={{ margin: 0, fontSize: '0.9em', letterSpacing: '0.1em' }}>Add Note / Article</h4>
               <input
                 type="text"
@@ -384,13 +410,13 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
                 rows={4}
                 style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)', fontFamily: 'monospace', padding: '0.5rem', outline: 'none' }}
               />
-              <button type="submit" style={{ background: 'transparent', border: '1px solid var(--accent-color)', color: 'var(--accent-color)', cursor: 'pointer', padding: '0.4rem', fontFamily: 'monospace', fontSize: '0.85em' }}>
+              <button type="submit" style={{ background: 'transparent', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', padding: '0.4rem 0', fontFamily: 'monospace', fontSize: '0.85em', textDecoration: 'underline', textAlign: 'left' }}>
                 Save Private Entry
               </button>
             </form>
 
             {/* Notes List */}
-            <div>
+            <div style={{ height: '350px', overflowY: 'auto' }}>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>Find:</span>
                 <input
@@ -422,6 +448,22 @@ const StaticPage: React.FC<StaticPageProps> = ({ pageId, history = [], favorites
                           Generate AI Wiki Entry on This
                         </button>
                       )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Knowledge Notes Quick References Column */}
+            <div style={{ height: '350px', overflowY: 'auto' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1.2rem', color: 'var(--text-muted)' }}>Quick References</h4>
+              {notes.length === 0 ? <p style={{ fontSize: '0.9em', color: 'var(--text-muted)' }}>No saved note references yet.</p> : (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                  {notes.map(n => (
+                    <li key={n.id} style={{ marginBottom: '0.6rem' }}>
+                      <button onClick={() => onTopicClick?.(n.title)} style={{ background: 'transparent', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontSize: '1em', textDecoration: 'underline', textAlign: 'left', fontFamily: 'monospace' }}>
+                        {n.title}
+                      </button>
                     </li>
                   ))}
                 </ul>

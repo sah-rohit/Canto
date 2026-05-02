@@ -86,7 +86,7 @@ const TldrSummary: React.FC<{ content: string }> = ({ content }) => {
 
   return (
     <div>
-      <div style={sectionLabel}><span>📝</span> TL;DR Summary</div>
+      <div style={sectionLabel}>TL;DR Summary</div>
       <div style={{ ...treeLine, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {tldr.map((pt, i) => (
           <div key={i} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85em', lineHeight: '1.5' }}>
@@ -115,10 +115,10 @@ const MindMap: React.FC<{ topic: string; onTopicClick: (t: string) => void }> = 
 
   return (
     <div>
-      <div style={sectionLabel}><span>🧠</span> Mind Map & Relationships</div>
+      <div style={sectionLabel}>Mind Map & Relationships</div>
       <div style={treeLine}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', position: 'relative' }}>
-          <div style={{ padding: '0.4rem 0.6rem', border: '1px dashed var(--border-color)', color: 'var(--accent-color)', display: 'inline-block', width: 'fit-content', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.9em' }}>
+          <div style={{ padding: '0.4rem 0.6rem', borderBottom: '1px solid var(--border-color)', color: 'var(--accent-color)', display: 'inline-block', width: 'fit-content', fontFamily: 'monospace', fontSize: '0.9em' }}>
             {topic}
           </div>
           {nodes.map((n, i) => (
@@ -186,24 +186,24 @@ const FollowUps: React.FC<{ topic: string; content: string; onTopicClick: (t: st
 const Sources: React.FC<{ sources: ResearchPanelProps['sources'] }> = ({ sources }) => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const entries = [
-    { key: 'wikipedia',       label: 'Wikipedia',     icon: '📖', url: 'https://wikipedia.org' },
-    { key: 'nasa',            label: 'NASA',          icon: '🚀', url: 'https://images.nasa.gov' },
-    { key: 'core',            label: 'CORE Academic', icon: '🎓', url: 'https://core.ac.uk' },
-    { key: 'internetArchive', label: 'Open Library',  icon: '📚', url: 'https://openlibrary.org' },
-    { key: 'crawler',         label: 'Web Search',    icon: '🌐', url: 'https://duckduckgo.com' },
+    { key: 'wikipedia',       label: 'Wikipedia',     url: 'https://wikipedia.org' },
+    { key: 'nasa',            label: 'NASA',          url: 'https://images.nasa.gov' },
+    { key: 'core',            label: 'CORE Academic', url: 'https://core.ac.uk' },
+    { key: 'internetArchive', label: 'Open Library',  url: 'https://openlibrary.org' },
+    { key: 'crawler',         label: 'Web Search',    url: 'https://duckduckgo.com' },
   ] as const;
 
   const active = entries.filter(e => !!(sources as any)[e.key]);
   if (!active.length) return (
     <div>
-      <div style={sectionLabel}><span>📡</span> Sources</div>
+      <div style={sectionLabel}>Sources</div>
       <div style={treeLine}><span style={{ color: 'var(--text-muted)', fontSize: '0.82em' }}>No sources loaded yet.</span></div>
     </div>
   );
 
   return (
     <div>
-      <div style={sectionLabel}><span>📡</span> Sources Used</div>
+      <div style={sectionLabel}>Sources Used</div>
       <div style={treeLine}>
         {active.map(e => {
           const isOpen = expanded === e.key;
@@ -216,9 +216,8 @@ const Sources: React.FC<{ sources: ResearchPanelProps['sources'] }> = ({ sources
                 onMouseEnter={e => { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; }}
                 onMouseLeave={e => { if (!isOpen) e.currentTarget.style.borderLeftColor = 'transparent'; }}
               >
-                <span>{e.icon}</span>
                 <span style={{ flex: 1 }}>{e.label}</span>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>{isOpen ? '▲' : '▼'}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>{isOpen ? '[-]' : '[+]'}</span>
               </button>
               {isOpen && (
                 <div style={{ ...treeLine, marginLeft: '1.1rem', paddingTop: '0.3rem', paddingBottom: '0.3rem' }}>

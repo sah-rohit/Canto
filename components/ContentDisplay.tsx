@@ -260,6 +260,17 @@ const InteractiveContent: React.FC<{
             className="interactive-word clickable-any-word"
             onClick={isClickable ? () => onWordClick(phrase) : undefined}
             onDoubleClick={(e) => handleWordDoubleClick(e, phrase)}
+            onMouseEnter={(e) => {
+              if (isClickable) {
+                setWordDefPos({
+                  x: e.clientX,
+                  y: e.clientY - 35,
+                  word: phrase,
+                  def: `Conceptual term related to ${topic || 'current article'}.`
+                });
+              }
+            }}
+            onMouseLeave={() => setWordDefPos(null)}
             style={{
               cursor: isClickable ? 'pointer' : 'default',
               display: 'inline-block',
@@ -282,6 +293,17 @@ const InteractiveContent: React.FC<{
               className={`interactive-word ${isClickable ? 'clickable-any-word' : ''}`}
               onClick={isClickable ? () => { onWordClick(wordChunk); playWordClick(); } : undefined}
               onDoubleClick={(e) => handleWordDoubleClick(e, wordChunk)}
+              onMouseEnter={(e) => {
+                if (isClickable) {
+                  setWordDefPos({
+                    x: e.clientX,
+                    y: e.clientY - 35,
+                    word: wordChunk,
+                    def: `Context definition for "${wordChunk}" within raw AI synthesis.`
+                  });
+                }
+              }}
+              onMouseLeave={() => setWordDefPos(null)}
               style={{
                 cursor: isClickable ? 'pointer' : 'default',
                 display: 'inline-block',

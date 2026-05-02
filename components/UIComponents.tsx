@@ -31,18 +31,18 @@ export const CantoNotification: React.FC<NotificationProps> = ({ message, type =
   return (
     <div className={`canto-notification ${visible ? 'visible' : ''}`} style={{
       position: 'fixed', bottom: '2rem', left: '50%',
-      background: 'var(--bg-color)', border: '1px solid var(--border-color)',
-      padding: '0.75rem 1.5rem', borderRadius: '2px', zIndex: 1000,
-      fontFamily: 'monospace', fontSize: '0.9em', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-      color: 'var(--text-color)', pointerEvents: 'none', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      background: 'var(--bg-color)', borderBottom: '1px solid var(--border-color)',
+      padding: '0.75rem 1.5rem', zIndex: 1000,
+      fontFamily: 'monospace', fontSize: '0.9em',
+      color: 'var(--text-color)', pointerEvents: 'none', transition: 'all 0.3s ease',
       opacity: visible ? 1 : 0,
       transform: visible ? 'translate(-50%, 0)' : 'translate(-50%, 20px)',
     }}>
       <span style={{ marginRight: '0.8rem', color: colors[type] }}>
-        {type === 'success' && '✓'}
-        {type === 'warning' && '⚠'}
-        {type === 'error' && '✖'}
-        {type === 'info' && '✦'}
+        {type === 'success' && '[SUCCESS]'}
+        {type === 'warning' && '[WARNING]'}
+        {type === 'error' && '[ERROR]'}
+        {type === 'info' && '[INFO]'}
       </span>
       {message}
     </div>
@@ -66,13 +66,12 @@ export const CantoDialog: React.FC<AlertProps> = ({ title, message, confirmLabel
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(6px)'
+      background: 'var(--bg-color)', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(1px)'
     }}>
       <div className="fade-in" style={{
-        background: 'var(--bg-color)', border: '1px solid var(--border-color)',
-        padding: '2rem', maxWidth: '420px', width: '90%', borderRadius: '2px',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 1px var(--border-color)', 
+        background: 'var(--bg-color)', borderBottom: '1px solid var(--border-color)',
+        padding: '2rem', maxWidth: '420px', width: '90%',
         textAlign: 'center', fontFamily: 'monospace'
       }}>
         <h3 style={{ 
@@ -85,23 +84,15 @@ export const CantoDialog: React.FC<AlertProps> = ({ title, message, confirmLabel
         <p style={{ margin: '1.2rem 0 1.8rem 0', lineHeight: '1.6', color: 'var(--text-muted)', fontSize: '0.9em', fontFamily: 'monospace' }}>
           {message}
         </p>
-        <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1.5rem' }}>
           {type === 'confirm' && (
             <button 
               onClick={onCancel}
               style={{
-                background: 'transparent', border: '1px solid var(--border-color)',
-                color: 'var(--text-color)', padding: '0.4rem 1.2rem', cursor: 'pointer',
+                background: 'transparent', border: 'none',
+                color: 'var(--text-color)', textDecoration: 'underline', cursor: 'pointer',
                 fontFamily: 'monospace', letterSpacing: '0.05em', fontSize: '0.85em',
-                borderRadius: '2px', textTransform: 'uppercase', transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent-color)';
-                e.currentTarget.style.color = 'var(--accent-color)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-color)';
-                e.currentTarget.style.color = 'var(--text-color)';
+                textTransform: 'uppercase'
               }}
             >
               {cancelLabel}
@@ -110,20 +101,10 @@ export const CantoDialog: React.FC<AlertProps> = ({ title, message, confirmLabel
           <button 
             onClick={onConfirm}
             style={{
-              background: 'transparent', border: '1px solid var(--border-color)',
-              color: 'var(--text-color)', padding: '0.4rem 1.2rem', cursor: 'pointer',
-              fontFamily: 'monospace', fontWeight: 'normal', letterSpacing: '0.05em', 
-              borderRadius: '2px', textTransform: 'uppercase', fontSize: '0.85em', transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--accent-color)';
-              e.currentTarget.style.color = 'var(--accent-color)';
-              e.currentTarget.style.background = 'rgba(var(--accent-color-rgb), 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-color)';
-              e.currentTarget.style.color = 'var(--text-color)';
-              e.currentTarget.style.background = 'transparent';
+              background: 'transparent', border: 'none',
+              color: 'var(--accent-color)', textDecoration: 'underline', cursor: 'pointer',
+              fontFamily: 'monospace', letterSpacing: '0.05em', 
+              textTransform: 'uppercase', fontSize: '0.85em'
             }}
           >
             {confirmLabel}
@@ -147,7 +128,7 @@ export const CantoSlider: React.FC<{
   return (
     <div style={{ width: '100%', margin: '1rem 0' }}>
       {label && <label style={{ display: 'block', fontSize: '0.8em', color: 'var(--text-muted)', marginBottom: '0.5rem', fontFamily: 'monospace' }}>{label}: {value}</label>}
-      <div style={{ position: 'relative', height: '4px', background: 'var(--border-color)', borderRadius: '2px' }}>
+      <div style={{ position: 'relative', height: '4px', background: 'var(--border-color)' }}>
         <input 
           type="range"
           min={min}
@@ -162,15 +143,7 @@ export const CantoSlider: React.FC<{
         <div style={{
           position: 'absolute', top: 0, left: 0,
           width: `${((value - min) / (max - min)) * 100}%`,
-          height: '100%', background: 'var(--accent-color)', borderRadius: '2px',
-          boxShadow: '0 0 8px var(--accent-color)'
-        }} />
-        <div style={{
-          position: 'absolute', top: '-6px',
-          left: `calc(${((value - min) / (max - min)) * 100}% - 8px)`,
-          width: '16px', height: '16px', background: 'var(--bg-color)',
-          border: '2px solid var(--accent-color)', borderRadius: '50%',
-          boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+          height: '100%', background: 'var(--accent-color)',
         }} />
       </div>
     </div>
