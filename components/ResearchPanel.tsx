@@ -248,48 +248,128 @@ const Search: React.FC<{ onTopicClick: (t: string) => void }> = ({ onTopicClick 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CantoDBHistoryEntry[]>([]);
   const [busy, setBusy] = useState(false);
+  const [totalHistory, setTotalHistory] = useState(0);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Load total count on mount
+  useEffect(() => {
+    dbGetHistoryFull().then(all => setTotalHistory(all.length));
+  }, []);
 
   const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) { setResults([]); return; }
+    if (!q.trim()) {
+      // Show recent 8 when empty
+      const all = await dbGetHistoryFull();
+      setResults(all.slice(0, 8));
+      return;
+    }
     setBusy(true);
-    setResults(await dbSearchHistory(q));
+    const found = await dbSearchHistory(q);
+    setResults(found);
     setBusy(false);
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => doSearch(query), 280);
+    const t = setTimeout(() => doSearch(query), 220);
     return () => clearTimeout(t);
   }, [query, doSearch]);
+
+  // Focus input when section opens
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Highlight matching substring in a string
+  const highlight = (text: string, q: string) => {
+    if (!q.trim()) return <span>{text}</span>;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return <span>{text}</span>;
+    return (
+      <span>
+        {text.slice(0, idx)}
+        <mark style={{ background: 'var(--accent-color)', color: 'var(--bg-color)', padding: '0 1px' }}>
+          {text.slice(idx, idx + q.length)}
+        </mark>
+        {text.slice(idx + q.length)}
+      </span>
+    );
+  };
 
   return (
     <div>
       <div style={sectionLabel}><span>⌕</span> Search History</div>
       <div style={treeLine}>
-        <input
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search topics…"
-          style={{
-            width: '100%', padding: '0.4rem 0.6rem', fontFamily: 'monospace', fontSize: '0.85em',
-            background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px',
-            color: 'var(--text-color)', boxSizing: 'border-box', marginBottom: '0.5rem', outline: 'none',
-          }}
-          autoComplete="off"
-        />
-        {busy && <span style={{ color: 'var(--text-muted)', fontSize: '0.78em' }}>Searching…</span>}
-        {!busy && query.trim() && results.length === 0 && (
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.78em' }}>No results.</span>
-        )}
-        {results.map((r, i) => (
-          <button key={i} style={treeNode()} onClick={() => onTopicClick(r.topic)}
-            onMouseEnter={e => { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-color)'; }}
-          >
-            {r.starred ? '★ ' : ''}{r.topic}
-            {r.wordCount ? <span style={metaTag}>{r.wordCount}w</span> : null}
-          </button>
-        ))}
+        {/* Search input */}
+        <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') setQuery(''); }}
+            placeholder={`Search ${totalHistory} topic${totalHistory !== 1 ? 's' : ''}…`}
+            style={{
+              width: '100%', padding: '0.4rem 2rem 0.4rem 0.6rem',
+              fontFamily: 'monospace', fontSize: '0.85em',
+              background: 'var(--input-bg)', border: '1px solid var(--border-color)',
+              borderRadius: '2px', color: 'var(--text-color)',
+              boxSizing: 'border-box', outline: 'none',
+            }}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery('')}
+              style={{
+                position: 'absolute', right: '0.4rem', top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--text-muted)',
+                cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em', padding: 0, lineHeight: 1,
+              }}
+              aria-label="Clear search"
+            >×</button>
+          )}
+        </div>
+
+        {/* Status line */}
+        <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: '0.4rem', fontFamily: 'monospace', minHeight: '1em' }}>
+          {busy && 'Searching…'}
+          {!busy && query.trim() && results.length === 0 && 'No results.'}
+          {!busy && query.trim() && results.length > 0 && (
+            <span>
+              {results.length} result{results.length !== 1 ? 's' : ''}
+              {' '}<span style={{ color: 'var(--accent-color)' }}>✦ semantic</span>
+            </span>
+          )}
+          {!busy && !query.trim() && totalHistory > 0 && 'Recent'}
+        </div>
+
+        {/* Results */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+          {results.map((r, i) => (
+            <button
+              key={`${r.topic}-${i}`}
+              style={{ ...treeNode(), display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.1rem', height: 'auto', paddingTop: '0.35rem', paddingBottom: '0.35rem' }}
+              onClick={() => onTopicClick(r.topic)}
+              onMouseEnter={e => { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-color)'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%' }}>
+                {r.starred && <span style={{ color: 'var(--accent-color)', fontSize: '0.8em', flexShrink: 0 }}>★</span>}
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {highlight(r.topic, query)}
+                </span>
+                {r.wordCount ? <span style={{ ...metaTag, flexShrink: 0 }}>{r.wordCount}w</span> : null}
+              </div>
+              {r.summary && query.trim() && (
+                <div style={{ fontSize: '0.75em', color: 'var(--text-muted)', lineHeight: '1.4', textAlign: 'left', whiteSpace: 'normal', paddingLeft: '0.1rem' }}>
+                  {r.summary.length > 100 ? r.summary.slice(0, 100) + '…' : r.summary}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

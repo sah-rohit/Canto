@@ -67,7 +67,8 @@ export const onRequest = async (context: any) => {
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
       requestBody = { model, messages, temperature: 0.7, max_tokens: 512, stream: false };
     } else if (provider === 'gemini') {
-      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${env.GEMINI_KEY || env.API_KEY}`;
+      const method = stream ? 'streamGenerateContent' : 'generateContent';
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}?key=${env.GEMINI_KEY || env.API_KEY}`;
       headers = { 'Content-Type': 'application/json' };
       const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop();
       requestBody = {
@@ -130,12 +131,52 @@ export const onRequest = async (context: any) => {
       responseHeaders.set('Content-Type', 'text/event-stream');
       responseHeaders.set('Cache-Control', 'no-cache');
       responseHeaders.set('Connection', 'keep-alive');
+
+      // Gemini streaming returns newline-delimited JSON, not SSE.
+      // Transform it into proper SSE so the client parser works uniformly.
+      if (provider === 'gemini') {
+        const reader = apiRes.body?.getReader();
+        const decoder = new TextDecoder();
+        const encoder = new TextEncoder();
+        const readable = new ReadableStream({
+          async start(controller) {
+            if (!reader) { controller.close(); return; }
+            let buffer = '';
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                try {
+                  const json = JSON.parse(trimmed);
+                  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+                  if (text) {
+                    const chunk = JSON.stringify({ choices: [{ delta: { content: text }, finish_reason: null }] });
+                    controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
+                  }
+                } catch { /* skip malformed */ }
+              }
+            }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          },
+        });
+        return new Response(readable, { headers: responseHeaders });
+      }
+
       return new Response(apiRes.body, { headers: responseHeaders });
     } else {
       const json = await apiRes.json();
       let transformed = json;
       if (provider === 'huggingface') {
         const content = json?.choices?.[0]?.message?.content;
+        if (content) transformed = { message: { content } };
+      } else if (provider === 'gemini') {
+        const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (content) transformed = { message: { content } };
       }
       return new Response(JSON.stringify(transformed), {

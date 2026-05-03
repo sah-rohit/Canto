@@ -32,7 +32,7 @@ When reference context is provided, use it to ensure factual accuracy — but ne
 // ─── Server API client ───────────────────────────────────────────────────────
 
 async function callServerAI(
-  provider: 'ollama' | 'groq' | 'github' | 'cloudflare',
+  provider: 'ollama' | 'groq' | 'github' | 'cloudflare' | 'gemini',
   model: string,
   messages: ChatMessage[],
   stream: boolean = false
@@ -79,11 +79,15 @@ async function callServerAI(
 
           try {
             const json = JSON.parse(trimmed);
-            // OpenAI-compatible format (Groq, Ollama Cloud)
+            // OpenAI-compatible format (Groq, Ollama Cloud, GitHub)
             let text = json?.choices?.[0]?.delta?.content;
             if (!text) {
               // Ollama native format
               text = json?.message?.content;
+            }
+            if (!text) {
+              // Gemini streamGenerateContent format
+              text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
             }
             if (text) yield text;
             if (json?.done === true) return;
@@ -101,9 +105,16 @@ async function callServerAI(
   }
 }
 
-// ─── Unified fallback wrapper ────────────────────────────────────────────────
+// ─── Provider lists ──────────────────────────────────────────────────────────
 
-const PROVIDERS: Array<{ provider: 'ollama' | 'groq' | 'github' | 'cloudflare'; model: string; name: string }> = [
+type ProviderEntry = { provider: 'ollama' | 'groq' | 'github' | 'cloudflare' | 'gemini'; model: string; name: string };
+
+/**
+ * Standard provider order — Mini & Standard depth.
+ * Fast, cost-efficient models first.
+ */
+const PROVIDERS: ProviderEntry[] = [
+  { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
   { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
   { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
   { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
@@ -113,10 +124,43 @@ const PROVIDERS: Array<{ provider: 'ollama' | 'groq' | 'github' | 'cloudflare'; 
   { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
 ];
 
+/**
+ * Deep depth provider order — Ollama large models first for maximum quality,
+ * then fall back to the standard chain.
+ */
+const PROVIDERS_DEEP: ProviderEntry[] = [
+  { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
+  { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
+  { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
+  { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
+  { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
+  { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
+  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
+  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
+];
+
+/**
+ * Lightweight provider order for Precision Viewport & Word/Concept hover.
+ * Prioritises the fastest, lowest-latency models; no credit charge.
+ */
+const PROVIDERS_HOVER: ProviderEntry[] = [
+  { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
+  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
+  { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
+  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
+  { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
+  { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
+  { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
+  { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
+];
+
+// ─── Unified fallback wrappers ────────────────────────────────────────────────
+
 async function* streamWithFallback(
   messages: ChatMessage[],
+  providerList: ProviderEntry[] = PROVIDERS,
 ): AsyncGenerator<string, void, undefined> {
-  for (const p of PROVIDERS) {
+  for (const p of providerList) {
     try {
       let gotAny = false;
       const stream = await callServerAI(p.provider, p.model, messages, true) as AsyncGenerator<string, void, undefined>;
@@ -135,9 +179,10 @@ async function* streamWithFallback(
 
 async function callWithFallback(
   messages: ChatMessage[],
+  providerList: ProviderEntry[] = PROVIDERS,
 ): Promise<string> {
   let lastErr: Error = new Error('No providers configured');
-  for (const p of PROVIDERS) {
+  for (const p of providerList) {
     try {
       const result = await callServerAI(p.provider, p.model, messages, false) as string;
       return result;
@@ -209,7 +254,7 @@ Choose the type that best fits the concept:
   ];
 
   try {
-    yield* streamWithFallback(messages);
+    yield* streamWithFallback(messages, depth === 'Deep' ? PROVIDERS_DEEP : PROVIDERS);
   } catch (err) {
     const msg = (err as Error).message;
     if (msg === 'ALL_PROVIDERS_FAILED') {
@@ -419,23 +464,58 @@ export async function generateSummary(topic: string, content: string): Promise<s
   }
 }
 
-export async function explainThis(selectedText: string, action: 'Simplify' | 'Go Deeper' | 'Show Sources'): Promise<string> {
-  const prompt = `Perform this task on the following text selected by the user: "${selectedText}"
-  Action: "${action}"
+/**
+ * Returns a short 1-sentence definition for a word or phrase, derived from
+ * the article context first, then AI as fallback. Does NOT consume credits.
+ */
+export async function getWordDefinition(word: string, articleContext: string): Promise<string> {
+  // First try to extract a definition from the article context itself (free, instant)
+  if (articleContext && articleContext.length > 50) {
+    const sentences = articleContext.split(/(?<=[.!?])\s+/);
+    const match = sentences.find(s => s.toLowerCase().includes(word.toLowerCase()));
+    if (match && match.length < 300) {
+      const clean = match.trim().replace(/^[#*\->\s]+/, '');
+      if (clean.length > 20) return clean.endsWith('.') ? clean : clean + '.';
+    }
+  }
 
-  If "Simplify": Provide a very simple, concise explanation using easy words.
-  If "Go Deeper": Provide highly advanced, specialized technical details or historical context.
-  If "Show Sources": Cite potential specific Wikipedia pages, academic articles, or primary sources where this concept is mentioned.
+  // Fall back to a quick AI call using the fastest/lightest providers (no credit charge)
+  const messages: ChatMessage[] = [
+    { role: 'system', content: 'You are a concise dictionary. Respond with exactly one sentence defining the given term. No markdown, no labels, plain prose only.' },
+    { role: 'user', content: `Define "${word}" in one sentence.` },
+  ];
+  try {
+    const result = await callWithFallback(messages, PROVIDERS_HOVER);
+    return result.trim().split(/\n/)[0];
+  } catch {
+    return `A term or concept: ${word}.`;
+  }
+}
 
-  Please provide a highly polished, professional paragraph. Maintain the same Raw Encyclopedic Format and Structure (no emojis, no markdown headers).`;
+export async function explainThis(selectedText: string, action: string): Promise<string> {
+  const actLower = (action || '').toLowerCase();
+  let taskInstruction = '';
+  if (actLower.includes('simplify')) {
+    taskInstruction = 'Simplify this text completely. Use easy words and clear sentences.';
+  } else if (actLower.includes('deep') || actLower.includes('deeper')) {
+    taskInstruction = 'Provide a deep dive into this topic. Add technical details and scholarly context.';
+  } else {
+    taskInstruction = 'Cite specific potential Wikipedia pages, academic articles, or primary sources where this concept is mentioned.';
+  }
+
+  const prompt = `Task: ${taskInstruction}
+  
+Text to analyze: "${selectedText}"
+
+Provide exactly 1 or 2 concise paragraphs with the requested explanation/sources. No markdown headers. Use plain text or light inline formatting.`;
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: 'You are an advanced AI research assistant for the AI Galactica Encyclopedia.' },
+    { role: 'system', content: SYSTEM_PERSONA },
     { role: 'user', content: prompt }
   ];
 
   try {
-    return await callWithFallback(messages);
+    return await callWithFallback(messages, PROVIDERS_HOVER);
   } catch {
     return "Error: Could not retrieve answer from AI context.";
   }

@@ -240,20 +240,95 @@ export async function dbMoveToFolder(topic: string, folderId: string | undefined
 export async function dbSearchHistory(query: string): Promise<CantoDBHistoryEntry[]> {
   try {
     const db = await initIndexedDB();
-    const tx = db.transaction('history', 'readonly');
-    const store = tx.objectStore('history');
-    return new Promise((resolve) => {
-      const req = store.getAll();
-      req.onsuccess = () => {
-        const q = query.toLowerCase();
-        const results = (req.result || []).filter((e: CantoDBHistoryEntry) =>
-          e.topic.toLowerCase().includes(q) ||
-          (e.summary || '').toLowerCase().includes(q)
-        );
-        resolve(results.sort((a: any, b: any) => b.timestamp - a.timestamp));
-      };
-      req.onerror = () => resolve([]);
+
+    // Load history and cache in parallel for cross-store semantic matching
+    const [historyEntries, cacheEntries] = await Promise.all([
+      new Promise<CantoDBHistoryEntry[]>((resolve) => {
+        const tx = db.transaction('history', 'readonly');
+        const req = tx.objectStore('history').getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      }),
+      new Promise<CantoDBCacheEntry[]>((resolve) => {
+        try {
+          const tx = db.transaction('cache', 'readonly');
+          const req = tx.objectStore('cache').getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        } catch { resolve([]); }
+      }),
+    ]);
+
+    const q = query.toLowerCase().trim();
+    if (!q) {
+      return historyEntries.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    // Build a map of topic → cached content for full-text scoring
+    const contentMap = new Map<string, string>();
+    for (const c of cacheEntries) {
+      contentMap.set(c.topic.toLowerCase().trim(), c.content || '');
+    }
+
+    // Tokenise query into meaningful words (≥2 chars, no stop words)
+    const STOP = new Set(['a','an','the','and','or','but','in','on','at','to','for','of','with','by','is','it','as','be','was','are','were','has','have','had','not','this','that','from','into','about','which','who','what','when','where','how']);
+    const queryTokens = q.split(/\s+/).filter(w => w.length >= 2 && !STOP.has(w));
+
+    const scored = historyEntries.map((entry) => {
+      const topicLow = entry.topic.toLowerCase();
+      const summaryLow = (entry.summary || '').toLowerCase();
+      const cachedContent = contentMap.get(topicLow) || '';
+      const contentLow = cachedContent.toLowerCase();
+
+      let score = 0;
+
+      // ── Exact matches (highest weight) ──────────────────────────────────
+      if (topicLow === q) score += 500;
+      if (topicLow.startsWith(q)) score += 200;
+      if (topicLow.includes(q)) score += 100;
+      if (summaryLow.includes(q)) score += 60;
+      if (contentLow.includes(q)) score += 30;
+
+      // ── Token-level scoring (TF-inspired) ───────────────────────────────
+      for (const token of queryTokens) {
+        if (topicLow.includes(token)) score += 40;
+        if (summaryLow.includes(token)) score += 15;
+
+        // Count occurrences in content (TF component, capped)
+        if (contentLow) {
+          let pos = 0, count = 0;
+          while ((pos = contentLow.indexOf(token, pos)) !== -1 && count < 10) {
+            count++;
+            pos += token.length;
+          }
+          score += Math.min(count * 3, 30);
+        }
+      }
+
+      // ── Semantic proximity: shared sub-words between query and topic ─────
+      const topicWords = topicLow.split(/\s+/);
+      for (const tw of topicWords) {
+        for (const qt of queryTokens) {
+          if (tw.length >= 4 && qt.length >= 4) {
+            if (tw.includes(qt) || qt.includes(tw)) score += 25;
+          }
+        }
+      }
+
+      // ── Recency boost (decays over 30 days) ─────────────────────────────
+      const ageDays = (Date.now() - entry.timestamp) / (1000 * 60 * 60 * 24);
+      if (score > 0) score += Math.max(0, 10 - ageDays / 3);
+
+      // ── Starred boost ────────────────────────────────────────────────────
+      if (entry.starred && score > 0) score += 20;
+
+      return { entry, score };
     });
+
+    return scored
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score || b.entry.timestamp - a.entry.timestamp)
+      .map(s => s.entry);
   } catch {
     return [];
   }

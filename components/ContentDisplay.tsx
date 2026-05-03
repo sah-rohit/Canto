@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { playSearchComplete, playWordClick, isSoundEnabled, setSoundEnabled } from '../services/soundService';
-import { explainThis } from '../services/aiService';
+import { explainThis, getWordDefinition } from '../services/aiService';
+import { recordSearch } from '../services/rateLimitService';
 
 declare global {
   interface Window {
@@ -148,9 +149,10 @@ const InteractiveContent: React.FC<{
   // Precision word/concept hover tooltip
   const [wordDefPos, setWordDefPos] = useState<{
     top: number; left: number; placement: 'above' | 'below';
-    word: string; def: string;
+    word: string; def: string; loading?: boolean;
   } | null>(null);
   const wordDefRef = useRef<HTMLDivElement>(null);
+  const wordDefTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -222,12 +224,42 @@ const InteractiveContent: React.FC<{
   }, []);
 
   // ─── Precision word hover/double-click tooltip ───────────────────────────
-  const handleWordHover = useCallback((e: React.MouseEvent, word: string, def: string) => {
+  const handleWordHover = useCallback((e: React.MouseEvent, word: string, _def: string) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const contentRect = contentRef.current?.getBoundingClientRect();
     const pos = computeTooltipPosition(rect, contentRect);
-    setWordDefPos({ ...pos, word, def });
-  }, []);
+
+    // Clear any pending timer
+    if (wordDefTimerRef.current) clearTimeout(wordDefTimerRef.current);
+
+    // Show immediately with a loading state
+    setWordDefPos({ ...pos, word, def: '', loading: true });
+
+    // Debounce the AI call by 300ms to avoid firing on fast mouse-overs
+    wordDefTimerRef.current = setTimeout(async () => {
+      try {
+        const def = await getWordDefinition(word, content);
+        setWordDefPos(prev =>
+          prev && prev.word === word ? { ...prev, def, loading: false } : prev
+        );
+      } catch {
+        setWordDefPos(prev =>
+          prev && prev.word === word ? { ...prev, def: `A term: ${word}.`, loading: false } : prev
+        );
+      }
+    }, 300);
+  }, [content]);
+
+  const extractDefinitionFromContext = useCallback((word: string): string => {
+    if (!content || !word) return `A conceptual term in ${topic || 'this article'}.`;
+    const sentences = content.split(/[.!?]\s+/);
+    const matchedSentence = sentences.find(s => s.toLowerCase().includes(word.toLowerCase()));
+    if (matchedSentence) {
+      const clean = matchedSentence.trim();
+      return clean.endsWith('.') ? clean : clean + '.';
+    }
+    return `A key conceptual term related to ${topic || 'this article'}.`;
+  }, [content, topic]);
 
   const handleWordDoubleClick = useCallback((e: React.MouseEvent, word: string) => {
     if (!word || word.length < 3) return;
@@ -435,10 +467,13 @@ const InteractiveContent: React.FC<{
             onDoubleClick={(e) => handleWordDoubleClick(e, phrase)}
             onMouseEnter={(e) => {
               if (isClickable) {
-                handleWordHover(e, phrase, `Conceptual term related to ${topic || 'current article'}.`);
+                handleWordHover(e, phrase, '');
               }
             }}
-            onMouseLeave={() => setWordDefPos(null)}
+            onMouseLeave={() => {
+              if (wordDefTimerRef.current) clearTimeout(wordDefTimerRef.current);
+              setWordDefPos(null);
+            }}
             style={{
               cursor: isClickable ? 'pointer' : 'default',
               display: 'inline-block',
@@ -463,10 +498,13 @@ const InteractiveContent: React.FC<{
               onDoubleClick={(e) => handleWordDoubleClick(e, wordChunk)}
               onMouseEnter={(e) => {
                 if (isClickable) {
-                  handleWordHover(e, wordChunk, `Context definition for "${wordChunk}" within this article.`);
+                  handleWordHover(e, wordChunk, '');
                 }
               }}
-              onMouseLeave={() => setWordDefPos(null)}
+              onMouseLeave={() => {
+                if (wordDefTimerRef.current) clearTimeout(wordDefTimerRef.current);
+                setWordDefPos(null);
+              }}
               style={{
                 cursor: isClickable ? 'pointer' : 'default',
                 display: 'inline-block',
@@ -783,6 +821,7 @@ const InteractiveContent: React.FC<{
       {wordDefPos && (
         <div
           ref={wordDefRef}
+          onMouseUp={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
             top: `${wordDefPos.top}px`,
@@ -818,7 +857,11 @@ const InteractiveContent: React.FC<{
           }} />
           <strong style={{ color: 'var(--accent-color)' }}>{wordDefPos.word}</strong>
           <span style={{ color: 'var(--text-muted)', margin: '0 0.3rem' }}>—</span>
-          <span>{wordDefPos.def}</span>
+          {wordDefPos.loading ? (
+            <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>…</span>
+          ) : (
+            <span>{wordDefPos.def}</span>
+          )}
         </div>
       )}
 
@@ -826,6 +869,7 @@ const InteractiveContent: React.FC<{
       {popupPos && (
         <div
           ref={popupRef}
+          onMouseUp={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
             top: `${popupPos.top}px`,
@@ -875,6 +919,7 @@ const InteractiveContent: React.FC<{
                   setIsExplaining(true);
                   setExplainAnswer('Synthesizing verified knowledge…');
                   try {
+                    await recordSearch(0.2);
                     const res = await explainThis(selectedText, action);
                     setExplainAnswer(res);
                   } catch {
@@ -884,9 +929,10 @@ const InteractiveContent: React.FC<{
                   }
                 }}
                 disabled={isExplaining}
+                title={`${action} — costs 0.2 Credit(s)`}
                 style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
               >
-                {action}
+                {action} <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>−0.2✦</span>
               </button>
             ))}
             <button
