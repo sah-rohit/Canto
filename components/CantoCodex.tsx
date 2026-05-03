@@ -95,9 +95,10 @@ function AchievementLine({ id, unlocked, isNew }: { id: string; unlocked: boolea
 interface CantoCodexProps {
   isOpen: boolean;
   onToggle: () => void;
+  hideHeader?: boolean;
 }
 
-const CantoCodex: React.FC<CantoCodexProps> = ({ isOpen, onToggle }) => {
+const CantoCodex: React.FC<CantoCodexProps> = ({ isOpen, onToggle, hideHeader }) => {
   const [state, setState] = useState<CantoCodexState | null>(null);
   const [activeSection, setActiveSection] = useState<'overview' | 'achievements' | 'domains'>('overview');
 
@@ -123,40 +124,42 @@ const CantoCodex: React.FC<CantoCodexProps> = ({ isOpen, onToggle }) => {
   });
 
   return (
-    <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '2rem', fontFamily: 'monospace' }}>
+    <div style={{ borderTop: hideHeader ? 'none' : '1px solid var(--border-color)', marginTop: hideHeader ? '0' : '2rem', fontFamily: 'monospace' }}>
 
       {/* ── Section header / toggle ── */}
-      <button
-        onClick={onToggle}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '0.5rem',
-          background: 'transparent', border: 'none', cursor: 'pointer',
-          fontFamily: 'monospace', fontSize: '0.72em',
-          color: 'var(--text-muted)', padding: '0.8rem 0',
-          width: '100%', textAlign: 'left',
-          letterSpacing: '0.18em', textTransform: 'uppercase',
-          transition: 'color 0.12s',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-      >
-        <span style={{ color: isOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-          {isOpen ? '▼' : '▶'}
-        </span>
-        <span>◈</span>
-        <span>Canto Codex</span>
-        {state && (
-          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em' }}>
-            — {state.rank}
+      {!hideHeader && (
+        <button
+          onClick={onToggle}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            fontFamily: 'monospace', fontSize: '0.72em',
+            color: 'var(--text-muted)', padding: '0.8rem 0',
+            width: '100%', textAlign: 'left',
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            transition: 'color 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          <span style={{ color: isOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+            {isOpen ? '▼' : '▶'}
           </span>
-        )}
-        {state && state.newAchievements.length > 0 && (
-          <span style={{ color: 'var(--accent-color)', fontSize: '0.85em' }}>
-            [{state.newAchievements.length} new]
-          </span>
-        )}
-        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-      </button>
+          <span>◈</span>
+          <span>Canto Codex</span>
+          {state && (
+            <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em' }}>
+              — {state.rank}
+            </span>
+          )}
+          {state && state.newAchievements.length > 0 && (
+            <span style={{ color: 'var(--accent-color)', fontSize: '0.85em' }}>
+              [{state.newAchievements.length} new]
+            </span>
+          )}
+          <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+        </button>
+      )}
 
       {/* ── Body ── */}
       {isOpen && state && (

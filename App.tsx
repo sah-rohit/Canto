@@ -27,7 +27,8 @@ import FactCheckPanel from './components/FactCheckPanel';
 import CantoCodex from './components/CantoCodex';
 import {
   dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
-  dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics
+  dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics,
+  dbGetCodex
 } from './services/dbService';
 import { processCodexEvent, getAchievement } from './services/codexService';
 
@@ -67,6 +68,7 @@ const CompareView: React.FC<{
   onPickHistory: (topic: string) => void;
   onPickCurrent: () => void;
   onPickNew: (topic: string) => void;
+  onPickContent: (slot: { topic: string; content: string; label: string }) => void;
   onClose: () => void;
   onWordClick: (w: string) => void;
   fontSize: number;
@@ -76,7 +78,7 @@ const CompareView: React.FC<{
 }> = ({
   slotA, slotB, currentTopic, currentContent,
   historyList, historyQuery, onHistoryQueryChange,
-  pickerSlot, onOpenPicker, onPickHistory, onPickCurrent, onPickNew,
+  pickerSlot, onOpenPicker, onPickHistory, onPickCurrent, onPickNew, onPickContent,
   onClose, onWordClick, fontSize, isReadingMode, onExplainClick, sources,
 }) => {
   const [newSearchInput, setNewSearchInput] = React.useState('');
@@ -112,6 +114,50 @@ const CompareView: React.FC<{
           >
             ◆ Current — {currentTopic}
           </button>
+
+          {/* Versions of this topic */}
+          {(() => {
+            let versions: any[] = [];
+            try {
+              const savedFull = localStorage.getItem('canto_history_full');
+              if (savedFull) {
+                const full: any[] = JSON.parse(savedFull);
+                versions = full.filter(e => e.topic.toLowerCase() === currentTopic.toLowerCase());
+              }
+            } catch (e) {}
+            if (versions.length > 1) {
+              return (
+                <div style={{ marginTop: '0.4rem', borderTop: '1px dotted var(--border-color)', paddingTop: '0.4rem' }}>
+                  <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+                    Versions of this Topic
+                  </div>
+                  <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                    {versions.map((v, i) => {
+                      const dateStr = new Date(v.timestamp).toLocaleString();
+                      return (
+                        <button key={i}
+                          onClick={() => {
+                            const slotData = {
+                              topic: v.topic,
+                              content: v.content,
+                              label: `Version ${versions.length - i} (${dateStr}) — ${v.topic}`
+                            };
+                            onPickContent(slotData);
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', textAlign: 'left', padding: '0.15rem 0.3rem', textDecoration: 'underline' }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                        >
+                          ◆ Version {versions.length - i} ({dateStr})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* History search */}
           <div>
@@ -364,10 +410,16 @@ const App: React.FC = () => {
   const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
-  // Codex (gamification) state
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [codexNewCount, setCodexNewCount] = useState(0);
   const [codexToast, setCodexToast] = useState<string | null>(null);
+  const [codexRank, setCodexRank] = useState('Curious Mind');
+
+  useEffect(() => {
+    dbGetCodex().then(s => {
+      if (s && s.rank) setCodexRank(s.rank);
+    });
+  }, [isCodexOpen]);
 
   // Compare view state — pick any two slots
   const [compareSlotA, setCompareSlotA] = useState<{ topic: string; content: string; label: string } | null>(null);
@@ -1212,16 +1264,20 @@ const App: React.FC = () => {
                     <div style={{ width: '160px', whiteSpace: 'nowrap' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
                     </div>
-                    {/* Research toggle — Codex-style header format */}
-                    {content && (
+                  </div>
+
+                  {/* Research header */}
+                  {content && (
+                    <div style={{ margin: '1rem 0 0.5rem 0', fontFamily: 'monospace' }}>
                       <button
                         onClick={() => setIsResearchPanelOpen(v => !v)}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: '0.4rem',
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
                           background: 'transparent', border: 'none', cursor: 'pointer',
                           fontFamily: 'monospace', fontSize: '0.72em',
-                          color: 'var(--text-muted)', padding: '0.3rem 0',
-                          letterSpacing: '0.15em', textTransform: 'uppercase',
+                          color: 'var(--text-muted)', padding: '0.6rem 0',
+                          width: '100%', textAlign: 'left',
+                          letterSpacing: '0.18em', textTransform: 'uppercase',
                           transition: 'color 0.12s',
                         }}
                         onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
@@ -1232,39 +1288,12 @@ const App: React.FC = () => {
                         </span>
                         <span>◈</span>
                         <span>Research</span>
+                        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
                       </button>
-                    )}
-                    {/* Codex toggle — same format */}
-                    {content && (
-                      <button
-                        onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '0.4rem',
-                          background: 'transparent', border: 'none', cursor: 'pointer',
-                          fontFamily: 'monospace', fontSize: '0.72em',
-                          color: 'var(--text-muted)', padding: '0.3rem 0',
-                          letterSpacing: '0.15em', textTransform: 'uppercase',
-                          transition: 'color 0.12s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                          {isCodexOpen ? '▼' : '▶'}
-                        </span>
-                        <span>◈</span>
-                        <span>Codex</span>
-                        {codexNewCount > 0 && (
-                          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em' }}>
-                            [{codexNewCount} new]
-                          </span>
-                        )}
-                      </button>
-                    )}
+                    </div>
+                  )}
 
-                  </div>
-
-                  {/* Research panel — directly below controls */}
+                  {/* Research panel content */}
                   {content && (
                     <ResearchPanel
                       topic={currentTopic}
@@ -1274,11 +1303,45 @@ const App: React.FC = () => {
                       isOpen={isResearchPanelOpen}
                     />
                   )}
-                  {/* Codex — right next to Research, rendered immediately after */}
+
+                  {/* Codex header */}
+                  {content && (
+                    <div style={{ margin: '0.5rem 0', fontFamily: 'monospace' }}>
+                      <button
+                        onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          fontFamily: 'monospace', fontSize: '0.72em',
+                          color: 'var(--text-muted)', padding: '0.6rem 0',
+                          width: '100%', textAlign: 'left',
+                          letterSpacing: '0.18em', textTransform: 'uppercase',
+                          transition: 'color 0.12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isCodexOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈</span>
+                        <span>Canto Codex — {codexRank}</span>
+                        {codexNewCount > 0 && (
+                          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em', marginLeft: '0.4rem' }}>
+                            [{codexNewCount} new]
+                          </span>
+                        )}
+                        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Codex section */}
                   {content && (
                     <CantoCodex
                       isOpen={isCodexOpen}
                       onToggle={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                      hideHeader={true}
                     />
                   )}
                   {!isLoading && !error && content.length > 0 && (
@@ -1341,6 +1404,11 @@ const App: React.FC = () => {
                             navigateToTopic(newTopic);
                             setComparePickerSlot(null);
                           }}
+                          onPickContent={(slotData) => {
+                            if (comparePickerSlot === 'A') setCompareSlotA(slotData);
+                            else setCompareSlotB(slotData);
+                            setComparePickerSlot(null);
+                          }}
                           onClose={() => { setIsCompareOpen(false); setIsDiffView(false); }}
                           onWordClick={handleWordClick}
                           fontSize={fontSize}
@@ -1365,15 +1433,16 @@ const App: React.FC = () => {
                       {!isLoading && (
                         <>
                           {content && (
-                            <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '3rem', marginBottom: (isAdvancedLabsOpen || isMultimediaOpen) ? '1rem' : '3rem', flexWrap: 'wrap' }}>
+                            <div style={{ margin: '2rem 0 0.5rem 0', fontFamily: 'monospace' }}>
                               <button
                                 onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) { setIsMultimediaOpen(false); processCodexEvent({ type: 'lab_discovered', feature: 'labs' }); } }}
                                 style={{
-                                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
                                   background: 'transparent', border: 'none', cursor: 'pointer',
                                   fontFamily: 'monospace', fontSize: '0.72em',
-                                  color: 'var(--text-muted)', padding: '0.3rem 0',
-                                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                                  color: 'var(--text-muted)', padding: '0.6rem 0',
+                                  width: '100%', textAlign: 'left',
+                                  letterSpacing: '0.18em', textTransform: 'uppercase',
                                   transition: 'color 0.12s',
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
@@ -1384,15 +1453,23 @@ const App: React.FC = () => {
                                 </span>
                                 <span>◈</span>
                                 <span>Canto Labs</span>
+                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
                               </button>
+                            </div>
+                          )}
+                          {isAdvancedLabsOpen && <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />}
+
+                          {content && (
+                            <div style={{ margin: '1rem 0 0.5rem 0', fontFamily: 'monospace' }}>
                               <button
                                 onClick={() => { setIsMultimediaOpen(v => !v); if (!isMultimediaOpen) setIsAdvancedLabsOpen(false); }}
                                 style={{
-                                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
                                   background: 'transparent', border: 'none', cursor: 'pointer',
                                   fontFamily: 'monospace', fontSize: '0.72em',
-                                  color: 'var(--text-muted)', padding: '0.3rem 0',
-                                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                                  color: 'var(--text-muted)', padding: '0.6rem 0',
+                                  width: '100%', textAlign: 'left',
+                                  letterSpacing: '0.18em', textTransform: 'uppercase',
                                   transition: 'color 0.12s',
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
@@ -1403,10 +1480,10 @@ const App: React.FC = () => {
                                 </span>
                                 <span>◈</span>
                                 <span>Multimedia</span>
+                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
                               </button>
                             </div>
                           )}
-                          {isAdvancedLabsOpen && <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />}
                           {isMultimediaOpen && <MultimediaViewer topic={currentTopic} content={content} sources={lastSources} />}
                           <DidYouKnow topic={currentTopic} />
                           <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
