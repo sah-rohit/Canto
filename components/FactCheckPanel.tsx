@@ -1,8 +1,9 @@
 /**
  * FactCheckPanel — real multi-source fact-check of the generated article.
- * Triggered by user click, not shown automatically.
+ * Triggered by user click. Resets when topic changes.
+ * Uses ASCII progress bar for confidence — no CSS gradients.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { factCheckContent, FactCheckResult, FactCheckSource } from '../services/aiService';
 
 interface FactCheckPanelProps {
@@ -12,53 +13,43 @@ interface FactCheckPanelProps {
   onFactCheckComplete?: (verifiedCount: number) => void;
 }
 
-const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
-  verified:        { label: 'Verified',        color: '#2a9d5c' },
-  mostly_verified: { label: 'Mostly Verified', color: '#5a9d2a' },
-  mixed:           { label: 'Mixed',           color: '#cc8800' },
-  unverified:      { label: 'Unverified',      color: '#cc3300' },
+const VERDICT_LABELS: Record<string, { label: string }> = {
+  verified:        { label: 'Verified' },
+  mostly_verified: { label: 'Mostly Verified' },
+  mixed:           { label: 'Mixed' },
+  unverified:      { label: 'Unverified' },
 };
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  verified:  { label: 'Verified',   color: '#2a9d5c' },
-  partial:   { label: 'Partial',    color: '#cc8800' },
-  not_found: { label: 'Not Found',  color: 'var(--text-muted)' },
+const STATUS_CHAR: Record<string, string> = {
+  verified:  '◆',
+  partial:   '◈',
+  not_found: '◇',
 };
 
-function ConfidenceBar({ value }: { value: number }) {
-  const color = value >= 75 ? '#2a9d5c' : value >= 50 ? '#cc8800' : '#cc3300';
+// Pure ASCII block bar — no AI, no API, computed locally
+function AsciiBar({ value, width = 18 }: { value: number; width?: number }) {
+  const filled = Math.round((Math.min(100, Math.max(0, value)) / 100) * width);
+  const bar = '█'.repeat(filled) + '░'.repeat(width - filled);
   return (
-    <div style={{ marginTop: '0.4rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7em', color: 'var(--text-muted)', marginBottom: '0.2rem', fontFamily: 'monospace' }}>
-        <span>Confidence</span>
-        <span>{value}%</span>
-      </div>
-      <div style={{ height: '3px', background: 'var(--border-color)', borderRadius: '2px' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: '2px', transition: 'width 0.6s ease' }} />
-      </div>
-    </div>
+    <span style={{ fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--accent-color)' }}>
+      [{bar}] {value}%
+    </span>
   );
 }
 
-function SourceRow({ source }: { source: FactCheckSource }) {
-  const st = STATUS_LABELS[source.status] || STATUS_LABELS.not_found;
+function SourceLine({ source }: { source: FactCheckSource }) {
+  const ch = STATUS_CHAR[source.status] || '◇';
   return (
-    <div style={{ display: 'flex', gap: '0.5rem', padding: '0.35rem 0', borderBottom: '1px solid var(--border-color)', alignItems: 'flex-start' }}>
-      <span style={{ fontFamily: 'monospace', fontSize: '0.7em', color: st.color, flexShrink: 0, marginTop: '0.15rem', minWidth: '5.5rem' }}>
-        [{st.label}]
+    <div style={{ fontFamily: 'monospace', fontSize: '0.78em', marginBottom: '0.25rem', display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--accent-color)', flexShrink: 0 }}>{ch}</span>
+      <span>
+        <strong>{source.name}</strong>
+        {source.url && (
+          <a href={source.url} target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--accent-color)', textDecoration: 'underline', marginLeft: '0.3rem', fontSize: '0.85em' }}>↗</a>
+        )}
+        <span style={{ color: 'var(--text-muted)', marginLeft: '0.4rem' }}>— {source.note}</span>
       </span>
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}>{source.name}</span>
-          {source.url && (
-            <a href={source.url} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: '0.7em', color: 'var(--accent-color)', textDecoration: 'underline', fontFamily: 'monospace' }}>
-              ↗
-            </a>
-          )}
-        </div>
-        <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginTop: '0.1rem', lineHeight: '1.4' }}>{source.note}</div>
-      </div>
     </div>
   );
 }
@@ -67,98 +58,122 @@ const FactCheckPanel: React.FC<FactCheckPanelProps> = ({ topic, content, sources
   const [result, setResult] = useState<FactCheckResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const prevTopicRef = useRef(topic);
+
+  // Reset when topic changes
+  useEffect(() => {
+    if (prevTopicRef.current !== topic) {
+      prevTopicRef.current = topic;
+      setResult(null);
+      setOpen(false);
+      setError(null);
+      setLoading(false);
+    }
+  }, [topic]);
 
   const runCheck = useCallback(async () => {
-    if (loading) return;
+    if (loading || !content) return;
     setLoading(true);
     setOpen(true);
+    setError(null);
+    setResult(null);
     try {
       const r = await factCheckContent(topic, content, sources);
       setResult(r);
       const verified = r.sources.filter(s => s.status !== 'not_found').length;
       onFactCheckComplete?.(verified);
-    } catch {
-      setResult(null);
+    } catch (e) {
+      setError('Fact-check could not be completed. Try again.');
     } finally {
       setLoading(false);
     }
   }, [topic, content, sources, loading, onFactCheckComplete]);
 
   const sourceCount = [sources.wikipedia, sources.nasa, sources.core, sources.internetArchive, sources.crawler].filter(Boolean).length;
-
   const verdict = result ? VERDICT_LABELS[result.verdict] : null;
+
+  // Loading animation — pure JS, no AI
+  const [loadDots, setLoadDots] = useState('');
+  useEffect(() => {
+    if (!loading) { setLoadDots(''); return; }
+    const t = setInterval(() => setLoadDots(d => d.length >= 3 ? '' : d + '.'), 400);
+    return () => clearInterval(t);
+  }, [loading]);
 
   return (
     <div style={{ fontFamily: 'monospace' }}>
-      {/* Trigger button */}
+      {/* Trigger / toggle button — plain text style matching the site */}
       <button
         onClick={result ? () => setOpen(v => !v) : runCheck}
         disabled={loading || !content}
-        title={result ? (open ? 'Hide fact-check results' : 'Show fact-check results') : `Cross-reference article against ${sourceCount} knowledge source${sourceCount !== 1 ? 's' : ''}`}
         style={{
-          background: 'transparent',
-          border: `1px solid ${result ? (verdict?.color || 'var(--border-color)') : 'var(--border-color)'}`,
-          color: result ? (verdict?.color || 'var(--text-muted)') : 'var(--text-muted)',
-          borderRadius: '2px',
-          padding: '0.15rem 0.5rem',
+          background: 'transparent', border: 'none', padding: 0,
           cursor: loading || !content ? 'default' : 'pointer',
-          fontFamily: 'monospace',
-          fontSize: '0.72em',
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          transition: 'color 0.15s, border-color 0.15s',
+          fontFamily: 'monospace', fontSize: '0.72em',
+          color: result ? 'var(--accent-color)' : 'var(--text-muted)',
+          textDecoration: 'underline',
+          letterSpacing: '0.06em', textTransform: 'uppercase',
           opacity: !content ? 0.4 : 1,
         }}
       >
         {loading
-          ? 'Checking…'
+          ? `Checking${loadDots}`
           : result
             ? `${verdict?.label} via ${result.sources.filter(s => s.status !== 'not_found').length} Sources ${open ? '▲' : '▼'}`
             : `Fact-Check via ${sourceCount} Source${sourceCount !== 1 ? 's' : ''}`
         }
       </button>
 
-      {/* Results panel */}
-      {open && result && (
-        <div style={{
-          marginTop: '0.6rem',
-          border: '1px solid var(--border-color)',
-          padding: '0.8rem 1rem',
-          background: 'var(--input-bg)',
-          borderRadius: '2px',
-          maxWidth: '520px',
-        }}>
-          {/* Verdict header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.82em', fontWeight: 'bold', color: verdict?.color || 'var(--text-color)' }}>
-              {verdict?.label}
-            </span>
-            <span style={{ fontSize: '0.68em', color: 'var(--text-muted)' }}>
-              {new Date(result.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-
-          <ConfidenceBar value={result.confidence} />
-
-          {/* Summary */}
-          <p style={{ fontSize: '0.78em', color: 'var(--text-color)', lineHeight: '1.5', margin: '0.6rem 0 0.5rem' }}>
-            {result.summary}
-          </p>
-
-          {/* Source breakdown */}
-          <div style={{ marginTop: '0.4rem' }}>
-            <div style={{ fontSize: '0.65em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
-              Source Breakdown
+      {/* Results — inline, no box */}
+      {open && (result || error) && (
+        <div style={{ marginTop: '0.6rem', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border-color)' }}>
+          {error && (
+            <div style={{ fontSize: '0.78em', color: 'var(--text-muted)' }}>
+              {error}
+              <button onClick={runCheck} style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1em', textDecoration: 'underline', marginLeft: '0.5rem' }}>
+                Retry
+              </button>
             </div>
-            {result.sources.map((s, i) => <SourceRow key={i} source={s} />)}
-          </div>
+          )}
+          {result && (
+            <>
+              {/* Confidence bar */}
+              <div style={{ marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: '0.5rem' }}>Confidence</span>
+                <AsciiBar value={result.confidence} />
+              </div>
 
-          <button
-            onClick={() => { setResult(null); setOpen(false); }}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7em', textDecoration: 'underline', padding: '0.4rem 0 0', fontFamily: 'monospace' }}
-          >
-            Clear
-          </button>
+              {/* Summary */}
+              <p style={{ fontSize: '0.78em', color: 'var(--text-color)', lineHeight: '1.5', margin: '0 0 0.5rem' }}>
+                {result.summary}
+              </p>
+
+              {/* Sources */}
+              <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+                Source Breakdown
+              </div>
+              {result.sources.map((s, i) => <SourceLine key={i} source={s} />)}
+
+              <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.8rem' }}>
+                <span style={{ fontSize: '0.68em', color: 'var(--text-muted)' }}>
+                  {new Date(result.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <button
+                  onClick={() => { setResult(null); setOpen(false); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.68em', textDecoration: 'underline', padding: 0, fontFamily: 'monospace' }}
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={runCheck}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.68em', textDecoration: 'underline', padding: 0, fontFamily: 'monospace' }}
+                >
+                  Re-check
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -51,6 +51,274 @@ const createFallbackArt = (topic: string): AsciiArtData => {
   return { art: `${topBorder}\n${middle}\n${bottomBorder}` };
 };
 
+// ─── Compare View ─────────────────────────────────────────────────────────────
+interface CompareSlot { topic: string; content: string; label: string; }
+
+const CompareView: React.FC<{
+  slotA: CompareSlot | null;
+  slotB: CompareSlot | null;
+  currentTopic: string;
+  currentContent: string;
+  historyList: string[];
+  historyQuery: string;
+  onHistoryQueryChange: (q: string) => void;
+  pickerSlot: 'A' | 'B' | null;
+  onOpenPicker: (slot: 'A' | 'B') => void;
+  onPickHistory: (topic: string) => void;
+  onPickCurrent: () => void;
+  onPickNew: (topic: string) => void;
+  onClose: () => void;
+  onWordClick: (w: string) => void;
+  fontSize: number;
+  isReadingMode: boolean;
+  onExplainClick: (action: string, text: string) => void;
+  sources: any;
+}> = ({
+  slotA, slotB, currentTopic, currentContent,
+  historyList, historyQuery, onHistoryQueryChange,
+  pickerSlot, onOpenPicker, onPickHistory, onPickCurrent, onPickNew,
+  onClose, onWordClick, fontSize, isReadingMode, onExplainClick, sources,
+}) => {
+  const [newSearchInput, setNewSearchInput] = React.useState('');
+
+  const filteredHistory = historyQuery.trim()
+    ? historyList.filter(t => t.toLowerCase().includes(historyQuery.toLowerCase()))
+    : historyList;
+
+  const SlotHeader: React.FC<{ slot: CompareSlot | null; id: 'A' | 'B' }> = ({ slot, id }) => (
+    <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'monospace' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.68em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+          Slot {id}
+        </span>
+        <span style={{ fontSize: '0.82em', color: 'var(--text-color)', flex: 1 }}>
+          {slot ? slot.label : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>— not selected —</span>}
+        </span>
+        <button
+          onClick={() => onOpenPicker(id)}
+          style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.72em', textDecoration: 'underline', padding: 0 }}
+        >
+          {pickerSlot === id ? 'cancel' : 'change'}
+        </button>
+      </div>
+
+      {/* Picker */}
+      {pickerSlot === id && (
+        <div style={{ marginTop: '0.6rem', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {/* Current article */}
+          <button
+            onClick={onPickCurrent}
+            style={{ background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', textAlign: 'left', padding: '0.2rem 0', textDecoration: 'underline' }}
+          >
+            ◆ Current — {currentTopic}
+          </button>
+
+          {/* History search */}
+          <div>
+            <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>From History</div>
+            <div style={{ position: 'relative', marginBottom: '0.3rem' }}>
+              <input
+                type="text"
+                value={historyQuery}
+                onChange={e => onHistoryQueryChange(e.target.value)}
+                placeholder="Search history…"
+                autoFocus
+                style={{
+                  width: '100%', padding: '0.25rem 1.4rem 0.25rem 0.4rem',
+                  fontFamily: 'monospace', fontSize: '0.78em',
+                  background: 'var(--input-bg)', border: '1px solid var(--border-color)',
+                  color: 'var(--text-color)', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              {historyQuery && (
+                <button onClick={() => onHistoryQueryChange('')} style={{ position: 'absolute', right: '0.3rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', padding: 0, lineHeight: 1 }}>×</button>
+              )}
+            </div>
+            <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+              {filteredHistory.slice(0, 20).map((t, i) => (
+                <button key={i} onClick={() => onPickHistory(t)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', textAlign: 'left', padding: '0.15rem 0.3rem', textDecoration: 'underline' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                >
+                  ◇ {t}
+                </button>
+              ))}
+              {filteredHistory.length === 0 && <span style={{ fontSize: '0.75em', color: 'var(--text-muted)' }}>No matches.</span>}
+            </div>
+          </div>
+
+          {/* New search */}
+          <div>
+            <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>New Search</div>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <input
+                type="text"
+                value={newSearchInput}
+                onChange={e => setNewSearchInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && newSearchInput.trim()) { onPickNew(newSearchInput.trim()); setNewSearchInput(''); } }}
+                placeholder="Enter topic…"
+                style={{
+                  flex: 1, padding: '0.25rem 0.4rem',
+                  fontFamily: 'monospace', fontSize: '0.78em',
+                  background: 'var(--input-bg)', border: '1px solid var(--border-color)',
+                  color: 'var(--text-color)', outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => { if (newSearchInput.trim()) { onPickNew(newSearchInput.trim()); setNewSearchInput(''); } }}
+                style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.75em', padding: '0.2rem 0.5rem' }}
+              >
+                Go
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ fontFamily: 'monospace' }}>
+      {/* Compare header */}
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.8rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <span style={{ fontSize: '0.68em', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>◈ Compare Versions</span>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block' }} />
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.72em', textDecoration: 'underline', padding: 0 }}>
+          close
+        </button>
+      </div>
+
+      {/* Two-column layout */}
+      <div style={{ display: 'flex', gap: '2rem', width: '100%', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <div style={{ width: '50%', borderRight: '1px solid var(--border-color)', paddingRight: '1.5rem', minWidth: 0 }}>
+          <SlotHeader slot={slotA} id="A" />
+          {slotA?.content ? (
+            <ContentDisplay
+              content={slotA.content}
+              isLoading={false}
+              onWordClick={onWordClick}
+              topic={slotA.topic}
+              fontSize={fontSize}
+              isReadingMode={isReadingMode}
+              onExplainClick={onExplainClick}
+              sources={sources}
+            />
+          ) : (
+            <p style={{ fontSize: '0.82em', color: 'var(--text-muted)' }}>Select a version above to compare.</p>
+          )}
+        </div>
+        <div style={{ width: '50%', minWidth: 0 }}>
+          <SlotHeader slot={slotB} id="B" />
+          {slotB?.content ? (
+            <ContentDisplay
+              content={slotB.content}
+              isLoading={false}
+              onWordClick={onWordClick}
+              topic={slotB.topic}
+              fontSize={fontSize}
+              isReadingMode={isReadingMode}
+              onExplainClick={onExplainClick}
+              sources={sources}
+            />
+          ) : (
+            <p style={{ fontSize: '0.82em', color: 'var(--text-muted)' }}>Select a version above to compare.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── History dropdown with search ────────────────────────────────────────────
+const HistoryDropdown: React.FC<{
+  history: string[];
+  favorites: string[];
+  onNavigate: (t: string) => void;
+  onClear: () => void;
+  onViewLibrary: () => void;
+}> = ({ history, favorites, onNavigate, onClear, onViewLibrary }) => {
+  const [q, setQ] = React.useState('');
+  const filtered = q.trim()
+    ? history.filter(t => t.toLowerCase().includes(q.toLowerCase()))
+    : history;
+
+  return (
+    <div className="history-dropdown">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>
+        <span style={{ fontSize: '0.85em', fontWeight: 'bold', fontFamily: 'monospace' }}>History</span>
+        <button onClick={onClear} style={{ fontSize: '0.75em', color: '#cc0000', fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+      </div>
+      {/* Search input */}
+      <div style={{ position: 'relative', marginBottom: '0.4rem' }}>
+        <input
+          type="text"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder={`Search ${history.length} topics…`}
+          autoFocus
+          style={{
+            width: '100%', padding: '0.3rem 1.6rem 0.3rem 0.5rem',
+            fontFamily: 'monospace', fontSize: '0.8em',
+            background: 'var(--input-bg)', border: '1px solid var(--border-color)',
+            color: 'var(--text-color)', outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        {q && (
+          <button onClick={() => setQ('')} style={{ position: 'absolute', right: '0.3rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em', padding: 0, lineHeight: 1 }}>×</button>
+        )}
+      </div>
+      {filtered.length === 0 ? (
+        <p style={{ margin: 0, fontSize: '0.82em', color: 'var(--text-muted)', padding: '0.3rem 0', fontFamily: 'monospace' }}>
+          {q ? 'No matches.' : 'No history yet.'}
+        </p>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '200px', overflowY: 'auto' }}>
+          {filtered.map((t, i) => {
+            const topicStr = typeof t === 'object' ? (t as any).topic || JSON.stringify(t) : String(t);
+            const idx = q ? topicStr.toLowerCase().indexOf(q.toLowerCase()) : -1;
+            return (
+              <li key={i}>
+                <button onClick={() => onNavigate(topicStr)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-color)', fontFamily: 'monospace' }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--input-bg)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  {idx >= 0 ? (
+                    <>{topicStr.slice(0, idx)}<mark style={{ background: 'var(--accent-color)', color: 'var(--bg-color)', padding: 0 }}>{topicStr.slice(idx, idx + q.length)}</mark>{topicStr.slice(idx + q.length)}</>
+                  ) : topicStr}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {favorites.length > 0 && (
+        <div style={{ marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: '1px solid var(--border-color)' }}>
+          <span style={{ fontSize: '0.72em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</span>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0.3rem 0 0 0' }}>
+            {favorites.slice(0, 5).map((t, i) => (
+              <li key={i}>
+                <button onClick={() => onNavigate(t)} style={{ width: '100%', textAlign: 'left', padding: '0.3rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', color: 'var(--text-color)', fontFamily: 'monospace' }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--input-bg)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  ★ {t}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <button
+        onClick={onViewLibrary}
+        style={{ width: '100%', marginTop: '0.6rem', padding: '0.4rem', background: 'transparent', border: 'none', borderTop: '1px solid var(--border-color)', cursor: 'pointer', fontSize: '0.78em', fontFamily: 'monospace', color: 'var(--text-muted)', textAlign: 'left', textDecoration: 'underline' }}
+      >
+        View Local Library
+      </button>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const getTopicFromURL = () => {
     const params = new URLSearchParams(window.location.search);
@@ -100,6 +368,14 @@ const App: React.FC = () => {
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [codexNewCount, setCodexNewCount] = useState(0);
   const [codexToast, setCodexToast] = useState<string | null>(null);
+
+  // Compare view state — pick any two slots
+  const [compareSlotA, setCompareSlotA] = useState<{ topic: string; content: string; label: string } | null>(null);
+  const [compareSlotB, setCompareSlotB] = useState<{ topic: string; content: string; label: string } | null>(null);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [comparePickerSlot, setComparePickerSlot] = useState<'A' | 'B' | null>(null);
+  const [compareHistoryList, setCompareHistoryList] = useState<string[]>([]);
+  const [compareHistoryQuery, setCompareHistoryQuery] = useState('');
 
   // Advanced features state
   const [depth, setDepth] = useState<'Mini' | 'Standard' | 'Deep'>('Standard');
@@ -620,16 +896,21 @@ const App: React.FC = () => {
         fontSize: '0.75em',
         fontFamily: 'monospace',
         color: searchesRemaining <= 3 ? '#cc6600' : 'var(--text-muted)',
-        border: '1px solid',
-        borderColor: searchesRemaining <= 3 ? '#cc6600' : 'var(--border-color)',
-        borderRadius: '2px',
-        padding: '0.1rem 0.4rem',
         cursor: 'default',
         userSelect: 'none',
         whiteSpace: 'nowrap',
       }}
     >
-      {searchesRemaining}/{searchesLimit}{resetTimer && <span className="search-limit-badge-timer"> (Resets in {resetTimer})</span>}
+      {(() => {
+        const limit = searchesLimit || 20;
+        const rem = searchesRemaining ?? limit;
+        const used = limit - rem;
+        const width = 12;
+        const filled = Math.round((used / limit) * width);
+        const bar = '█'.repeat(filled) + '░'.repeat(width - filled);
+        return `[${bar}] ${rem}/${limit} cr`;
+      })()}
+      {resetTimer && <span className="search-limit-badge-timer"> (resets {resetTimer})</span>}
     </span>
   );
 
@@ -664,80 +945,20 @@ const App: React.FC = () => {
                 </button>
               )}
 
-              {/* Codex button */}
-              <button
-                onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
-                className="nav-btn"
-                title="Canto Codex — your knowledge journey"
-                style={{ position: 'relative' }}
-              >
-                Codex
-                {codexNewCount > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-4px', right: '-4px',
-                    background: 'var(--accent-color)', color: 'var(--bg-color)',
-                    borderRadius: '50%', width: '14px', height: '14px',
-                    fontSize: '0.6em', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: 'monospace', fontWeight: 'bold',
-                  }}>
-                    {codexNewCount}
-                  </span>
-                )}
-              </button>
+              {/* Codex button removed — Codex is now an inline section in the wiki page */}
 
               <div style={{ position: 'relative' }} ref={historyRef}>
                 <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="nav-btn">
                   History
                 </button>
                 {isHistoryOpen && (
-                  <div className="history-dropdown">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.9em', fontWeight: 'bold', fontFamily: 'monospace' }}>History</span>
-                      <button onClick={clearHistory} style={{ fontSize: '0.8em', color: '#cc0000', fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
-                    </div>
-                    {history.length === 0 ? (
-                      <p style={{ margin: 0, fontSize: '0.9em', color: 'var(--text-muted)', padding: '0.5rem', fontFamily: 'monospace' }}>No history yet.</p>
-                    ) : (
-                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '220px', overflowY: 'auto' }}>
-                        {history.map((t, i) => {
-                          const topicStr = typeof t === 'object' ? (t as any).topic || JSON.stringify(t) : String(t);
-                          return (
-                            <li key={i}>
-                              <button onClick={() => navigateToTopic(topicStr)} style={{ width: '100%', textAlign: 'left', padding: '0.5rem 0.6rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                {topicStr}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                    {favorites.length > 0 && (
-                      <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border-color)' }}>
-                        <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase' }}>Favorites</span>
-                        <ul style={{ listStyle: 'none', padding: 0, margin: '0.4rem 0 0 0' }}>
-                          {favorites.slice(0, 5).map((t, i) => (
-                            <li key={i}>
-                              <button onClick={() => navigateToTopic(t)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.6rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--input-bg)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                {t}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    <button 
-                      onClick={() => { setIsHistoryOpen(false); navigateToPage('library'); }} 
-                      style={{ width: '100%', marginTop: '0.8rem', padding: '0.5rem', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '2px', cursor: 'pointer', fontSize: '0.8em', fontFamily: 'monospace', color: 'var(--text-color)' }}
-                    >
-                      View Local Library
-                    </button>
-                  </div>
+                  <HistoryDropdown
+                    history={history}
+                    favorites={favorites}
+                    onNavigate={navigateToTopic}
+                    onClear={clearHistory}
+                    onViewLibrary={() => { setIsHistoryOpen(false); navigateToPage('library'); }}
+                  />
                 )}
               </div>
 
@@ -750,17 +971,32 @@ const App: React.FC = () => {
 
         <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
 
-        {/* ── Advanced Search Modifiers & Filters ── */}
-        <div style={{ textAlign: 'center', margin: '0.5rem 0 1.2rem 0' }}>
+        {/* ── Article Settings (was "Research Options") ── */}
+        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 1rem 0 1rem', fontFamily: 'monospace' }}>
           <button
             onClick={() => setIsResearchOptionsOpen(!isResearchOptionsOpen)}
-            style={{ background: 'none', border: 'none', textDecoration: 'underline', color: isResearchOptionsOpen ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82em', fontFamily: 'monospace' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              fontFamily: 'monospace', fontSize: '0.72em',
+              color: 'var(--text-muted)', padding: '0.6rem 0',
+              width: '100%', textAlign: 'left',
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              transition: 'color 0.12s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
           >
-            {isResearchOptionsOpen ? 'Hide Research Options' : 'Show Research Options'}
+            <span style={{ color: isResearchOptionsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+              {isResearchOptionsOpen ? '▼' : '▶'}
+            </span>
+            <span>◈</span>
+            <span>Article Settings</span>
+            <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
           </button>
         </div>
 
-        <div style={{ maxWidth: '800px', margin: '0.75rem auto 2rem auto', padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: 'monospace', fontSize: '0.82em', color: 'var(--text-muted)' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: 'monospace', fontSize: '0.82em', color: 'var(--text-muted)' }}>
           {isResearchOptionsOpen && (
             <>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
@@ -880,13 +1116,21 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {previousContent && content && (
+          {content && (
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: '0.4rem' }}>
               <button
-                onClick={() => setIsDiffView(!isDiffView)}
-                style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
+                onClick={async () => {
+                  if (isCompareOpen) { setIsCompareOpen(false); setIsDiffView(false); return; }
+                  const h = await dbGetHistory();
+                  setCompareHistoryList(h);
+                  setCompareSlotA({ topic: currentTopic, content, label: `Current — ${currentTopic}` });
+                  setCompareSlotB(previousContent ? { topic: currentTopic, content: previousContent, label: `Previous — ${currentTopic}` } : null);
+                  setIsCompareOpen(true);
+                  setIsDiffView(true);
+                }}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
               >
-                {isDiffView ? 'Hide Side-by-Side Comparison' : 'Compare Side by Side with Previous Version'}
+                {isCompareOpen ? 'Hide Comparison' : 'Compare Versions'}
               </button>
             </div>
           )}
@@ -968,33 +1212,59 @@ const App: React.FC = () => {
                     <div style={{ width: '160px', whiteSpace: 'nowrap' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
                     </div>
-                    {/* Research toggle — in the controls row so it's always visible at top */}
+                    {/* Research toggle — Codex-style header format */}
                     {content && (
                       <button
                         onClick={() => setIsResearchPanelOpen(v => !v)}
                         style={{
-                          background: 'transparent',
-                          border: `1px solid ${isResearchPanelOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
-                          color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)',
-                          borderRadius: '2px',
-                          padding: '0.3rem 0.7rem',
-                          cursor: 'pointer',
-                          fontFamily: 'monospace',
-                          fontSize: '0.75em',
-                          minHeight: '2rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          transition: 'color 0.15s, border-color 0.15s',
+                          display: 'flex', alignItems: 'center', gap: '0.4rem',
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          fontFamily: 'monospace', fontSize: '0.72em',
+                          color: 'var(--text-muted)', padding: '0.3rem 0',
+                          letterSpacing: '0.15em', textTransform: 'uppercase',
+                          transition: 'color 0.12s',
                         }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
-                        Research
+                        <span style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isResearchPanelOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈</span>
+                        <span>Research</span>
+                      </button>
+                    )}
+                    {/* Codex toggle — same format */}
+                    {content && (
+                      <button
+                        onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.4rem',
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          fontFamily: 'monospace', fontSize: '0.72em',
+                          color: 'var(--text-muted)', padding: '0.3rem 0',
+                          letterSpacing: '0.15em', textTransform: 'uppercase',
+                          transition: 'color 0.12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isCodexOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈</span>
+                        <span>Codex</span>
+                        {codexNewCount > 0 && (
+                          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em' }}>
+                            [{codexNewCount} new]
+                          </span>
+                        )}
                       </button>
                     )}
 
                   </div>
 
-                  {/* Research panel — directly below controls, above article content */}
+                  {/* Research panel — directly below controls */}
                   {content && (
                     <ResearchPanel
                       topic={currentTopic}
@@ -1002,6 +1272,13 @@ const App: React.FC = () => {
                       sources={lastSources}
                       onTopicClick={handleWordClick}
                       isOpen={isResearchPanelOpen}
+                    />
+                  )}
+                  {/* Codex — right next to Research, rendered immediately after */}
+                  {content && (
+                    <CantoCodex
+                      isOpen={isCodexOpen}
+                      onToggle={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
                     />
                   )}
                   {!isLoading && !error && content.length > 0 && (
@@ -1035,39 +1312,42 @@ const App: React.FC = () => {
 
                   {content.length > 0 && !error && (
                     <>
-                      {isDiffView ? (
-                        <div style={{ display: 'flex', gap: '2rem', width: '100%', fontFamily: 'monospace', flexWrap: 'nowrap' }}>
-                          <div style={{ width: '50%', borderRight: '1px solid var(--border-color)', paddingRight: '1.5rem' }}>
-                            <h4 style={{ fontSize: '0.82em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
-                              [ Previous Version ]
-                            </h4>
-                            <ContentDisplay
-                              content={previousContent}
-                              isLoading={false}
-                              onWordClick={handleWordClick}
-                              topic={currentTopic}
-                              fontSize={fontSize}
-                              isReadingMode={isReadingMode}
-                              onExplainClick={handleExplainClick}
-                              sources={lastSources}
-                            />
-                          </div>
-                          <div style={{ width: '50%' }}>
-                            <h4 style={{ fontSize: '0.82em', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem' }}>
-                              [ Current Version ]
-                            </h4>
-                            <ContentDisplay
-                              content={displayedContent}
-                              isLoading={isLoading}
-                              onWordClick={handleWordClick}
-                              topic={currentTopic}
-                              fontSize={fontSize}
-                              isReadingMode={isReadingMode}
-                              onExplainClick={handleExplainClick}
-                              sources={lastSources}
-                            />
-                          </div>
-                        </div>
+                      {isDiffView && isCompareOpen ? (
+                        <CompareView
+                          slotA={compareSlotA}
+                          slotB={compareSlotB}
+                          currentTopic={currentTopic}
+                          currentContent={content}
+                          historyList={compareHistoryList}
+                          historyQuery={compareHistoryQuery}
+                          onHistoryQueryChange={setCompareHistoryQuery}
+                          pickerSlot={comparePickerSlot}
+                          onOpenPicker={setComparePickerSlot}
+                          onPickHistory={async (topic) => {
+                            const cached = await dbGetCache(topic);
+                            const c = cached?.content || '';
+                            const slot = { topic, content: c, label: topic };
+                            if (comparePickerSlot === 'A') setCompareSlotA(slot);
+                            else setCompareSlotB(slot);
+                            setComparePickerSlot(null);
+                          }}
+                          onPickCurrent={() => {
+                            const slot = { topic: currentTopic, content, label: `Current — ${currentTopic}` };
+                            if (comparePickerSlot === 'A') setCompareSlotA(slot);
+                            else setCompareSlotB(slot);
+                            setComparePickerSlot(null);
+                          }}
+                          onPickNew={(newTopic) => {
+                            navigateToTopic(newTopic);
+                            setComparePickerSlot(null);
+                          }}
+                          onClose={() => { setIsCompareOpen(false); setIsDiffView(false); }}
+                          onWordClick={handleWordClick}
+                          fontSize={fontSize}
+                          isReadingMode={isReadingMode}
+                          onExplainClick={handleExplainClick}
+                          sources={lastSources}
+                        />
                       ) : (
                         <ContentDisplay 
                           content={displayedContent} 
@@ -1085,42 +1365,44 @@ const App: React.FC = () => {
                       {!isLoading && (
                         <>
                           {content && (
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '3rem', marginBottom: (isAdvancedLabsOpen || isMultimediaOpen) ? '1rem' : '3rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '3rem', marginBottom: (isAdvancedLabsOpen || isMultimediaOpen) ? '1rem' : '3rem', flexWrap: 'wrap' }}>
                               <button
                                 onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) { setIsMultimediaOpen(false); processCodexEvent({ type: 'lab_discovered', feature: 'labs' }); } }}
                                 style={{
-                                  background: 'transparent',
-                                  border: `1px solid ${isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
-                                  color: isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--text-muted)',
-                                  borderRadius: '2px',
-                                  padding: '0.4rem 1rem',
-                                  cursor: 'pointer',
-                                  fontFamily: 'monospace',
-                                  fontSize: '0.85em',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.1em',
-                                  transition: 'color 0.15s, border-color 0.15s',
+                                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                  background: 'transparent', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'monospace', fontSize: '0.72em',
+                                  color: 'var(--text-muted)', padding: '0.3rem 0',
+                                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                                  transition: 'color 0.12s',
                                 }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                               >
-                                {isAdvancedLabsOpen ? 'Hide Canto Labs' : 'Enter Canto Labs'}
+                                <span style={{ color: isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                                  {isAdvancedLabsOpen ? '▼' : '▶'}
+                                </span>
+                                <span>◈</span>
+                                <span>Canto Labs</span>
                               </button>
                               <button
                                 onClick={() => { setIsMultimediaOpen(v => !v); if (!isMultimediaOpen) setIsAdvancedLabsOpen(false); }}
                                 style={{
-                                  background: 'transparent',
-                                  border: `1px solid ${isMultimediaOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
-                                  color: isMultimediaOpen ? 'var(--accent-color)' : 'var(--text-muted)',
-                                  borderRadius: '2px',
-                                  padding: '0.4rem 1rem',
-                                  cursor: 'pointer',
-                                  fontFamily: 'monospace',
-                                  fontSize: '0.85em',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.1em',
-                                  transition: 'color 0.15s, border-color 0.15s',
+                                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                  background: 'transparent', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'monospace', fontSize: '0.72em',
+                                  color: 'var(--text-muted)', padding: '0.3rem 0',
+                                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                                  transition: 'color 0.12s',
                                 }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
                               >
-                                {isMultimediaOpen ? 'Hide Multimedia Center' : 'Multimedia Center'}
+                                <span style={{ color: isMultimediaOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                                  {isMultimediaOpen ? '▼' : '▶'}
+                                </span>
+                                <span>◈</span>
+                                <span>Multimedia</span>
                               </button>
                             </div>
                           )}
@@ -1221,9 +1503,6 @@ const App: React.FC = () => {
             }}
           />
         )}
-
-        {/* Canto Codex panel */}
-        <CantoCodex isOpen={isCodexOpen} onClose={() => setIsCodexOpen(false)} />
 
         {/* Achievement unlock toast */}
         {codexToast && (

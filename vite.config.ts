@@ -6,7 +6,7 @@ import legacy from '@vitejs/plugin-legacy';
 // ─── Server-side IP rate limiting store ──────────────────────────────────────
 // KEY: IP address only (cross-browser tracking — all browsers on same IP share the pool)
 const ipRateLimits: Map<string, { count: number; date: string }> = new Map();
-const IP_DAILY_LIMIT = 15;
+const IP_DAILY_LIMIT = 20;
 
 function todayStr(): string {
   const d = new Date();

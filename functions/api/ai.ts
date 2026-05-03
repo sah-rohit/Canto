@@ -68,7 +68,11 @@ export const onRequest = async (context: any) => {
       requestBody = { model, messages, temperature: 0.7, max_tokens: 512, stream: false };
     } else if (provider === 'gemini') {
       const method = stream ? 'streamGenerateContent' : 'generateContent';
-      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}?key=${env.GEMINI_KEY || env.API_KEY}`;
+      // Rotate between GEMINI_KEY and GEMINI_KEY_2 — use key2 for gemma models
+      const geminiKey = model.includes('gemma')
+        ? (env.GEMINI_KEY_2 || env.GEMINI_KEY || env.API_KEY)
+        : (env.GEMINI_KEY || env.API_KEY);
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}?key=${geminiKey}`;
       headers = { 'Content-Type': 'application/json' };
       const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop();
       requestBody = {

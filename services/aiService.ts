@@ -115,6 +115,7 @@ type ProviderEntry = { provider: 'ollama' | 'groq' | 'github' | 'cloudflare' | '
  */
 const PROVIDERS: ProviderEntry[] = [
   { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
+  { provider: 'gemini',     model: 'gemma-3-27b-it',                name: 'Gemma 3 27B' },
   { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
   { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
   { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
@@ -131,6 +132,7 @@ const PROVIDERS: ProviderEntry[] = [
 const PROVIDERS_DEEP: ProviderEntry[] = [
   { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
   { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
+  { provider: 'gemini',     model: 'gemma-3-27b-it',                name: 'Gemma 3 27B' },
   { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
   { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
   { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
@@ -145,28 +147,28 @@ const PROVIDERS_DEEP: ProviderEntry[] = [
  */
 const PROVIDERS_HOVER: ProviderEntry[] = [
   { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
-  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
   { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
-  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
   { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
   { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
   { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
   { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
+  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
+  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
 ];
 
 /**
- * ASCII art provider order — Cloudflare Workers AI first (structured JSON output
- * works well), then the rest of the chain as fallback.
+ * ASCII art provider order — Groq and Gemini first (fast, reliable),
+ * Cloudflare as fallback (auth issues in some environments).
  */
 const PROVIDERS_ASCII: ProviderEntry[] = [
-  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
-  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
   { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
   { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
   { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
   { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
   { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
   { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
+  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
+  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
 ];
 
 // ─── Unified fallback wrappers ────────────────────────────────────────────────
