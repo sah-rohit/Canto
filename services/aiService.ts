@@ -472,5 +472,17 @@ export async function gradeQuiz(topic: string, questions: string[], answers: Rec
   }
 }
 
+export async function generateVisualInfographic(topic: string, promptExtra: string): Promise<string> {
+  const messages: ChatMessage[] = [
+    { role: 'system', content: 'You are an advanced graphics SVG generation engine. You return only raw valid SVG code starting with <svg> and ending with </svg>.' },
+    { role: 'user', content: promptExtra },
+  ];
+  try {
+    return await callWithFallback(messages);
+  } catch {
+    return `Error generating visualization.`;
+  }
+}
+
 
 

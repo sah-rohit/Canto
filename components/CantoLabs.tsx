@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAdvancedLabFeature, gradeQuiz } from '../services/aiService';
+import { CantoSlider } from './UIComponents';
 
 interface CantoLabsProps {
   topic: string;
@@ -402,16 +403,14 @@ export const CantoLabs: React.FC<CantoLabsProps> = ({ topic, content, onWordClic
             <span style={{ fontSize: '0.82em', color: 'var(--accent-color)', fontWeight: 'bold' }}>
               [ Historical Layer: "As of Year" ]
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.4rem' }}>
-              <input
-                type="range"
+            <div style={{ marginTop: '0.4rem' }}>
+              <CantoSlider
                 min={1800}
                 max={2026}
                 value={asOfYear}
-                onChange={e => loadYearContent(parseInt(e.target.value))}
-                style={{ flex: 1, accentColor: 'var(--accent-color)' }}
+                onChange={val => loadYearContent(val)}
+                label="Historical Baseline Year"
               />
-              <span style={{ minWidth: '60px', fontWeight: 'bold', fontSize: '0.9em' }}>{asOfYear}</span>
             </div>
             {isYearLoading && <p style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>Retrieving context in {asOfYear}...</p>}
             {yearContent && (

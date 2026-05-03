@@ -22,6 +22,7 @@ import { useToast } from './components/ToastContext';
 import { StartupAnimation } from './components/StartupAnimation';
 import { CantoDialog, CantoSlider } from './components/UIComponents';
 import CantoLabs from './components/CantoLabs';
+import { MultimediaViewer } from './components/MultimediaViewer';
 import {
   dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
   dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics
@@ -88,6 +89,7 @@ const App: React.FC = () => {
   const { showToast } = useToast();
   const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
   const [isAdvancedLabsOpen, setIsAdvancedLabsOpen] = useState(false);
+  const [isMultimediaOpen, setIsMultimediaOpen] = useState(false);
   const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
@@ -1034,9 +1036,9 @@ const App: React.FC = () => {
                       {!isLoading && (
                         <>
                           {content && (
-                            <div style={{ textAlign: 'center', marginTop: '3rem', marginBottom: isAdvancedLabsOpen ? '1rem' : '3rem' }}>
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '3rem', marginBottom: (isAdvancedLabsOpen || isMultimediaOpen) ? '1rem' : '3rem', flexWrap: 'wrap' }}>
                               <button
-                                onClick={() => setIsAdvancedLabsOpen(v => !v)}
+                                onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) setIsMultimediaOpen(false); }}
                                 style={{
                                   background: 'transparent',
                                   border: `1px solid ${isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
@@ -1053,9 +1055,28 @@ const App: React.FC = () => {
                               >
                                 {isAdvancedLabsOpen ? 'Hide Canto Labs' : 'Enter Canto Labs'}
                               </button>
+                              <button
+                                onClick={() => { setIsMultimediaOpen(v => !v); if (!isMultimediaOpen) setIsAdvancedLabsOpen(false); }}
+                                style={{
+                                  background: 'transparent',
+                                  border: `1px solid ${isMultimediaOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
+                                  color: isMultimediaOpen ? 'var(--accent-color)' : 'var(--text-muted)',
+                                  borderRadius: '2px',
+                                  padding: '0.4rem 1rem',
+                                  cursor: 'pointer',
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.85em',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.1em',
+                                  transition: 'color 0.15s, border-color 0.15s',
+                                }}
+                              >
+                                {isMultimediaOpen ? 'Hide Multimedia Center' : 'Multimedia Center'}
+                              </button>
                             </div>
                           )}
                           {isAdvancedLabsOpen && <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />}
+                          {isMultimediaOpen && <MultimediaViewer topic={currentTopic} content={content} sources={lastSources} />}
                           <DidYouKnow topic={currentTopic} />
                           <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
                         </>
