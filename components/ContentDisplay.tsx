@@ -19,22 +19,26 @@ interface TooltipRect {
 
 function computeTooltipPosition(
   anchorRect: DOMRect,
+  contentRect?: DOMRect,
   margin = 8
 ) {
-  const vh = window.innerHeight;
+  if (!contentRect) {
+    const spaceAbove = anchorRect.top;
+    const placement: 'above' | 'below' = spaceAbove >= 120 ? 'above' : 'below';
+    const top = placement === 'above' ? anchorRect.top - margin : anchorRect.bottom + margin;
+    const left = anchorRect.left + anchorRect.width / 2;
+    return { top, left, placement };
+  }
 
-  // Prefer above; fall back to below if not enough room
-  const spaceAbove = anchorRect.top;
-  const placement: 'above' | 'below' = spaceAbove >= 120 ? 'above' : 'below';
+  const topInRef = anchorRect.top - contentRect.top;
+  const bottomInRef = anchorRect.bottom - contentRect.top;
+  const leftInRef = anchorRect.left - contentRect.left + anchorRect.width / 2;
 
-  const top = placement === 'above'
-    ? anchorRect.top - margin
-    : anchorRect.bottom + margin;
+  const placement: 'above' | 'below' = topInRef >= 55 ? 'above' : 'below';
+  const top = placement === 'above' ? topInRef - margin : bottomInRef + margin;
+  const boundedLeft = Math.max(10, Math.min(contentRect.width - 10, leftInRef));
 
-  // Center horizontally on anchor
-  const left = anchorRect.left + anchorRect.width / 2;
-
-  return { top, left, placement };
+  return { top, left: boundedLeft, placement };
 }
 
 interface ContentDisplayProps {
@@ -207,7 +211,8 @@ const InteractiveContent: React.FC<{
     if (text && text.length > 2) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      const pos = computeTooltipPosition(rect);
+      const contentRect = contentRef.current?.getBoundingClientRect();
+      const pos = computeTooltipPosition(rect, contentRect);
       setPopupPos(pos);
       setSelectedText(text);
       setExplainAnswer(null);
@@ -219,14 +224,16 @@ const InteractiveContent: React.FC<{
   // ─── Precision word hover/double-click tooltip ───────────────────────────
   const handleWordHover = useCallback((e: React.MouseEvent, word: string, def: string) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const pos = computeTooltipPosition(rect);
+    const contentRect = contentRef.current?.getBoundingClientRect();
+    const pos = computeTooltipPosition(rect, contentRect);
     setWordDefPos({ ...pos, word, def });
   }, []);
 
   const handleWordDoubleClick = useCallback((e: React.MouseEvent, word: string) => {
     if (!word || word.length < 3) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const pos = computeTooltipPosition(rect);
+    const contentRect = contentRef.current?.getBoundingClientRect();
+    const pos = computeTooltipPosition(rect, contentRect);
     setWordDefPos({
       ...pos,
       word,
@@ -777,7 +784,7 @@ const InteractiveContent: React.FC<{
         <div
           ref={wordDefRef}
           style={{
-            position: 'fixed',
+            position: 'absolute',
             top: `${wordDefPos.top}px`,
             left: `${wordDefPos.left}px`,
             transform: wordDefPos.placement === 'above' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
@@ -820,7 +827,7 @@ const InteractiveContent: React.FC<{
         <div
           ref={popupRef}
           style={{
-            position: 'fixed',
+            position: 'absolute',
             top: `${popupPos.top}px`,
             left: `${popupPos.left}px`,
             transform: popupPos.placement === 'above' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
