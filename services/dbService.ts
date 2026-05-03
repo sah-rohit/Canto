@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'canto_db_v3';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // bumped for codex store
 
 export interface CantoDBCacheEntry {
   topic: string;
@@ -46,6 +46,35 @@ export interface CantoDBAnalyticsEntry {
   topics: string[];
 }
 
+// ─── Codex (Gamification) Types ───────────────────────────────────────────────
+
+export interface CantoCodexState {
+  id: 'singleton'; // single record
+  xp: number;
+  rank: string;
+  streak: number;
+  lastActiveDate: string; // YYYY-MM-DD
+  longestStreak: number;
+  totalArticles: number;
+  totalReadingMinutes: number;
+  domainsExplored: string[]; // e.g. ['Science', 'Philosophy']
+  topicsExplored: string[];
+  deepReadCount: number; // articles with wordCount > 800
+  sessionArticles: number; // reset each session
+  sessionStartDate: string; // YYYY-MM-DD
+  unlockedAchievements: string[]; // achievement ids
+  newAchievements: string[]; // ids not yet shown to user
+  labsDiscovered: string[]; // Canto Labs features discovered
+}
+
+export interface CantoAchievement {
+  id: string;
+  title: string;
+  description: string;
+  secret?: boolean;
+  xpReward: number;
+}
+
 // ─── DB Init ─────────────────────────────────────────────────────────────────
 
 export function initIndexedDB(): Promise<IDBDatabase> {
@@ -70,6 +99,9 @@ export function initIndexedDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('analytics')) {
         db.createObjectStore('analytics', { keyPath: 'date' });
+      }
+      if (!db.objectStoreNames.contains('codex')) {
+        db.createObjectStore('codex', { keyPath: 'id' });
       }
     };
 
@@ -459,4 +491,54 @@ export async function dbGetAnalytics(days = 7): Promise<CantoDBAnalyticsEntry[]>
   } catch {
     return [];
   }
+}
+
+// ─── Codex Operations ─────────────────────────────────────────────────────────
+
+const CODEX_DEFAULT: CantoCodexState = {
+  id: 'singleton',
+  xp: 0,
+  rank: 'Novice Scholar',
+  streak: 0,
+  lastActiveDate: '',
+  longestStreak: 0,
+  totalArticles: 0,
+  totalReadingMinutes: 0,
+  domainsExplored: [],
+  topicsExplored: [],
+  deepReadCount: 0,
+  sessionArticles: 0,
+  sessionStartDate: '',
+  unlockedAchievements: [],
+  newAchievements: [],
+  labsDiscovered: [],
+};
+
+export async function dbGetCodex(): Promise<CantoCodexState> {
+  try {
+    const db = await initIndexedDB();
+    const tx = db.transaction('codex', 'readonly');
+    return new Promise((resolve) => {
+      const req = tx.objectStore('codex').get('singleton');
+      req.onsuccess = () => resolve(req.result || { ...CODEX_DEFAULT });
+      req.onerror = () => resolve({ ...CODEX_DEFAULT });
+    });
+  } catch {
+    return { ...CODEX_DEFAULT };
+  }
+}
+
+export async function dbSaveCodex(state: CantoCodexState): Promise<void> {
+  try {
+    const db = await initIndexedDB();
+    const tx = db.transaction('codex', 'readwrite');
+    tx.objectStore('codex').put(state);
+  } catch {}
+}
+
+export async function dbMarkAchievementsSeen(): Promise<void> {
+  try {
+    const state = await dbGetCodex();
+    await dbSaveCodex({ ...state, newAchievements: [] });
+  } catch {}
 }

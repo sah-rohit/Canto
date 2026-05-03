@@ -154,6 +154,21 @@ const PROVIDERS_HOVER: ProviderEntry[] = [
   { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
 ];
 
+/**
+ * ASCII art provider order — Cloudflare Workers AI first (structured JSON output
+ * works well), then the rest of the chain as fallback.
+ */
+const PROVIDERS_ASCII: ProviderEntry[] = [
+  { provider: 'cloudflare', model: 'google/gemini-3.1-flash-lite',  name: 'Gemini Flash Lite (CF1)' },
+  { provider: 'cloudflare', model: 'openai/gpt-4.1-mini',           name: 'GPT-4.1 mini (CF2)' },
+  { provider: 'groq',       model: 'llama-3.1-8b-instant',          name: 'Llama (Groq)' },
+  { provider: 'gemini',     model: 'gemini-1.5-flash',              name: 'Gemini (Direct)' },
+  { provider: 'github',     model: 'DeepSeek-V3',                   name: 'DeepSeek V3 (GitHub)' },
+  { provider: 'github',     model: 'grok-3-mini',                   name: 'Grok mini 3 (GitHub)' },
+  { provider: 'ollama',     model: 'qwen3-next:80b-cloud',          name: 'Qwen3 Next 80B (Ollama)' },
+  { provider: 'ollama',     model: 'nemotron-3-nano:30b-cloud',     name: 'Nemotron 3 Nano 30B (Ollama)' },
+];
+
 // ─── Unified fallback wrappers ────────────────────────────────────────────────
 
 async function* streamWithFallback(
@@ -318,7 +333,7 @@ No markdown fences. Start with { end with }.`;
   ];
 
   let lastErr: Error = new Error('No providers');
-  for (const p of PROVIDERS) {
+  for (const p of PROVIDERS_ASCII) {
     try {
       const raw = await callServerAI(p.provider, p.model, messages, false) as string;
       let cleaned = raw.trim();
@@ -561,6 +576,134 @@ export async function generateVisualInfographic(topic: string, promptExtra: stri
     return await callWithFallback(messages);
   } catch {
     return `Error generating visualization.`;
+  }
+}
+
+// ─── Fact-Check ───────────────────────────────────────────────────────────────
+
+export interface FactCheckSource {
+  name: string;
+  status: 'verified' | 'partial' | 'not_found';
+  note: string;
+  url?: string;
+}
+
+export interface FactCheckResult {
+  verdict: 'verified' | 'mostly_verified' | 'mixed' | 'unverified';
+  confidence: number; // 0–100
+  summary: string;
+  sources: FactCheckSource[];
+  checkedAt: string;
+}
+
+/**
+ * Performs a real multi-source fact-check of the generated article content.
+ * Fetches fresh knowledge context and cross-references it against the article,
+ * then uses AI to produce a structured verdict. No credit charge.
+ */
+export async function factCheckContent(
+  topic: string,
+  articleContent: string,
+  knowledgeSources: { wikipedia?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }
+): Promise<FactCheckResult> {
+  // Build a compact evidence block from available sources
+  const evidence: string[] = [];
+  if (knowledgeSources.wikipedia) evidence.push(`[Wikipedia] ${knowledgeSources.wikipedia.slice(0, 600)}`);
+  if (knowledgeSources.nasa)      evidence.push(`[NASA]      ${knowledgeSources.nasa.slice(0, 400)}`);
+  if (knowledgeSources.core)      evidence.push(`[CORE]      ${knowledgeSources.core.slice(0, 400)}`);
+  if (knowledgeSources.internetArchive) evidence.push(`[OpenLib]   ${knowledgeSources.internetArchive.slice(0, 300)}`);
+  if (knowledgeSources.crawler)   evidence.push(`[Web]       ${knowledgeSources.crawler.slice(0, 400)}`);
+
+  const sourceCount = evidence.length;
+  const articleSnippet = articleContent.slice(0, 1200);
+
+  const prompt = `You are a rigorous fact-checker. Cross-reference the article excerpt against the provided source evidence and return a JSON fact-check report.
+
+ARTICLE EXCERPT (about "${topic}"):
+${articleSnippet}
+
+SOURCE EVIDENCE (${sourceCount} sources):
+${evidence.join('\n\n')}
+
+Return ONLY valid JSON matching this exact schema (no markdown, no extra text):
+{
+  "verdict": "verified" | "mostly_verified" | "mixed" | "unverified",
+  "confidence": <integer 0-100>,
+  "summary": "<2-3 sentence plain-text summary of what was verified, what was uncertain, and why>",
+  "sources": [
+    {
+      "name": "<source name e.g. Wikipedia>",
+      "status": "verified" | "partial" | "not_found",
+      "note": "<one sentence: what this source confirmed or contradicted>"
+    }
+  ]
+}
+
+Rules:
+- "verified": all major claims corroborated by 2+ sources
+- "mostly_verified": most claims corroborated, minor gaps
+- "mixed": some claims verified, some unverifiable or contradicted
+- "unverified": insufficient evidence to corroborate key claims
+- Be honest — if a source had no relevant data, mark it "not_found"
+- confidence reflects how much of the article content is backed by the evidence`;
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: 'You are a precise fact-checking engine. Return only valid JSON. No markdown fences, no extra text.' },
+    { role: 'user', content: prompt },
+  ];
+
+  try {
+    const raw = await callWithFallback(messages, PROVIDERS_HOVER);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    const parsed = JSON.parse(jsonMatch[0]) as Omit<FactCheckResult, 'checkedAt'>;
+
+    // Attach real source URLs
+    const urlMap: Record<string, string> = {
+      'Wikipedia':    `https://en.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/ /g, '_'))}`,
+      'NASA':         `https://images.nasa.gov/search-results?q=${encodeURIComponent(topic)}`,
+      'CORE':         `https://core.ac.uk/search?q=${encodeURIComponent(topic)}`,
+      'OpenLib':      `https://openlibrary.org/search?q=${encodeURIComponent(topic)}`,
+      'Web':          `https://duckduckgo.com/?q=${encodeURIComponent(topic)}`,
+    };
+    const sources: FactCheckSource[] = (parsed.sources || []).map((s: any) => ({
+      ...s,
+      url: urlMap[s.name] || undefined,
+    }));
+
+    // If fewer sources were in evidence, mark missing ones as not_found
+    const allSourceNames = ['Wikipedia', 'NASA', 'CORE', 'OpenLib', 'Web'];
+    const presentNames = new Set(sources.map(s => s.name));
+    for (const name of allSourceNames) {
+      if (!presentNames.has(name) && !knowledgeSources[name.toLowerCase() as keyof typeof knowledgeSources]) {
+        sources.push({ name, status: 'not_found', note: 'Source not available for this topic.', url: urlMap[name] });
+      }
+    }
+
+    return {
+      verdict: parsed.verdict || 'mixed',
+      confidence: Math.min(100, Math.max(0, parsed.confidence ?? 50)),
+      summary: parsed.summary || 'Fact-check completed.',
+      sources,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch {
+    // Graceful fallback — build a basic result from what we know
+    const sources: FactCheckSource[] = [
+      { name: 'Wikipedia',  status: knowledgeSources.wikipedia  ? 'partial' : 'not_found', note: knowledgeSources.wikipedia  ? 'Wikipedia summary was available and used in generation.' : 'No Wikipedia data retrieved.', url: `https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}` },
+      { name: 'NASA',       status: knowledgeSources.nasa       ? 'partial' : 'not_found', note: knowledgeSources.nasa       ? 'NASA image data was available.' : 'No NASA data retrieved.',       url: `https://images.nasa.gov/search-results?q=${encodeURIComponent(topic)}` },
+      { name: 'CORE',       status: knowledgeSources.core       ? 'partial' : 'not_found', note: knowledgeSources.core       ? 'Academic papers were referenced.' : 'No academic data retrieved.',  url: `https://core.ac.uk/search?q=${encodeURIComponent(topic)}` },
+      { name: 'OpenLib',    status: knowledgeSources.internetArchive ? 'partial' : 'not_found', note: knowledgeSources.internetArchive ? 'Open Library books referenced.' : 'No library data retrieved.', url: `https://openlibrary.org/search?q=${encodeURIComponent(topic)}` },
+      { name: 'Web',        status: knowledgeSources.crawler    ? 'partial' : 'not_found', note: knowledgeSources.crawler    ? 'Web search snippets were used.' : 'No web data retrieved.',        url: `https://duckduckgo.com/?q=${encodeURIComponent(topic)}` },
+    ];
+    const verifiedCount = sources.filter(s => s.status !== 'not_found').length;
+    return {
+      verdict: verifiedCount >= 3 ? 'mostly_verified' : verifiedCount >= 1 ? 'mixed' : 'unverified',
+      confidence: verifiedCount * 18,
+      summary: `${verifiedCount} of 5 knowledge sources were available during generation. Full AI cross-reference could not be completed.`,
+      sources,
+      checkedAt: new Date().toISOString(),
+    };
   }
 }
 

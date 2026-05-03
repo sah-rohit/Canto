@@ -23,10 +23,13 @@ import { StartupAnimation } from './components/StartupAnimation';
 import { CantoDialog, CantoSlider } from './components/UIComponents';
 import CantoLabs from './components/CantoLabs';
 import { MultimediaViewer } from './components/MultimediaViewer';
+import FactCheckPanel from './components/FactCheckPanel';
+import CantoCodex from './components/CantoCodex';
 import {
   dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
   dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics
 } from './services/dbService';
+import { processCodexEvent, getAchievement } from './services/codexService';
 
 // A curated list of "banger" words and phrases for the random button.
 const PREDEFINED_WORDS = [
@@ -92,6 +95,11 @@ const App: React.FC = () => {
   const [isMultimediaOpen, setIsMultimediaOpen] = useState(false);
   const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
+
+  // Codex (gamification) state
+  const [isCodexOpen, setIsCodexOpen] = useState(false);
+  const [codexNewCount, setCodexNewCount] = useState(0);
+  const [codexToast, setCodexToast] = useState<string | null>(null);
 
   // Advanced features state
   const [depth, setDepth] = useState<'Mini' | 'Standard' | 'Deep'>('Standard');
@@ -266,6 +274,10 @@ const App: React.FC = () => {
         dbRemoveFavorite(topic);
       } else {
         dbSaveFavorite(topic);
+        // Codex: article saved
+        dbGetFavorites().then(favs => {
+          processCodexEvent({ type: 'article_saved', totalSaved: favs.length + 1 });
+        });
       }
       showToast(isFav ? 'Removed from favorites' : 'Added to favorites', 'success');
       return newFavs;
@@ -489,6 +501,15 @@ const App: React.FC = () => {
             dbSaveCache(currentTopic, accumulatedContent, finalArt);
             dbSaveHistory(currentTopic, { wordCount, tokenEstimate });
             dbRecordAnalytics(currentTopic, wordCount, tokenEstimate);
+
+            // ── Codex event ──────────────────────────────────────────────
+            processCodexEvent({ type: 'article_generated', topic: currentTopic, wordCount, depth }).then(({ newlyUnlocked }) => {
+              if (newlyUnlocked.length > 0) {
+                setCodexNewCount(c => c + newlyUnlocked.length);
+                const ach = getAchievement(newlyUnlocked[0]);
+                if (ach) setCodexToast(`Unlocked: ${ach.title}`);
+              }
+            });
             return newCache;
           });
         }
@@ -642,6 +663,27 @@ const App: React.FC = () => {
                   + New
                 </button>
               )}
+
+              {/* Codex button */}
+              <button
+                onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                className="nav-btn"
+                title="Canto Codex — your knowledge journey"
+                style={{ position: 'relative' }}
+              >
+                Codex
+                {codexNewCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '-4px', right: '-4px',
+                    background: 'var(--accent-color)', color: 'var(--bg-color)',
+                    borderRadius: '50%', width: '14px', height: '14px',
+                    fontSize: '0.6em', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'monospace', fontWeight: 'bold',
+                  }}>
+                    {codexNewCount}
+                  </span>
+                )}
+              </button>
 
               <div style={{ position: 'relative' }} ref={historyRef}>
                 <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="nav-btn">
@@ -878,7 +920,14 @@ const App: React.FC = () => {
                       {currentTopic}
                     </h2>
                     <span style={{ fontSize: '0.75em', letterSpacing: '0.1em', color: 'var(--accent-color)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                      [ Fact-Checked via 4 Sources ]
+                      <FactCheckPanel
+                        topic={currentTopic}
+                        content={content}
+                        sources={lastSources}
+                        onFactCheckComplete={(verified) => {
+                          processCodexEvent({ type: 'fact_check_run', verifiedSources: verified });
+                        }}
+                      />
                     </span>
 
                     {/* Tag Manager */}
@@ -1038,7 +1087,7 @@ const App: React.FC = () => {
                           {content && (
                             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '3rem', marginBottom: (isAdvancedLabsOpen || isMultimediaOpen) ? '1rem' : '3rem', flexWrap: 'wrap' }}>
                               <button
-                                onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) setIsMultimediaOpen(false); }}
+                                onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) { setIsMultimediaOpen(false); processCodexEvent({ type: 'lab_discovered', feature: 'labs' }); } }}
                                 style={{
                                   background: 'transparent',
                                   border: `1px solid ${isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--border-color)'}`,
@@ -1171,6 +1220,26 @@ const App: React.FC = () => {
               setActiveAlert(null);
             }}
           />
+        )}
+
+        {/* Canto Codex panel */}
+        <CantoCodex isOpen={isCodexOpen} onClose={() => setIsCodexOpen(false)} />
+
+        {/* Achievement unlock toast */}
+        {codexToast && (
+          <div
+            style={{
+              position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)',
+              background: 'var(--bg-color)', border: '1px solid var(--accent-color)',
+              padding: '0.5rem 1.2rem', fontFamily: 'monospace', fontSize: '0.82em',
+              color: 'var(--accent-color)', zIndex: 20000, pointerEvents: 'none',
+              animation: 'fade-in 0.2s ease',
+              whiteSpace: 'nowrap',
+            }}
+            ref={el => { if (el) setTimeout(() => setCodexToast(null), 3500); }}
+          >
+            {codexToast}
+          </div>
         )}
 
       </div>
