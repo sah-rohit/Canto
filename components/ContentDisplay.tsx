@@ -651,17 +651,20 @@ const InteractiveContent: React.FC<{
       {!isStreaming && content.length > 0 && (
         <div style={{
           display: 'flex',
-          gap: '1rem',
-          marginBottom: '1rem',
+          gap: '0.8rem',
+          marginBottom: '1.2rem',
           fontFamily: 'monospace',
-          fontSize: '0.75em',
+          fontSize: '0.72em',
           color: 'var(--text-muted)',
           flexWrap: 'wrap',
           alignItems: 'center',
+          letterSpacing: '0.05em',
+          borderLeft: '2px solid var(--border-color)',
+          paddingLeft: '0.8rem',
         }}>
           {complexityScore !== null && (
             <span title="Lexical complexity score (0=simple, 100=dense)">
-              Complexity:{' '}
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}>Complexity</span>{' '}
               <span style={{ color: complexityScore > 65 ? 'var(--accent-color)' : 'var(--text-muted)' }}>
                 {complexityScore > 65 ? 'Advanced' : complexityScore > 35 ? 'Intermediate' : 'Accessible'}
               </span>
@@ -672,7 +675,9 @@ const InteractiveContent: React.FC<{
           <span>{content.split(/\s+/).filter(Boolean).length} words</span>
           <button
             onClick={() => setIsPrintView(v => !v)}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1em', textDecoration: 'underline', padding: 0 }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1em', textDecoration: 'underline', padding: 0, transition: 'color 0.12s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
           >
             {isPrintView ? 'Exit Print View' : 'Print View'}
           </button>
@@ -681,53 +686,99 @@ const InteractiveContent: React.FC<{
 
       {/* ── Table of Contents ── */}
       {headers.length > 0 && (
-        <div style={{ marginBottom: '1.5rem', fontFamily: 'monospace', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h4 style={{ margin: 0, fontSize: '0.9em', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Table of Contents</h4>
-            <button onClick={() => setIsTocVisible(!isTocVisible)} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em' }}>
-              {isTocVisible ? 'Hide' : 'Show'}
-            </button>
-          </div>
+        <div style={{ marginBottom: '1.5rem', fontFamily: 'monospace' }}>
+          <button
+            onClick={() => setIsTocVisible(!isTocVisible)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              fontFamily: 'monospace', fontSize: '0.72em',
+              color: 'var(--text-muted)', padding: '0.6rem 0',
+              width: '100%', textAlign: 'left',
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              transition: 'color 0.12s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+          >
+            <span style={{ color: isTocVisible ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+              {isTocVisible ? '▼' : '▶'}
+            </span>
+            <span>◈</span>
+            <span>Table of Contents</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.85em', textTransform: 'none', letterSpacing: 0, marginLeft: '0.2rem' }}>
+              ({headers.length})
+            </span>
+            <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+          </button>
           {isTocVisible && (
-            <ul style={{ listStyle: 'none', paddingLeft: 0, marginTop: '0.5rem', fontSize: '0.85em' }}>
+            <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.5rem' }}>
               {headers.map((h, i) => (
-                <li key={i} style={{ paddingLeft: h.level === 3 ? '1rem' : 0, marginBottom: '0.4rem' }}>
-                  • <a href={`#${h.text.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} style={{ color: 'var(--text-color)', textDecoration: 'underline' }}>{h.text}</a>
-                </li>
+                <div key={i} style={{ paddingLeft: h.level === 3 ? '1rem' : 0, marginBottom: '0.25rem' }}>
+                  <a
+                    href={`#${h.text.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                    style={{
+                      display: 'block',
+                      borderLeft: '2px solid transparent',
+                      paddingLeft: '0.6rem',
+                      paddingTop: '0.2rem',
+                      paddingBottom: '0.2rem',
+                      fontFamily: 'monospace',
+                      fontSize: '0.85em',
+                      color: 'var(--text-color)',
+                      textDecoration: 'none',
+                      transition: 'border-color 0.12s, color 0.12s',
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.borderLeftColor = 'var(--accent-color)';
+                      (e.currentTarget as HTMLAnchorElement).style.color = 'var(--accent-color)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.borderLeftColor = 'transparent';
+                      (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-color)';
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75em', marginRight: '0.5rem', fontFamily: 'monospace' }}>
+                      {h.level === 3 ? '└──' : '├──'}
+                    </span>
+                    {h.text}
+                  </a>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}
 
       {/* ── In-Article Search Bar ── */}
       {!isStreaming && content.length > 0 && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', fontFamily: 'monospace', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>Find in Article:</span>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', fontFamily: 'monospace', flexWrap: 'wrap', borderLeft: '1px solid var(--border-color)', paddingLeft: '1rem', marginLeft: '0.5rem' }}>
+          <span style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>⌕ Find:</span>
           <input
             type="text"
             value={inArticleSearch}
             onChange={(e) => setInArticleSearch(e.target.value)}
-            placeholder="Search within this page..."
+            placeholder="Search within this article…"
             style={{
               background: 'transparent',
               border: 'none',
               borderBottom: '1px solid var(--border-color)',
               color: 'var(--text-color)',
               fontFamily: 'monospace',
-              fontSize: '0.9em',
+              fontSize: '0.85em',
               outline: 'none',
-              padding: '0.2rem 0.5rem',
+              padding: '0.2rem 0.4rem',
               flex: 1,
-              minWidth: '150px'
+              minWidth: '120px',
             }}
           />
           {inArticleSearch && (
             <button
               onClick={() => setInArticleSearch('')}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', textDecoration: 'underline' }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', padding: 0, lineHeight: 1 }}
+              aria-label="Clear search"
             >
-              Clear
+              ×
             </button>
           )}
         </div>
@@ -744,73 +795,133 @@ const InteractiveContent: React.FC<{
       {!isStreaming && content.length > 0 && (() => {
         const sourceEntries = buildSourceEntries(topic || '', sources);
         return (
-          <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', fontFamily: 'monospace' }}>
-            {/* Citation style header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <button
-                onClick={() => setSourcesExpanded(v => !v)}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', color: 'var(--text-color)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-              >
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.8em' }}>{sourcesExpanded ? '▼' : '▶'}</span>
-                Sources &amp; Citation
-                {sourceEntries.length > 0 && (
-                  <span style={{ fontSize: '0.75em', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}>
-                    ({sourceEntries.length} verified)
-                  </span>
-                )}
-              </button>
-              <div style={{ display: 'flex', gap: '0.8rem' }}>
-                {(['APA', 'MLA', 'Chicago'] as const).map(style => (
-                  <button
-                    key={style}
-                    onClick={() => setCitationStyle(style)}
-                    style={{ background: 'none', border: 'none', padding: 0, textDecoration: citationStyle === style ? 'underline' : 'none', color: citationStyle === style ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
-                  >
-                    {style}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', fontFamily: 'monospace' }}>
 
-            {/* Citation text */}
-            <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.82em', color: 'var(--text-muted)', wordBreak: 'break-word', lineHeight: '1.6', borderLeft: '2px solid var(--border-color)', paddingLeft: '0.8rem' }}>
-              {getCitation()}
-            </p>
+            {/* ── Section toggle header ── */}
+            <button
+              onClick={() => setSourcesExpanded(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: '0.72em',
+                color: 'var(--text-muted)', padding: '0.6rem 0',
+                width: '100%', textAlign: 'left',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <span style={{ color: sourcesExpanded ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                {sourcesExpanded ? '▼' : '▶'}
+              </span>
+              <span>◈</span>
+              <span>Sources &amp; Citation</span>
+              {sourceEntries.length > 0 && (
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em', textTransform: 'none', letterSpacing: 0, marginLeft: '0.2rem' }}>
+                  ({sourceEntries.length} verified)
+                </span>
+              )}
+              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+            </button>
 
-            {/* Expanded source list with real URLs and snippets */}
             {sourcesExpanded && (
-              <div style={{ marginTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                {sourceEntries.length === 0 ? (
-                  <span style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>No external sources were loaded for this article.</span>
-                ) : sourceEntries.map(entry => {
-                  const isOpen = expandedSource === entry.type;
-                  return (
-                    <div key={entry.type} style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '0.8rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '1rem' }}>
+
+                {/* Citation style selector */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Format:</span>
+                  {(['APA', 'MLA', 'Chicago'] as const).map(style => (
+                    <button
+                      key={style}
+                      onClick={() => setCitationStyle(style)}
+                      style={{
+                        background: 'none', border: 'none', padding: 0,
+                        fontFamily: 'monospace', fontSize: '0.82em',
+                        color: citationStyle === style ? 'var(--accent-color)' : 'var(--text-muted)',
+                        textDecoration: citationStyle === style ? 'underline' : 'none',
+                        cursor: 'pointer',
+                        transition: 'color 0.12s',
+                      }}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Citation text */}
+                <p style={{
+                  margin: '0 0 1rem 0',
+                  fontSize: '0.8em',
+                  color: 'var(--text-muted)',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.6',
+                  borderLeft: '2px solid var(--border-color)',
+                  paddingLeft: '0.8rem',
+                }}>
+                  {getCitation()}
+                </p>
+
+                {/* Source list */}
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                  Sources Used
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                  {sourceEntries.length === 0 ? (
+                    <span style={{ fontSize: '0.82em', color: 'var(--text-muted)' }}>No external sources were loaded for this article.</span>
+                  ) : sourceEntries.map(entry => {
+                    const isOpen = expandedSource === entry.type;
+                    return (
+                      <div key={entry.type} style={{ marginBottom: '0.15rem' }}>
                         <button
                           onClick={() => setExpandedSource(isOpen ? null : entry.type)}
-                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em', color: isOpen ? 'var(--accent-color)' : 'var(--text-color)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            width: '100%', textAlign: 'left',
+                            background: 'none', border: 'none',
+                            borderLeft: `2px solid ${isOpen ? 'var(--accent-color)' : 'transparent'}`,
+                            paddingLeft: '0.6rem', paddingTop: '0.25rem', paddingBottom: '0.25rem',
+                            cursor: 'pointer',
+                            fontFamily: 'monospace', fontSize: '0.85em',
+                            color: isOpen ? 'var(--accent-color)' : 'var(--text-color)',
+                            transition: 'border-color 0.12s, color 0.12s',
+                          }}
+                          onMouseEnter={e => {
+                            if (!isOpen) {
+                              e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                              e.currentTarget.style.color = 'var(--accent-color)';
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            if (!isOpen) {
+                              e.currentTarget.style.borderLeftColor = 'transparent';
+                              e.currentTarget.style.color = 'var(--text-color)';
+                            }
+                          }}
                         >
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>{isOpen ? '[-]' : '[+]'}</span>
-                          {entry.label}
+                          <span style={{ flex: 1 }}>{entry.label}</span>
+                          <a
+                            href={entry.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            style={{ fontSize: '0.75em', color: 'var(--accent-color)', textDecoration: 'underline', fontFamily: 'monospace', flexShrink: 0 }}
+                          >
+                            ↗ {entry.url.replace(/^https?:\/\//, '').split('/')[0]}
+                          </a>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.75em', marginLeft: '0.4rem' }}>{isOpen ? '[-]' : '[+]'}</span>
                         </button>
-                        <a
-                          href={entry.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '0.75em', color: 'var(--accent-color)', textDecoration: 'underline', fontFamily: 'monospace' }}
-                        >
-                          ↗ {entry.url.replace(/^https?:\/\//, '').split('/')[0]}
-                        </a>
+                        {isOpen && entry.snippet && (
+                          <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '1.1rem', paddingLeft: '0.8rem', paddingTop: '0.3rem', paddingBottom: '0.3rem' }}>
+                            <p style={{ margin: '0 0 0.4rem', color: 'var(--text-muted)', fontSize: '0.78em', lineHeight: '1.5', fontStyle: 'italic' }}>
+                              &ldquo;{entry.snippet}{entry.snippet.length >= 200 ? '…' : ''}&rdquo;
+                            </p>
+                          </div>
+                        )}
                       </div>
-                      {isOpen && entry.snippet && (
-                        <p style={{ margin: '0.3rem 0 0.3rem 0.8rem', fontSize: '0.78em', color: 'var(--text-muted)', lineHeight: '1.5', fontStyle: 'italic' }}>
-                          &ldquo;{entry.snippet}{entry.snippet.length >= 200 ? '…' : ''}&rdquo;
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -951,39 +1062,66 @@ const InteractiveContent: React.FC<{
       )}
 
       {!isStreaming && content.length > 0 && (
-        <div className="content-actions" style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button 
-            onClick={handleCopy}
-            style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
-          >
-            {copyStatus}
-          </button>
+        <div className="content-actions" style={{
+          display: 'flex', gap: '0.8rem', marginTop: '1.5rem', paddingTop: '0.5rem',
+          borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', alignItems: 'center',
+          fontFamily: 'monospace',
+        }}>
+          {/* Section label */}
+          <span style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: '0.2rem' }}>
+            Article
+          </span>
 
-          <button
-            onClick={() => { const next = !soundOn; setSoundOn(next); setSoundEnabled(next); }}
-            title={soundOn ? 'Sound effects on' : 'Sound effects off'}
-            style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
-          >
-            {soundOn ? 'Sound: On' : 'Sound: Off'}
-          </button>
-          <button 
-            onClick={onToggleFavorite}
-            style={{ textDecoration: 'underline', color: isFavorite ? 'var(--accent-color)' : 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
-          >
-            {isFavorite ? 'Unstar' : 'Star'}
-          </button>
-          <button 
-            onClick={handleShare}
-            style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
-          >
-            Share Link
-          </button>
+          {[
+            { label: copyStatus, onClick: handleCopy, active: copyStatus !== 'Copy' },
+            { label: soundOn ? 'Sound: On' : 'Sound: Off', onClick: () => { const next = !soundOn; setSoundOn(next); setSoundEnabled(next); }, active: soundOn },
+            { label: isFavorite ? 'Unstar' : 'Star', onClick: onToggleFavorite, active: isFavorite },
+            { label: 'Share Link', onClick: handleShare, active: false },
+          ].map(({ label, onClick, active }) => (
+            <button
+              key={label}
+              onClick={onClick}
+              style={{
+                background: 'none', border: 'none',
+                borderLeft: `2px solid ${active ? 'var(--accent-color)' : 'transparent'}`,
+                paddingLeft: '0.5rem', paddingTop: '0.2rem', paddingBottom: '0.2rem',
+                color: active ? 'var(--accent-color)' : 'var(--text-muted)',
+                cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em',
+                transition: 'border-color 0.12s, color 0.12s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                e.currentTarget.style.color = 'var(--accent-color)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderLeftColor = active ? 'var(--accent-color)' : 'transparent';
+                e.currentTarget.style.color = active ? 'var(--accent-color)' : 'var(--text-muted)';
+              }}
+            >
+              {label}
+            </button>
+          ))}
 
           {/* ── Download dropdown ── */}
           <div style={{ position: 'relative' }} ref={downloadRef}>
-            <button 
+            <button
               onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
-              style={{ textDecoration: 'underline', color: 'var(--text-muted)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.9em', fontFamily: 'monospace' }}
+              style={{
+                background: 'none', border: 'none',
+                borderLeft: `2px solid ${downloadMenuOpen ? 'var(--accent-color)' : 'transparent'}`,
+                paddingLeft: '0.5rem', paddingTop: '0.2rem', paddingBottom: '0.2rem',
+                color: downloadMenuOpen ? 'var(--accent-color)' : 'var(--text-muted)',
+                cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em',
+                transition: 'border-color 0.12s, color 0.12s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                e.currentTarget.style.color = 'var(--accent-color)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderLeftColor = downloadMenuOpen ? 'var(--accent-color)' : 'transparent';
+                e.currentTarget.style.color = downloadMenuOpen ? 'var(--accent-color)' : 'var(--text-muted)';
+              }}
             >
               Download ▾
             </button>
@@ -994,19 +1132,40 @@ const InteractiveContent: React.FC<{
                 left: 0,
                 background: 'var(--bg-color)',
                 border: '1px solid var(--border-color)',
-                padding: '0.4rem',
+                padding: '0.4rem 0',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.3rem',
-                minWidth: '110px',
-                zIndex: 100
+                gap: '0.1rem',
+                minWidth: '120px',
+                zIndex: 100,
               }}>
-                <button onClick={handleDownloadTxt} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em', textAlign: 'left' }}>
-                  Plain Text
-                </button>
-                <button onClick={handleShare} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em', textAlign: 'left' }}>
-                  Copy Link
-                </button>
+                {[
+                  { label: 'Plain Text', onClick: handleDownloadTxt },
+                  { label: 'Copy Link', onClick: handleShare },
+                ].map(({ label, onClick }) => (
+                  <button
+                    key={label}
+                    onClick={onClick}
+                    style={{
+                      background: 'none', border: 'none',
+                      borderLeft: '2px solid transparent',
+                      paddingLeft: '0.6rem', paddingTop: '0.3rem', paddingBottom: '0.3rem',
+                      color: 'var(--text-color)', cursor: 'pointer',
+                      fontFamily: 'monospace', fontSize: '0.82em', textAlign: 'left',
+                      transition: 'border-color 0.12s, color 0.12s',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                      e.currentTarget.style.color = 'var(--accent-color)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderLeftColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-color)';
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             )}
           </div>

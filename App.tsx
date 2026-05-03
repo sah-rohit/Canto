@@ -389,7 +389,7 @@ const App: React.FC = () => {
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [history, setHistory] = useState<string[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [theme, setTheme] = useState<'classic' | 'dark' | 'vintage' | 'obsidian'>('classic');
+  const [theme, setTheme] = useState<'classic' | 'dark' | 'vintage' | 'obsidian' | 'high-contrast'>('classic');
   const [showIntro, setShowIntro] = useState(true);
   // Rate limit state
   const [searchesRemaining, setSearchesRemaining] = useState<number | null>(null);
@@ -509,7 +509,7 @@ const App: React.FC = () => {
 
       const savedTheme = localStorage.getItem('canto_theme');
       if (savedTheme) {
-        setTheme(savedTheme as 'classic' | 'dark' | 'vintage' | 'obsidian');
+        setTheme(savedTheme as 'classic' | 'dark' | 'vintage' | 'obsidian' | 'high-contrast');
         document.documentElement.setAttribute('data-theme', savedTheme);
       }
     } catch(e) {}
@@ -912,7 +912,7 @@ const App: React.FC = () => {
     showToast('Browsing history cleared', 'info');
   }, [showToast]);
 
-  const changeTheme = useCallback((newTheme: 'classic' | 'dark' | 'vintage' | 'obsidian') => {
+  const changeTheme = useCallback((newTheme: 'classic' | 'dark' | 'vintage' | 'obsidian' | 'high-contrast') => {
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
     try { localStorage.setItem('canto_theme', newTheme); } catch(e) {}
@@ -1048,106 +1048,195 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: 'monospace', fontSize: '0.82em', color: 'var(--text-muted)' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', padding: '0 1rem', fontFamily: 'monospace', fontSize: '0.82em' }}>
           {isResearchOptionsOpen && (
-            <>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-                <span>Lens:</span>
-            {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
-              <button
-                key={lens}
-                onClick={() => setActiveLens(lens)}
-                style={{ background: 'none', border: 'none', padding: 0, textDecoration: activeLens === lens ? 'underline' : 'none', color: activeLens === lens ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
-              >
-                {lens}
-              </button>
-            ))}
-          </div>
+            <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
 
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-            <span>Search Depth:</span>
-            {(['Mini', 'Standard', 'Deep'] as const).map(d => (
-              <button
-                key={d}
-                onClick={() => setDepth(d)}
-                style={{ background: 'none', border: 'none', padding: 0, textDecoration: depth === d ? 'underline' : 'none', color: depth === d ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
-              >
-                {d} {d === 'Mini' ? '(0.5 cr)' : d === 'Deep' ? '(2 cr)' : '(1 cr)'}
-              </button>
-            ))}
-          </div>
+              {/* Lens */}
+              <div>
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Lens</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
+                    <button
+                      key={lens}
+                      onClick={() => setActiveLens(lens)}
+                      style={{
+                        background: 'none', border: 'none', padding: '0.2rem 0',
+                        borderLeft: `2px solid ${activeLens === lens ? 'var(--accent-color)' : 'transparent'}`,
+                        paddingLeft: '0.5rem',
+                        color: activeLens === lens ? 'var(--accent-color)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                        transition: 'border-color 0.12s, color 0.12s',
+                        marginRight: '0.5rem',
+                      }}
+                      onMouseEnter={e => { if (activeLens !== lens) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                      onMouseLeave={e => { if (activeLens !== lens) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                    >
+                      {lens}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-            <span>Tone:</span>
-            {(['Standard', 'Academic', 'Simple', 'Technical'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setArticleTone(t)}
-                style={{ background: 'none', border: 'none', padding: 0, textDecoration: articleTone === t ? 'underline' : 'none', color: articleTone === t ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+              {/* Search Depth */}
+              <div>
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Search Depth</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {(['Mini', 'Standard', 'Deep'] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDepth(d)}
+                      style={{
+                        background: 'none', border: 'none', padding: '0.2rem 0',
+                        borderLeft: `2px solid ${depth === d ? 'var(--accent-color)' : 'transparent'}`,
+                        paddingLeft: '0.5rem',
+                        color: depth === d ? 'var(--accent-color)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                        transition: 'border-color 0.12s, color 0.12s',
+                        marginRight: '0.5rem',
+                      }}
+                      onMouseEnter={e => { if (depth !== d) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                      onMouseLeave={e => { if (depth !== d) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                    >
+                      {d}
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', marginLeft: '0.3rem' }}>
+                        {d === 'Mini' ? '(0.5 cr)' : d === 'Deep' ? '(2 cr)' : '(1 cr)'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-            <span>Length:</span>
-            {(['Full', 'Summary', 'Deep Dive'] as const).map(l => (
-              <button
-                key={l}
-                onClick={() => setArticleLength(l)}
-                style={{ background: 'none', border: 'none', padding: 0, textDecoration: articleLength === l ? 'underline' : 'none', color: articleLength === l ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+              {/* Tone */}
+              <div>
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Tone</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {(['Standard', 'Academic', 'Simple', 'Technical'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setArticleTone(t)}
+                      style={{
+                        background: 'none', border: 'none', padding: '0.2rem 0',
+                        borderLeft: `2px solid ${articleTone === t ? 'var(--accent-color)' : 'transparent'}`,
+                        paddingLeft: '0.5rem',
+                        color: articleTone === t ? 'var(--accent-color)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                        transition: 'border-color 0.12s, color 0.12s',
+                        marginRight: '0.5rem',
+                      }}
+                      onMouseEnter={e => { if (articleTone !== t) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                      onMouseLeave={e => { if (articleTone !== t) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-            <span>Sources:</span>
-            {(['Wikipedia', 'NASA', 'CORE', 'Web Search'] as const).map(src => {
-              const checked = enabledSources.includes(src);
-              return (
-                <label key={src} style={{ cursor: 'pointer', userSelect: 'none', textDecoration: checked ? 'none' : 'line-through' }}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => setEnabledSources(prev => checked ? prev.filter(s => s !== src) : [...prev, src])}
-                    style={{ marginRight: '0.3rem' }}
-                  />
-                  {src}
-                </label>
-              );
-            })}
-          </div>
+              {/* Length */}
+              <div>
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Length</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {(['Full', 'Summary', 'Deep Dive'] as const).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setArticleLength(l)}
+                      style={{
+                        background: 'none', border: 'none', padding: '0.2rem 0',
+                        borderLeft: `2px solid ${articleLength === l ? 'var(--accent-color)' : 'transparent'}`,
+                        paddingLeft: '0.5rem',
+                        color: articleLength === l ? 'var(--accent-color)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                        transition: 'border-color 0.12s, color 0.12s',
+                        marginRight: '0.5rem',
+                      }}
+                      onMouseEnter={e => { if (articleLength !== l) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                      onMouseLeave={e => { if (articleLength !== l) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* ── Accessibility toggles ── */}
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-            <span>Accessibility:</span>
-            <button
-              onClick={() => {
-                const next = !isDyslexic;
-                setIsDyslexic(next);
-                document.body.classList.toggle('dyslexic', next);
-                localStorage.setItem('canto_dyslexic', String(next));
-              }}
-              style={{ background: 'none', border: 'none', padding: 0, textDecoration: isDyslexic ? 'underline' : 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
-            >
-              Dyslexia Font: {isDyslexic ? 'On' : 'Off'}
-            </button>
-            <button
-              onClick={() => {
-                const next = theme === 'high-contrast' ? 'classic' : 'high-contrast';
-                setTheme(next);
-                document.documentElement.setAttribute('data-theme', next);
-                localStorage.setItem('canto_theme', next);
-              }}
-              style={{ background: 'none', border: 'none', padding: 0, textDecoration: theme === 'high-contrast' ? 'underline' : 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace' }}
-            >
-              High Contrast Theme: {theme === 'high-contrast' ? 'On' : 'Off'}
-            </button>
-          </div>
-            </>
+              {/* Sources */}
+              <div>
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Sources</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {(['Wikipedia', 'NASA', 'CORE', 'Web Search'] as const).map(src => {
+                    const checked = enabledSources.includes(src);
+                    return (
+                      <button
+                        key={src}
+                        onClick={() => setEnabledSources(prev => checked ? prev.filter(s => s !== src) : [...prev, src])}
+                        style={{
+                          background: 'none', border: 'none', padding: '0.2rem 0',
+                          borderLeft: `2px solid ${checked ? 'var(--accent-color)' : 'transparent'}`,
+                          paddingLeft: '0.5rem',
+                          color: checked ? 'var(--accent-color)' : 'var(--text-muted)',
+                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                          textDecoration: checked ? 'none' : 'line-through',
+                          transition: 'border-color 0.12s, color 0.12s',
+                          marginRight: '0.5rem',
+                        }}
+                        onMouseEnter={e => { if (!checked) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                        onMouseLeave={e => { if (!checked) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                      >
+                        {src}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Accessibility */}
+              <div>
+                <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Accessibility</div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                  {[
+                    {
+                      label: `Dyslexia Font: ${isDyslexic ? 'On' : 'Off'}`,
+                      active: isDyslexic,
+                      onClick: () => {
+                        const next = !isDyslexic;
+                        setIsDyslexic(next);
+                        document.body.classList.toggle('dyslexic', next);
+                        localStorage.setItem('canto_dyslexic', String(next));
+                      },
+                    },
+                    {
+                      label: `High Contrast: ${theme === 'high-contrast' ? 'On' : 'Off'}`,
+                      active: theme === 'high-contrast',
+                      onClick: () => {
+                        const next = theme === 'high-contrast' ? 'classic' : 'high-contrast';
+                        setTheme(next);
+                        document.documentElement.setAttribute('data-theme', next);
+                        localStorage.setItem('canto_theme', next);
+                      },
+                    },
+                  ].map(({ label, active, onClick }) => (
+                    <button
+                      key={label}
+                      onClick={onClick}
+                      style={{
+                        background: 'none', border: 'none', padding: '0.2rem 0',
+                        borderLeft: `2px solid ${active ? 'var(--accent-color)' : 'transparent'}`,
+                        paddingLeft: '0.5rem',
+                        color: active ? 'var(--accent-color)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                        transition: 'border-color 0.12s, color 0.12s',
+                        marginRight: '0.5rem',
+                      }}
+                      onMouseEnter={e => { if (!active) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                      onMouseLeave={e => { if (!active) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
           )}
 
           {/* ── AI Followups as Branching Conversation Tree ── */}
