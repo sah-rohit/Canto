@@ -10,10 +10,13 @@
   },
   "dependencies": {
     "@google/genai": "^1.7.0",
+    "dexie": "^4.4.2",
+    "fflate": "^0.8.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "yjs": "^13.6.30"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

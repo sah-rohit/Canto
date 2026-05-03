@@ -1,66 +1,62 @@
-// Canto Service Worker — Offline support & caching
-const CACHE_NAME = 'canto-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/canto-icon.svg',
-  '/manifest.json',
-];
+// Canto Service Worker — AetherDB Background Sync + Offline support
+const CACHE_NAME = "canto-v2";
+const STATIC_ASSETS = ["/", "/canto-icon.svg", "/manifest.json"];
 
-// Install — cache static shell
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-// Activate — clean old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
   );
   self.clients.claim();
 });
 
-// Fetch — network-first for API, cache-first for static assets
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Never cache API calls
-  if (url.pathname.startsWith('/api/')) {
-    return;
+// Background Sync — flush AetherDB write queue when tab closes
+self.addEventListener("sync", (event) => {
+  if (event.tag === "aetherdb-flush") {
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) =>
+          client.postMessage({ type: "AETHERDB_FLUSH_REQUEST" })
+        );
+      })
+    );
   }
+});
 
-  // For navigation requests and static assets: network-first with cache fallback
+// Message handler — receive flush confirmation from app
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "AETHERDB_FLUSH_COMPLETE") {
+    console.log("[SW] AetherDB flush confirmed");
+  }
+});
+
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith("/api/")) return;
+
   event.respondWith(
-    fetch(request)
+    fetch(event.request)
       .then((response) => {
-        // Cache successful responses
-        if (response.ok && request.method === 'GET') {
+        if (response.ok && event.request.method === "GET") {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, clone);
-          });
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       })
-      .catch(() => {
-        // Offline — try cache
-        return caches.match(request).then((cached) => {
+      .catch(() =>
+        caches.match(event.request).then((cached) => {
           if (cached) return cached;
-          // Fallback for navigation requests
-          if (request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return new Response('Offline', { status: 503 });
-        });
-      })
+          if (event.request.mode === "navigate") return caches.match("/");
+          return new Response("Offline", { status: 503 });
+        })
+      )
   );
 });

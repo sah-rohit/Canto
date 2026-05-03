@@ -25,11 +25,13 @@ import CantoLabs from './components/CantoLabs';
 import { MultimediaViewer } from './components/MultimediaViewer';
 import FactCheckPanel from './components/FactCheckPanel';
 import CantoCodex from './components/CantoCodex';
+import DataCenter from './components/DataCenter';
 import {
   dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
   dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics,
   dbGetCodex
 } from './services/dbService';
+import { initAetherDB, getFirstRunState } from './services/aetherdb';
 import { processCodexEvent, getAchievement } from './services/codexService';
 
 // A curated list of "banger" words and phrases for the random button.
@@ -411,6 +413,7 @@ const App: React.FC = () => {
   const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
 
   const [isCodexOpen, setIsCodexOpen] = useState(false);
+  const [isDataCenterOpen, setIsDataCenterOpen] = useState(false);
   const [codexNewCount, setCodexNewCount] = useState(0);
   const [codexToast, setCodexToast] = useState<string | null>(null);
   const [codexRank, setCodexRank] = useState('Curious Mind');
@@ -472,6 +475,9 @@ const App: React.FC = () => {
 
   // Load persisted state on mount
   useEffect(() => {
+    // ── AetherDB boot (runs first, <100ms target) ──
+    initAetherDB().catch(e => console.warn('[AetherDB] Init error:', e));
+
     try {
       const savedDys = localStorage.getItem('canto_dyslexic') === 'true';
       if (savedDys) {
@@ -1433,6 +1439,12 @@ const App: React.FC = () => {
                       hideHeader={true}
                     />
                   )}
+
+                  {/* ── My Data Center ── */}
+                  <DataCenter
+                    isOpen={isDataCenterOpen}
+                    onToggle={() => setIsDataCenterOpen(v => !v)}
+                  />
                   {!isLoading && !error && content.length > 0 && (
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                       <button 
