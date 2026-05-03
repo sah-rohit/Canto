@@ -1,6 +1,6 @@
 /**
  * DataCenter — My Data Center Dashboard
- * AetherDB management UI styled exactly like CantoCodex / ResearchPanel.
+ * CantoStore management UI styled exactly like CantoCodex / ResearchPanel.
  * Raw encyclopedic monospace format. Collapsible tree sections.
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -17,11 +17,11 @@ import {
   generateQRPayload, getConnectedPeerCount, acceptSync,
   estimateIndexedDBSize, countAllRecords, clearAllStores,
   formatBytes,
-} from "../services/aetherdb";
+} from "../services/cantostore";
 import type {
-  AetherHealthReport, AetherSnapshot, AetherTrashEntry,
-  AetherPeer, AetherSyncLog, AetherLayerStatus,
-} from "../services/aetherdb";
+  CantoHealthReport, CantoSnapshot, CantoTrashEntry,
+  CantoPeer, CantoSyncLog, CantoLayerStatus,
+} from "../services/cantostore";
 
 // ── Style tokens (identical to ResearchPanel / CantoCodex) ───────────────────
 
@@ -135,7 +135,7 @@ function ActionBtn({
 // ── Section: Storage Overview ────────────────────────────────────────────────
 
 function StorageOverview({ report, counts, idbBytes }: {
-  report: AetherHealthReport | null;
+  report: CantoHealthReport | null;
   counts: Record<string, number>;
   idbBytes: number;
 }) {
@@ -214,13 +214,15 @@ function StorageOverview({ report, counts, idbBytes }: {
 // ── Section: Sync ────────────────────────────────────────────────────────────
 
 function SyncSection({ deviceId }: { deviceId: string }) {
-  const [peers, setPeers] = useState<AetherPeer[]>([]);
-  const [logs, setLogs] = useState<AetherSyncLog[]>([]);
+  const [peers, setPeers] = useState<CantoPeer[]>([]);
+  const [logs, setLogs] = useState<CantoSyncLog[]>([]);
   const [qrPayload, setQrPayload] = useState<{ code: string; payload: string } | null>(null);
   const [offerInput, setOfferInput] = useState("");
   const [answerOutput, setAnswerOutput] = useState("");
   const [status, setStatus] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [answerCopied, setAnswerCopied] = useState(false);
 
   const refresh = useCallback(() => {
     setPeers(getKnownPeers());
@@ -232,6 +234,44 @@ function SyncSection({ deviceId }: { deviceId: string }) {
   const handleGenerateQR = async () => {
     const p = await generateQRPayload();
     setQrPayload(p);
+    setCodeCopied(false);
+  };
+
+  const handleCopyPayload = async () => {
+    if (!qrPayload) return;
+    try {
+      await navigator.clipboard.writeText(qrPayload.payload);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = qrPayload.payload;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    }
+  };
+
+  const handlePasteOffer = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setOfferInput(text);
+    } catch {
+      setStatus("Paste not available — please paste manually.");
+    }
+  };
+
+  const handleCopyAnswer = async () => {
+    if (!answerOutput) return;
+    try {
+      await navigator.clipboard.writeText(answerOutput);
+      setAnswerCopied(true);
+      setTimeout(() => setAnswerCopied(false), 2000);
+    } catch {}
   };
 
   const handleAccept = async () => {
@@ -239,6 +279,7 @@ function SyncSection({ deviceId }: { deviceId: string }) {
     try {
       const answer = await acceptSync(offerInput.trim());
       setAnswerOutput(answer);
+      setAnswerCopied(false);
       setStatus("Answer generated — share it with the initiating device.");
       refresh();
     } catch (e) {
@@ -277,35 +318,79 @@ function SyncSection({ deviceId }: { deviceId: string }) {
       <div>
         <div style={sectionLabel}>Pair a New Device</div>
         <div style={treeLine}>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem", alignItems: "center" }}>
             <ActionBtn label="Generate Pairing Code" onClick={handleGenerateQR} />
+            {qrPayload && (
+              <ActionBtn label={codeCopied ? "Copied!" : "Copy Payload"} onClick={handleCopyPayload} active={codeCopied} />
+            )}
           </div>
           {qrPayload && (
             <div style={{ fontFamily: "monospace", fontSize: "0.78em", marginBottom: "0.5rem" }}>
-              <div style={{ color: "var(--text-muted)", marginBottom: "0.2rem" }}>Code: <span style={{ color: "var(--accent-color)", letterSpacing: "0.2em" }}>{qrPayload.code}</span></div>
+              <div style={{ color: "var(--text-muted)", marginBottom: "0.2rem" }}>
+                Code: <span style={{ color: "var(--accent-color)", letterSpacing: "0.2em" }}>{qrPayload.code}</span>
+              </div>
               <div style={{ color: "var(--text-muted)", marginBottom: "0.3rem" }}>Payload (share with peer):</div>
-              <div style={{ color: "var(--text-color)", wordBreak: "break-all", borderLeft: "2px solid var(--border-color)", paddingLeft: "0.6rem", fontSize: "0.85em" }}>
-                {qrPayload.payload.slice(0, 80)}…
+              <div style={{
+                color: "var(--text-color)", wordBreak: "break-all",
+                borderLeft: "2px solid var(--border-color)", paddingLeft: "0.6rem", fontSize: "0.85em",
+                maxHeight: "4rem", overflowY: "auto",
+              }}>
+                {qrPayload.payload}
               </div>
             </div>
           )}
           <div style={{ marginTop: "0.5rem" }}>
             <div style={{ ...sectionLabel, marginBottom: "0.3rem" }}>Accept Offer from Peer</div>
-            <input
-              value={offerInput}
-              onChange={e => setOfferInput(e.target.value)}
-              placeholder="Paste offer payload here…"
-              style={{
-                width: "100%", background: "transparent", border: "none",
-                borderBottom: "1px solid var(--border-color)", color: "var(--text-color)",
-                fontFamily: "monospace", fontSize: "0.82em", outline: "none",
-                padding: "0.3rem 0.4rem", boxSizing: "border-box", marginBottom: "0.4rem",
-              }}
-            />
-            <ActionBtn label="Accept & Generate Answer" onClick={handleAccept} />
+            <div style={{ position: "relative", marginBottom: "0.4rem" }}>
+              <input
+                value={offerInput}
+                onChange={e => setOfferInput(e.target.value)}
+                placeholder="Paste offer payload here…"
+                style={{
+                  width: "100%", background: "transparent", border: "none",
+                  borderBottom: "1px solid var(--border-color)", color: "var(--text-color)",
+                  fontFamily: "monospace", fontSize: "0.82em", outline: "none",
+                  padding: "0.3rem 2.5rem 0.3rem 0.4rem", boxSizing: "border-box",
+                }}
+              />
+              <button
+                onClick={handlePasteOffer}
+                title="Paste from clipboard"
+                style={{
+                  position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "monospace", fontSize: "0.72em", letterSpacing: "0.08em",
+                  color: "var(--text-muted)", padding: "0.2rem 0.3rem",
+                  transition: "color 0.12s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = "var(--accent-color)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
+              >
+                PASTE
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <ActionBtn label="Accept & Generate Answer" onClick={handleAccept} />
+              {offerInput && (
+                <button
+                  onClick={() => setOfferInput("")}
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontFamily: "monospace", fontSize: "0.75em", padding: 0 }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
             {answerOutput && (
-              <div style={{ fontFamily: "monospace", fontSize: "0.75em", color: "var(--text-muted)", marginTop: "0.4rem", wordBreak: "break-all", borderLeft: "2px solid var(--border-color)", paddingLeft: "0.6rem" }}>
-                Answer: {answerOutput.slice(0, 80)}…
+              <div style={{ marginTop: "0.5rem" }}>
+                <div style={{ ...sectionLabel, marginBottom: "0.2rem" }}>Answer (share back):</div>
+                <div style={{
+                  fontFamily: "monospace", fontSize: "0.75em", color: "var(--text-muted)",
+                  wordBreak: "break-all", borderLeft: "2px solid var(--border-color)",
+                  paddingLeft: "0.6rem", maxHeight: "4rem", overflowY: "auto",
+                }}>
+                  {answerOutput}
+                </div>
+                <ActionBtn label={answerCopied ? "Copied!" : "Copy Answer"} onClick={handleCopyAnswer} active={answerCopied} />
               </div>
             )}
           </div>
@@ -360,60 +445,96 @@ function SyncSection({ deviceId }: { deviceId: string }) {
 // ── Section: Snapshots ───────────────────────────────────────────────────────
 
 function SnapshotsSection({ deviceId }: { deviceId: string }) {
-  const [snaps, setSnaps] = useState<AetherSnapshot[]>([]);
+  const [snaps, setSnaps] = useState<CantoSnapshot[]>([]);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [taking, setTaking] = useState(false);
   const [status, setStatus] = useState("");
 
   const load = useCallback(async () => {
-    setSnaps(await getSnapshots());
+    const s = await getSnapshots();
+    setSnaps(s);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleTakeNow = async () => {
+    setTaking(true);
+    setStatus("Taking snapshot…");
+    try {
+      await takeSnapshot("snap_now", deviceId);
+      await load();
+      setStatus("Snapshot taken.");
+    } catch (e) {
+      setStatus("Snapshot failed: " + String(e));
+    } finally {
+      setTaking(false);
+    }
+  };
 
   const handleRestore = async (id: string, label: string) => {
     if (!window.confirm(`Restore from snapshot "${label}"? Current data will be overwritten.`)) return;
     setRestoring(id);
     setStatus("Restoring…");
     const ok = await restoreFromSnapshot(id, deviceId);
-    setStatus(ok ? `Restored from "${label}" successfully.` : "Restore failed — snapshot not found on disk.");
+    setStatus(ok ? `Restored from "${label}" successfully. Reload to apply.` : "Restore failed — snapshot not found on disk.");
     setRestoring(null);
     load();
   };
 
   const SNAP_ORDER = ["snap_now", "snap_1h", "snap_1d", "snap_1w", "snap_1m"];
+  const SNAP_LABELS: Record<string, string> = {
+    snap_now: "Now", snap_1h: "1 hour ago",
+    snap_1d: "1 day ago", snap_1w: "1 week ago", snap_1m: "1 month ago",
+  };
   const snapMap = new Map(snaps.map(s => [s.id, s]));
+  const hasAny = snaps.length > 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-      <div style={sectionLabel}>Snapshot Carousel — 5 Rolling Points</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+        <div style={sectionLabel}>Snapshot Carousel — 5 Rolling Points</div>
+        <ActionBtn label={taking ? "Taking…" : "Take Snapshot Now"} onClick={handleTakeNow} disabled={taking} active />
+      </div>
+
       <div style={treeLine}>
+        {!hasAny && (
+          <div style={{ fontFamily: "monospace", fontSize: "0.82em", color: "var(--text-muted)", paddingTop: "0.3rem" }}>
+            <span style={{ color: "var(--text-muted)" }}>◇◇◇◇◇</span>
+            <span style={{ marginLeft: "0.6rem" }}>No snapshots yet — snapshots are taken automatically every 50 writes or 5 minutes.</span>
+          </div>
+        )}
         {SNAP_ORDER.map(id => {
           const snap = snapMap.get(id);
-          const labels: Record<string, string> = {
-            snap_now: "Now", snap_1h: "1 hour ago",
-            snap_1d: "1 day ago", snap_1w: "1 week ago", snap_1m: "1 month ago",
-          };
+          const label = SNAP_LABELS[id];
           return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.3rem", fontFamily: "monospace", fontSize: "0.82em", flexWrap: "wrap" }}>
+            <div key={id} style={{
+              display: "flex", alignItems: "center", gap: "0.5rem",
+              marginBottom: "0.35rem", fontFamily: "monospace", fontSize: "0.82em",
+              flexWrap: "wrap", opacity: snap ? 1 : 0.45,
+            }}>
               <StatusDot ok={!!snap} />
-              <span style={{ color: "var(--text-color)", minWidth: "7rem" }}>{labels[id]}</span>
+              <span style={{ color: snap ? "var(--text-color)" : "var(--text-muted)", minWidth: "7rem" }}>{label}</span>
               {snap ? (
                 <>
                   <span style={metaTag}>{new Date(snap.timestamp).toLocaleString()}</span>
                   <span style={metaTag}>{formatBytes(snap.sizeBytes)}</span>
+                  <span style={{ ...metaTag, color: "var(--text-muted)" }}>
+                    {snap.stores?.length ? `${snap.stores.length} stores` : ""}
+                  </span>
                   <ActionBtn
                     label={restoring === id ? "Restoring…" : "Restore"}
-                    onClick={() => handleRestore(id, labels[id])}
+                    onClick={() => handleRestore(id, label)}
                     disabled={restoring !== null}
                   />
                 </>
               ) : (
-                <span style={{ color: "var(--text-muted)", fontSize: "0.78em" }}>— no snapshot yet</span>
+                <span style={{ color: "var(--text-muted)", fontSize: "0.78em" }}>— not yet captured</span>
               )}
             </div>
           );
         })}
       </div>
+
       {status && (
         <div style={{ fontFamily: "monospace", fontSize: "0.78em", color: "var(--text-muted)", borderLeft: "2px solid var(--border-color)", paddingLeft: "0.6rem", marginTop: "0.3rem" }}>
           {status}
@@ -426,7 +547,7 @@ function SnapshotsSection({ deviceId }: { deviceId: string }) {
 // ── Section: Trash ───────────────────────────────────────────────────────────
 
 function TrashSection() {
-  const [items, setItems] = useState<AetherTrashEntry[]>([]);
+  const [items, setItems] = useState<CantoTrashEntry[]>([]);
   const [undoQueue, setUndoQueue] = useState<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [status, setStatus] = useState("");
 
@@ -546,7 +667,7 @@ function ExportImportSection({ deviceId }: { deviceId: string }) {
               }}
             />
           </div>
-          <ActionBtn label={busy ? "Exporting…" : "Download .aetherdb"} onClick={handleExport} disabled={busy} active />
+          <ActionBtn label={busy ? "Exporting…" : "Download .CantoStore"} onClick={handleExport} disabled={busy} active />
         </div>
       </div>
 
@@ -568,8 +689,8 @@ function ExportImportSection({ deviceId }: { deviceId: string }) {
               }}
             />
           </div>
-          <input ref={fileRef} type="file" accept=".aetherdb,.json" onChange={handleImport} style={{ display: "none" }} />
-          <ActionBtn label={busy ? "Importing…" : "Choose .aetherdb File"} onClick={() => fileRef.current?.click()} disabled={busy} />
+          <input ref={fileRef} type="file" accept=".CantoStore,.json" onChange={handleImport} style={{ display: "none" }} />
+          <ActionBtn label={busy ? "Importing…" : "Choose .CantoStore File"} onClick={() => fileRef.current?.click()} disabled={busy} />
         </div>
       </div>
 
@@ -744,7 +865,7 @@ export interface DataCenterProps {
 
 const DataCenter: React.FC<DataCenterProps> = ({ isOpen, onToggle, hideHeader }) => {
   const [activeTab, setActiveTab] = useState<"overview" | "sync" | "snapshots" | "trash" | "export" | "folder" | "danger">("overview");
-  const [report, setReport] = useState<AetherHealthReport | null>(null);
+  const [report, setReport] = useState<CantoHealthReport | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [idbBytes, setIdbBytes] = useState(0);
   const [deviceId, setDeviceId] = useState("");
@@ -868,6 +989,8 @@ const DataCenter: React.FC<DataCenterProps> = ({ isOpen, onToggle, hideHeader })
 };
 
 export default DataCenter;
+
+
 
 
 

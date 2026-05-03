@@ -1,5 +1,5 @@
 /**
- * AetherDB — Core API
+ * CantoStore — Core API
  * Drop-in replacement for services/dbService.ts.
  * Exact same function signatures — zero changes needed in App.tsx or any component.
  *
@@ -17,7 +17,7 @@ import type {
   CantoDBFolderEntry,
   CantoDBAnalyticsEntry,
   CantoCodexState,
-  AetherStore,
+  CantoStoreKey,
 } from './types';
 
 // ─── Re-export types (backward compat) ───────────────────────────────────────
@@ -38,7 +38,7 @@ function todayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function write(store: AetherStore, key: string, data: any, op: 'put' | 'delete' = 'put'): Promise<void> {
+async function write(store: CantoStoreKey, key: string, data: any, op: 'put' | 'delete' = 'put'): Promise<void> {
   await logWriteOp(store, key, data, op);
   queueFlush(store);
 }
@@ -66,7 +66,7 @@ export async function dbSaveCache(
     await db.cache.put(entry);
     await write('cache', key, entry);
   } catch (e) {
-    console.error('[AetherDB] Cache save failed:', e);
+    console.error('[CantoStore] Cache save failed:', e);
   }
 }
 
@@ -401,7 +401,7 @@ export async function dbMarkAchievementsSeen(): Promise<void> {
   } catch {}
 }
 
-// ─── Notes Operations (localStorage → AetherDB) ───────────────────────────────
+// ─── Notes Operations (localStorage → CantoStore) ───────────────────────────────
 
 export interface NoteEntry {
   id: string;
@@ -595,8 +595,9 @@ export async function migrateFromLocalStorage(): Promise<void> {
     const sound = localStorage.getItem('canto_sound');
     if (sound) await db.settings.put({ key: 'canto_sound', value: sound, updatedAt: Date.now() });
 
-    console.log('[AetherDB] Migrated from localStorage');
+    console.log('[CantoStore] Migrated from localStorage');
   } catch (e) {
-    console.warn('[AetherDB] Migration error:', e);
+    console.warn('[CantoStore] Migration error:', e);
   }
 }
+

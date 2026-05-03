@@ -1,5 +1,5 @@
 /**
- * AetherDB — Safety Layer
+ * CantoStore — Safety Layer
  * Snapshot carousel, integrity verification, auto-repair, trash system.
  * Zero data loss guarantee.
  */
@@ -21,8 +21,8 @@ import {
 import { sha256Hex } from './crypto';
 import { compressJSON } from './compression';
 import type {
-  AetherManifest, AetherSnapshot, AetherTrashEntry,
-  AetherStore, ManifestEntry,
+  CantoManifest, CantoSnapshot, CantoTrashEntry,
+  CantoStoreKey, ManifestEntry,
 } from './types';
 
 // ─── Snapshot IDs ─────────────────────────────────────────────────────────────
@@ -101,18 +101,18 @@ export async function takeSnapshot(
     }
 
     // Record snapshot metadata in Dexie
-    const snap: AetherSnapshot = {
+    const snap: CantoSnapshot = {
       id: snapshotId,
       label: SNAPSHOT_LABELS[snapshotId],
       timestamp: Date.now(),
       writeCount: _writeCount,
-      stores: Object.keys(allStores) as AetherStore[],
+      stores: Object.keys(allStores) as CantoStoreKey[],
       sizeBytes,
     };
     await db.snapshots.put(snap);
     _lastSnapshotAt = Date.now();
   } catch (e) {
-    console.warn('[AetherDB] Snapshot failed:', e);
+    console.warn('[CantoStore] Snapshot failed:', e);
   }
 }
 
@@ -155,7 +155,7 @@ export async function restoreFromSnapshot(
 
 // ─── Get all snapshots ────────────────────────────────────────────────────────
 
-export async function getSnapshots(): Promise<AetherSnapshot[]> {
+export async function getSnapshots(): Promise<CantoSnapshot[]> {
   const db = getDB();
   return db.snapshots.toArray();
 }
@@ -165,7 +165,7 @@ export async function getSnapshots(): Promise<AetherSnapshot[]> {
 export async function buildManifest(
   deviceId: string,
   entries: ManifestEntry[]
-): Promise<AetherManifest> {
+): Promise<CantoManifest> {
   const existing = await readManifest();
   const entriesMap: Record<string, ManifestEntry> = existing?.entries ?? {};
   for (const e of entries) {
@@ -180,7 +180,7 @@ export async function buildManifest(
   };
 }
 
-export async function readManifest(): Promise<AetherManifest | null> {
+export async function readManifest(): Promise<CantoManifest | null> {
   // Try OPFS first
   if (isOPFSAvailable()) {
     const m = await opfsReadManifest();
@@ -194,7 +194,7 @@ export async function readManifest(): Promise<AetherManifest | null> {
   return null;
 }
 
-export async function writeManifest(manifest: AetherManifest): Promise<void> {
+export async function writeManifest(manifest: CantoManifest): Promise<void> {
   if (isOPFSAvailable()) {
     await opfsWriteManifest(manifest);
   }
@@ -294,7 +294,7 @@ export async function detectFirstRunState(deviceId: string): Promise<'fresh' | '
 // ─── Auto-restore from disk ───────────────────────────────────────────────────
 
 export async function autoRestoreFromDisk(deviceId: string): Promise<boolean> {
-  const stores: AetherStore[] = [
+  const stores: CantoStoreKey[] = [
     'cache', 'history', 'favorites', 'folders',
     'analytics', 'codex', 'notes', 'graphs',
     'artHistory', 'collections', 'settings',
@@ -328,13 +328,13 @@ export async function autoRestoreFromDisk(deviceId: string): Promise<boolean> {
 const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export async function moveToTrash(
-  store: AetherStore,
+  store: CantoStoreKey,
   key: string,
   data: any
 ): Promise<string> {
   const db = getDB();
   const id = `trash_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const entry: AetherTrashEntry = {
+  const entry: CantoTrashEntry = {
     id,
     store,
     key,
@@ -386,7 +386,8 @@ export async function purgeExpiredTrash(): Promise<void> {
   await db.trash.bulkDelete(expired.map(e => e.id));
 }
 
-export async function getTrashItems(): Promise<AetherTrashEntry[]> {
+export async function getTrashItems(): Promise<CantoTrashEntry[]> {
   const db = getDB();
   return db.trash.orderBy('deletedAt').reverse().toArray();
 }
+

@@ -1,6 +1,6 @@
 /**
- * AetherDB — Layer 4: Export / Import
- * Encrypted cold storage exports (.aetherdb files).
+ * CantoStore — Layer 4: Export / Import
+ * Encrypted cold storage exports (.CantoStore files).
  * Password-protected, compressed, portable.
  */
 
@@ -9,13 +9,13 @@ import { compressJSON, decompressJSON, formatBytes } from './compression';
 import { encryptForExport, decryptFromExport } from './crypto';
 import { forceFullFlush } from './writeQueue';
 import { readManifest } from './safety';
-import type { AetherExportBundle } from './types';
+import type { CantoExportBundle } from './types';
 
-// "AetherDB v1" magic bytes: 0xAE 0x7E 0xDB 0x01
+// "CantoStore v1" magic bytes: 0xAE 0x7E 0xDB 0x01
 const MAGIC = new Uint8Array([0xAE, 0x7E, 0xDB, 0x01]);
 const EXPORT_VERSION = 1;
 
-// ─── Export to .aetherdb file ─────────────────────────────────────────────────
+// ─── Export to .CantoStore file ─────────────────────────────────────────────────
 
 export async function exportToFile(
   deviceId: string,
@@ -24,7 +24,7 @@ export async function exportToFile(
   const stores = await exportAllStores();
   const manifest = await readManifest();
 
-  const bundle: AetherExportBundle = {
+  const bundle: CantoExportBundle = {
     version: EXPORT_VERSION,
     exportedAt: Date.now(),
     deviceId,
@@ -57,14 +57,14 @@ export async function exportToFile(
   const a = document.createElement('a');
   a.href = url;
   const date = new Date().toISOString().slice(0, 10);
-  a.download = `canto-backup-${date}.aetherdb`;
+  a.download = `canto-backup-${date}.CantoStore`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// ─── Import from .aetherdb file ───────────────────────────────────────────────
+// ─── Import from .CantoStore file ───────────────────────────────────────────────
 
 export async function importFromFile(
   file: File,
@@ -76,7 +76,7 @@ export async function importFromFile(
     // Verify magic bytes
     const magic = raw.slice(0, MAGIC.length);
     if (!magic.every((b, i) => b === MAGIC[i])) {
-      return { success: false, error: 'Invalid file format — not an AetherDB export.', recordCount: 0 };
+      return { success: false, error: 'Invalid file format — not an CantoStore export.', recordCount: 0 };
     }
 
     let data = raw.slice(MAGIC.length);
@@ -91,9 +91,9 @@ export async function importFromFile(
     }
 
     // Decompress
-    let bundle: AetherExportBundle;
+    let bundle: CantoExportBundle;
     try {
-      bundle = await decompressJSON<AetherExportBundle>(data);
+      bundle = await decompressJSON<CantoExportBundle>(data);
     } catch {
       // Try without decompression (unencrypted uncompressed legacy)
       try {
@@ -174,3 +174,4 @@ export async function importLegacyJSON(
     return { success: false, recordCount: 0 };
   }
 }
+

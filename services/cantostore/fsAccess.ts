@@ -1,14 +1,14 @@
 /**
- * AetherDB — Layer 2b + Layer 3: File System Access API
+ * CantoStore — Layer 2b + Layer 3: File System Access API
  * User-picked folder on device (survives browser uninstall).
  * Also serves as Layer 3 external backup (Dropbox/Drive/USB folder).
  */
 
 import { compressJSON, decompressJSON } from './compression';
 import { encrypt, decrypt, packEncrypted, unpackEncrypted, sha256Hex } from './crypto';
-import type { AetherManifest, ManifestEntry, AetherStore } from './types';
+import type { CantoManifest, ManifestEntry, CantoStoreKey } from './types';
 
-const FS_HANDLE_KEY = 'aetherdb_fs_handle';
+const FS_HANDLE_KEY = 'cantostore_fs_handle';
 
 // ─── Availability check ───────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ export async function requestFolderAccess(): Promise<FileSystemDirectoryHandle |
   if (!isFSAccessAvailable()) return null;
   try {
     const handle = await (window as any).showDirectoryPicker({
-      id: 'aetherdb-storage',
+      id: 'cantostore-storage',
       mode: 'readwrite',
       startIn: 'documents',
     });
@@ -73,7 +73,7 @@ export function clearFolderHandle(): void {
 
 async function persistHandle(handle: FileSystemDirectoryHandle): Promise<void> {
   return new Promise((resolve) => {
-    const req = indexedDB.open('aetherdb_handles', 1);
+    const req = indexedDB.open('cantostore_handles', 1);
     req.onupgradeneeded = (e: any) => {
       e.target.result.createObjectStore('handles', { keyPath: 'key' });
     };
@@ -90,7 +90,7 @@ async function persistHandle(handle: FileSystemDirectoryHandle): Promise<void> {
 
 async function loadPersistedHandle(): Promise<FileSystemDirectoryHandle | null> {
   return new Promise((resolve) => {
-    const req = indexedDB.open('aetherdb_handles', 1);
+    const req = indexedDB.open('cantostore_handles', 1);
     req.onupgradeneeded = (e: any) => {
       e.target.result.createObjectStore('handles', { keyPath: 'key' });
     };
@@ -106,7 +106,7 @@ async function loadPersistedHandle(): Promise<FileSystemDirectoryHandle | null> 
 }
 
 function clearPersistedHandle(): void {
-  const req = indexedDB.open('aetherdb_handles', 1);
+  const req = indexedDB.open('cantostore_handles', 1);
   req.onsuccess = (e: any) => {
     const db = e.target.result;
     try {
@@ -190,7 +190,7 @@ export async function fsDelete(
 // ─── Write store (compressed + encrypted) ────────────────────────────────────
 
 export async function fsWriteStore(
-  store: AetherStore,
+  store: CantoStoreKey,
   records: any[],
   deviceId: string,
   handle?: FileSystemDirectoryHandle | null
@@ -202,7 +202,7 @@ export async function fsWriteStore(
   const { ciphertext, salt, iv } = await encrypt(compressed, deviceId);
   const blob = packEncrypted(salt, iv, ciphertext);
   const hash = await sha256Hex(blob);
-  const path = `aetherdb/_stores/${store}.adb`;
+  const path = `CantoStore/_stores/${store}.adb`;
 
   const ok = await fsWrite(path, blob, dir);
   if (!ok) return null;
@@ -221,14 +221,14 @@ export async function fsWriteStore(
 // ─── Read store ───────────────────────────────────────────────────────────────
 
 export async function fsReadStore<T = any>(
-  store: AetherStore,
+  store: CantoStoreKey,
   deviceId: string,
   handle?: FileSystemDirectoryHandle | null
 ): Promise<T[] | null> {
   const dir = handle ?? await getStoredFolderHandle();
   if (!dir) return null;
 
-  const blob = await fsRead(`aetherdb/_stores/${store}.adb`, dir);
+  const blob = await fsRead(`CantoStore/_stores/${store}.adb`, dir);
   if (!blob) return null;
   try {
     const { salt, iv, ciphertext } = unpackEncrypted(blob);
@@ -243,26 +243,26 @@ export async function fsReadStore<T = any>(
 
 export async function fsReadManifest(
   handle?: FileSystemDirectoryHandle | null
-): Promise<AetherManifest | null> {
+): Promise<CantoManifest | null> {
   const dir = handle ?? await getStoredFolderHandle();
   if (!dir) return null;
-  const blob = await fsRead('aetherdb/manifest.json', dir);
+  const blob = await fsRead('CantoStore/manifest.json', dir);
   if (!blob) return null;
   try {
-    return JSON.parse(new TextDecoder().decode(blob)) as AetherManifest;
+    return JSON.parse(new TextDecoder().decode(blob)) as CantoManifest;
   } catch {
     return null;
   }
 }
 
 export async function fsWriteManifest(
-  manifest: AetherManifest,
+  manifest: CantoManifest,
   handle?: FileSystemDirectoryHandle | null
 ): Promise<void> {
   const dir = handle ?? await getStoredFolderHandle();
   if (!dir) return;
   const enc = new TextEncoder();
-  await fsWrite('aetherdb/manifest.json', enc.encode(JSON.stringify(manifest, null, 2)), dir);
+  await fsWrite('CantoStore/manifest.json', enc.encode(JSON.stringify(manifest, null, 2)), dir);
 }
 
 // ─── Snapshot ─────────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ export async function fsWriteSnapshot(
   const compressed = await compressJSON(stores);
   const { ciphertext, salt, iv } = await encrypt(compressed, deviceId);
   const blob = packEncrypted(salt, iv, ciphertext);
-  return fsWrite(`aetherdb/_snapshots/${snapshotId}.snap`, blob, dir);
+  return fsWrite(`CantoStore/_snapshots/${snapshotId}.snap`, blob, dir);
 }
 
 export async function fsReadSnapshot(
@@ -288,7 +288,7 @@ export async function fsReadSnapshot(
 ): Promise<Record<string, any[]> | null> {
   const dir = handle ?? await getStoredFolderHandle();
   if (!dir) return null;
-  const blob = await fsRead(`aetherdb/_snapshots/${snapshotId}.snap`, dir);
+  const blob = await fsRead(`CantoStore/_snapshots/${snapshotId}.snap`, dir);
   if (!blob) return null;
   try {
     const { salt, iv, ciphertext } = unpackEncrypted(blob);
@@ -304,3 +304,5 @@ export async function fsReadSnapshot(
 export function getFolderName(handle?: FileSystemDirectoryHandle | null): string {
   return handle?.name ?? _dirHandle?.name ?? '—';
 }
+
+

@@ -26,12 +26,13 @@ import { MultimediaViewer } from './components/MultimediaViewer';
 import FactCheckPanel from './components/FactCheckPanel';
 import CantoCodex from './components/CantoCodex';
 import DataCenter from './components/DataCenter';
+import GuidedTour, { shouldShowTour } from './components/GuidedTour';
 import {
   dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
   dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics,
   dbGetCodex
 } from './services/dbService';
-import { initAetherDB, getFirstRunState } from './services/aetherdb';
+import { initCantoStore, getFirstRunState } from './services/cantostore';
 import { processCodexEvent, getAchievement } from './services/codexService';
 
 // A curated list of "banger" words and phrases for the random button.
@@ -278,7 +279,7 @@ const CompareView: React.FC<{
   );
 };
 
-// ─── History dropdown with search ────────────────────────────────────────────
+// ─── History dropdown with search — tree monospace style ─────────────────────
 const HistoryDropdown: React.FC<{
   history: string[];
   favorites: string[];
@@ -287,81 +288,176 @@ const HistoryDropdown: React.FC<{
   onViewLibrary: () => void;
 }> = ({ history, favorites, onNavigate, onClear, onViewLibrary }) => {
   const [q, setQ] = React.useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const filtered = q.trim()
     ? history.filter(t => t.toLowerCase().includes(q.toLowerCase()))
     : history;
 
+  React.useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  const highlight = (text: string) => {
+    if (!q.trim()) return <span>{text}</span>;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return <span>{text}</span>;
+    return (
+      <span>
+        {text.slice(0, idx)}
+        <mark style={{ background: 'var(--accent-color)', color: 'var(--bg-color)', padding: '0 1px' }}>
+          {text.slice(idx, idx + q.length)}
+        </mark>
+        {text.slice(idx + q.length)}
+      </span>
+    );
+  };
+
+  const treeNodeBtn: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    background: 'transparent', border: 'none',
+    borderLeft: '2px solid transparent',
+    paddingLeft: '0.6rem', paddingTop: '0.28rem', paddingBottom: '0.28rem',
+    cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em',
+    color: 'var(--text-color)', transition: 'border-color 0.1s, color 0.1s',
+  };
+
   return (
-    <div className="history-dropdown">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>
-        <span style={{ fontSize: '0.85em', fontWeight: 'bold', fontFamily: 'monospace' }}>History</span>
-        <button onClick={onClear} style={{ fontSize: '0.75em', color: '#cc0000', fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+    <div className="history-dropdown" style={{ fontFamily: 'monospace' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>
+        <span style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+          ◈ History
+        </span>
+        <button onClick={onClear} style={{ fontSize: '0.7em', letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: 'var(--text-muted)', fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer',
+          transition: 'color 0.12s' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#ff4444'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          Clear
+        </button>
       </div>
+
       {/* Search input */}
-      <div style={{ position: 'relative', marginBottom: '0.4rem' }}>
+      <div style={{ position: 'relative', marginBottom: '0.5rem',
+        borderLeft: '1px solid var(--border-color)', paddingLeft: '0.6rem' }}>
+        <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>⌕ </span>
         <input
+          ref={inputRef}
           type="text"
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder={`Search ${history.length} topics…`}
-          autoFocus
+          onKeyDown={e => { if (e.key === 'Escape') setQ(''); }}
+          placeholder={`Search ${history.length} topic${history.length !== 1 ? 's' : ''}…`}
           style={{
-            width: '100%', padding: '0.3rem 1.6rem 0.3rem 0.5rem',
-            fontFamily: 'monospace', fontSize: '0.8em',
-            background: 'var(--input-bg)', border: '1px solid var(--border-color)',
-            color: 'var(--text-color)', outline: 'none', boxSizing: 'border-box',
+            background: 'transparent', border: 'none',
+            borderBottom: '1px solid var(--border-color)',
+            color: 'var(--text-color)', fontFamily: 'monospace',
+            fontSize: '0.85em', outline: 'none',
+            padding: '0.15rem 1.4rem 0.15rem 0.2rem',
+            width: 'calc(100% - 1.6rem)',
           }}
         />
         {q && (
-          <button onClick={() => setQ('')} style={{ position: 'absolute', right: '0.3rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em', padding: 0, lineHeight: 1 }}>×</button>
+          <button onClick={() => setQ('')} style={{ position: 'absolute', right: 0, top: '50%',
+            transform: 'translateY(-50%)', background: 'none', border: 'none',
+            color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace',
+            fontSize: '1em', padding: 0, lineHeight: 1 }}>×</button>
         )}
       </div>
-      {filtered.length === 0 ? (
-        <p style={{ margin: 0, fontSize: '0.82em', color: 'var(--text-muted)', padding: '0.3rem 0', fontFamily: 'monospace' }}>
-          {q ? 'No matches.' : 'No history yet.'}
+
+      {/* Status line */}
+      {q.trim() && (
+        <div style={{ fontSize: '0.7em', color: 'var(--text-muted)', marginBottom: '0.3rem',
+          paddingLeft: '0.6rem', letterSpacing: '0.05em' }}>
+          {filtered.length === 0 ? 'No results.' : (
+            <>{filtered.length} result{filtered.length !== 1 ? 's' : ''}{' '}
+              <span style={{ color: 'var(--accent-color)' }}>✦ matched</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* History list */}
+      {filtered.length === 0 && !q ? (
+        <p style={{ margin: '0.3rem 0', fontSize: '0.82em', color: 'var(--text-muted)',
+          paddingLeft: '0.6rem', borderLeft: '1px solid var(--border-color)' }}>
+          No history yet.
         </p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '200px', overflowY: 'auto' }}>
-          {filtered.map((t, i) => {
-            const topicStr = typeof t === 'object' ? (t as any).topic || JSON.stringify(t) : String(t);
-            const idx = q ? topicStr.toLowerCase().indexOf(q.toLowerCase()) : -1;
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '180px', overflowY: 'auto',
+          borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem' }}>
+          {filtered.slice(0, 20).map((t, i) => {
+            const topicStr = typeof t === 'object' ? (t as any).topic || String(t) : String(t);
             return (
               <li key={i}>
-                <button onClick={() => onNavigate(topicStr)} style={{ width: '100%', textAlign: 'left', padding: '0.4rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--input-bg)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                <button
+                  onClick={() => onNavigate(topicStr)}
+                  style={treeNodeBtn}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                    e.currentTarget.style.color = 'var(--accent-color)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderLeftColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-color)';
+                  }}
                 >
-                  {idx >= 0 ? (
-                    <>{topicStr.slice(0, idx)}<mark style={{ background: 'var(--accent-color)', color: 'var(--bg-color)', padding: 0 }}>{topicStr.slice(idx, idx + q.length)}</mark>{topicStr.slice(idx + q.length)}</>
-                  ) : topicStr}
+                  {highlight(topicStr)}
                 </button>
               </li>
             );
           })}
         </ul>
       )}
+
+      {/* Favorites */}
       {favorites.length > 0 && (
-        <div style={{ marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: '1px solid var(--border-color)' }}>
-          <span style={{ fontSize: '0.72em', color: 'var(--text-muted)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Favorites</span>
-          <ul style={{ listStyle: 'none', padding: 0, margin: '0.3rem 0 0 0' }}>
+        <div style={{ marginTop: '0.6rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+            Starred
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0,
+            borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem' }}>
             {favorites.slice(0, 5).map((t, i) => (
               <li key={i}>
-                <button onClick={() => onNavigate(t)} style={{ width: '100%', textAlign: 'left', padding: '0.3rem 0.5rem', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.82em', color: 'var(--text-color)', fontFamily: 'monospace' }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--input-bg)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                <button
+                  onClick={() => onNavigate(t)}
+                  style={treeNodeBtn}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                    e.currentTarget.style.color = 'var(--accent-color)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderLeftColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-color)';
+                  }}
                 >
-                  ★ {t}
+                  <span style={{ color: 'var(--accent-color)', marginRight: '0.4rem' }}>◆</span>{t}
                 </button>
               </li>
             ))}
           </ul>
         </div>
       )}
+
+      {/* View Library */}
       <button
         onClick={onViewLibrary}
-        style={{ width: '100%', marginTop: '0.6rem', padding: '0.4rem', background: 'transparent', border: 'none', borderTop: '1px solid var(--border-color)', cursor: 'pointer', fontSize: '0.78em', fontFamily: 'monospace', color: 'var(--text-muted)', textAlign: 'left', textDecoration: 'underline' }}
+        style={{ width: '100%', marginTop: '0.6rem', padding: '0.35rem 0.6rem',
+          background: 'transparent', border: 'none',
+          borderTop: '1px solid var(--border-color)',
+          cursor: 'pointer', fontSize: '0.75em', fontFamily: 'monospace',
+          color: 'var(--text-muted)', textAlign: 'left',
+          letterSpacing: '0.1em', textTransform: 'uppercase',
+          transition: 'color 0.12s' }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
       >
-        View Local Library
+        ↗ View Local Library
       </button>
     </div>
   );
@@ -414,6 +510,7 @@ const App: React.FC = () => {
 
   const [isCodexOpen, setIsCodexOpen] = useState(false);
   const [isDataCenterOpen, setIsDataCenterOpen] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [codexNewCount, setCodexNewCount] = useState(0);
   const [codexToast, setCodexToast] = useState<string | null>(null);
   const [codexRank, setCodexRank] = useState('Curious Mind');
@@ -475,8 +572,13 @@ const App: React.FC = () => {
 
   // Load persisted state on mount
   useEffect(() => {
-    // ── AetherDB boot (runs first, <100ms target) ──
-    initAetherDB().catch(e => console.warn('[AetherDB] Init error:', e));
+    // ── CantoStore boot (runs first, <100ms target) ──
+    initCantoStore().catch(e => console.warn('[CantoStore] Init error:', e));
+
+    // ── Guided Tour (first-time users only) ──
+    if (shouldShowTour()) {
+      setTimeout(() => setShowTour(true), 1200); // after startup animation
+    }
 
     try {
       const savedDys = localStorage.getItem('canto_dyslexic') === 'true';
@@ -975,6 +1077,7 @@ const App: React.FC = () => {
   return (
     <>
       {showIntro && <StartupAnimation onComplete={() => setShowIntro(false)} />}
+      {showTour && !showIntro && <GuidedTour onDone={() => setShowTour(false)} />}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
 
@@ -1030,6 +1133,8 @@ const App: React.FC = () => {
         <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
 
         {/* ── Article Settings (was "Research Options") ── */}
+        {currentPage !== 'landing' && (
+        <>
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 1rem 0 1rem', fontFamily: 'monospace' }}>
           <button
             onClick={() => setIsResearchOptionsOpen(!isResearchOptionsOpen)}
@@ -1263,7 +1368,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {content && (
+          {content && currentPage !== 'landing' && (
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: '0.4rem' }}>
               <button
                 onClick={async () => {
@@ -1282,6 +1387,8 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+        </> /* end currentPage !== 'landing' Article Settings */
+        )}
 
         {!isReadingMode && currentPage !== 'landing' && (
           <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -1361,90 +1468,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Research header */}
-                  {content && (
-                    <div style={{ margin: '1rem 0 0.5rem 0', fontFamily: 'monospace' }}>
-                      <button
-                        onClick={() => setIsResearchPanelOpen(v => !v)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          background: 'transparent', border: 'none', cursor: 'pointer',
-                          fontFamily: 'monospace', fontSize: '0.72em',
-                          color: 'var(--text-muted)', padding: '0.6rem 0',
-                          width: '100%', textAlign: 'left',
-                          letterSpacing: '0.18em', textTransform: 'uppercase',
-                          transition: 'color 0.12s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <span style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                          {isResearchPanelOpen ? '▼' : '▶'}
-                        </span>
-                        <span>◈</span>
-                        <span>Research</span>
-                        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Research panel content */}
-                  {content && (
-                    <ResearchPanel
-                      topic={currentTopic}
-                      content={content}
-                      sources={lastSources}
-                      onTopicClick={handleWordClick}
-                      isOpen={isResearchPanelOpen}
-                    />
-                  )}
-
-                  {/* Codex header */}
-                  {content && (
-                    <div style={{ margin: '0.5rem 0', fontFamily: 'monospace' }}>
-                      <button
-                        onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '0.5rem',
-                          background: 'transparent', border: 'none', cursor: 'pointer',
-                          fontFamily: 'monospace', fontSize: '0.72em',
-                          color: 'var(--text-muted)', padding: '0.6rem 0',
-                          width: '100%', textAlign: 'left',
-                          letterSpacing: '0.18em', textTransform: 'uppercase',
-                          transition: 'color 0.12s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                          {isCodexOpen ? '▼' : '▶'}
-                        </span>
-                        <span>◈</span>
-                        <span>Canto Codex — {codexRank}</span>
-                        {codexNewCount > 0 && (
-                          <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em', marginLeft: '0.4rem' }}>
-                            [{codexNewCount} new]
-                          </span>
-                        )}
-                        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Codex section */}
-                  {content && (
-                    <CantoCodex
-                      isOpen={isCodexOpen}
-                      onToggle={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
-                      hideHeader={true}
-                    />
-                  )}
-
-                  {/* ── My Data Center ── */}
-                  <DataCenter
-                    isOpen={isDataCenterOpen}
-                    onToggle={() => setIsDataCenterOpen(v => !v)}
-                  />
+                  {/* ── My Data Center — moved to footer area ── */}
                   {!isLoading && !error && content.length > 0 && (
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                       <button 
@@ -1588,6 +1612,87 @@ const App: React.FC = () => {
                           {isMultimediaOpen && <MultimediaViewer topic={currentTopic} content={content} sources={lastSources} />}
                           <DidYouKnow topic={currentTopic} />
                           <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
+
+                          {/* ── ▶◈ Research ── */}
+                          {content && (
+                            <div style={{ margin: '1rem 0 0.5rem 0', fontFamily: 'monospace' }}>
+                              <button
+                                onClick={() => setIsResearchPanelOpen(v => !v)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                  background: 'transparent', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'monospace', fontSize: '0.72em',
+                                  color: 'var(--text-muted)', padding: '0.6rem 0',
+                                  width: '100%', textAlign: 'left',
+                                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                                  transition: 'color 0.12s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <span style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                                  {isResearchPanelOpen ? '▼' : '▶'}
+                                </span>
+                                <span>◈</span>
+                                <span>Research</span>
+                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+                              </button>
+                            </div>
+                          )}
+                          {content && (
+                            <ResearchPanel
+                              topic={currentTopic}
+                              content={content}
+                              sources={lastSources}
+                              onTopicClick={handleWordClick}
+                              isOpen={isResearchPanelOpen}
+                            />
+                          )}
+
+                          {/* ── ▶◈ Canto Codex ── */}
+                          {content && (
+                            <div style={{ margin: '0.5rem 0', fontFamily: 'monospace' }}>
+                              <button
+                                onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                  background: 'transparent', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'monospace', fontSize: '0.72em',
+                                  color: 'var(--text-muted)', padding: '0.6rem 0',
+                                  width: '100%', textAlign: 'left',
+                                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                                  transition: 'color 0.12s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                                  {isCodexOpen ? '▼' : '▶'}
+                                </span>
+                                <span>◈</span>
+                                <span>Canto Codex — {codexRank}</span>
+                                {codexNewCount > 0 && (
+                                  <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em', marginLeft: '0.4rem' }}>
+                                    [{codexNewCount} new]
+                                  </span>
+                                )}
+                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+                              </button>
+                            </div>
+                          )}
+                          {content && (
+                            <CantoCodex
+                              isOpen={isCodexOpen}
+                              onToggle={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                              hideHeader={true}
+                            />
+                          )}
+
+                          {/* ── ▶◈ My Data Center ── */}
+                          <DataCenter
+                            isOpen={isDataCenterOpen}
+                            onToggle={() => setIsDataCenterOpen(v => !v)}
+                          />
                         </>
                       )}
                     </>
@@ -1705,3 +1810,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

@@ -1,9 +1,9 @@
 /**
- * AetherDB — Public API
+ * CantoStore — Public API
  * Single import point. Drop-in replacement for services/dbService.ts.
  *
  * Usage:
- *   import { dbSaveCache, dbGetHistory, ... } from './services/aetherdb';
+ *   import { dbSaveCache, dbGetHistory, ... } from './services/cantostore';
  */
 
 // ─── Core DB operations (drop-in for dbService.ts) ────────────────────────────
@@ -56,23 +56,23 @@ export type {
 } from './core';
 
 export type {
-  AetherManifest,
-  AetherSnapshot,
-  AetherTrashEntry,
-  AetherDeviceIdentity,
-  AetherPeer,
-  AetherSyncLog,
-  AetherStorageStats,
-  AetherLayerStatus,
-  AetherHealthReport,
-  AetherFirstRunState,
-  AetherExportBundle,
-  AetherStore,
+  CantoManifest,
+  CantoSnapshot,
+  CantoTrashEntry,
+  CantoDeviceIdentity,
+  CantoPeer,
+  CantoSyncLog,
+  CantoStorageStats,
+  CantoLayerStatus,
+  CantoHealthReport,
+  CantoFirstRunState,
+  CantoExportBundle,
+  CantoStoreKey,
 } from './types';
 
 // ─── Initialization ───────────────────────────────────────────────────────────
 export {
-  initAetherDB,
+  initCantoStore,
   getDeviceId,
   getFirstRunState,
   getHealthReport,
@@ -144,3 +144,4 @@ export {
 
 // ─── Compression utils ────────────────────────────────────────────────────────
 export { formatBytes } from './compression';
+

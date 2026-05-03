@@ -1,5 +1,5 @@
 /**
- * AetherDB — Initialization
+ * CantoStore — Initialization
  * Boot sequence: identity → migration → integrity check → snapshot → ready.
  * Called once on app startup. Target: <100ms.
  */
@@ -14,22 +14,22 @@ import {
 import { checkDBHealth } from './dexieDB';
 import { isOPFSAvailable } from './opfs';
 import { isFSAccessAvailable, getStoredFolderHandle } from './fsAccess';
-import type { AetherFirstRunState, AetherHealthReport, AetherLayerStatus } from './types';
+import type { CantoFirstRunState, CantoHealthReport, CantoLayerStatus } from './types';
 
 // ─── Global state ─────────────────────────────────────────────────────────────
 
 let _initialized = false;
 let _deviceId = '';
-let _firstRunState: AetherFirstRunState = 'checking';
-let _healthReport: AetherHealthReport | null = null;
+let _firstRunState: CantoFirstRunState = 'checking';
+let _healthReport: CantoHealthReport | null = null;
 
 export function getDeviceId(): string { return _deviceId; }
-export function getFirstRunState(): AetherFirstRunState { return _firstRunState; }
-export function getHealthReport(): AetherHealthReport | null { return _healthReport; }
+export function getFirstRunState(): CantoFirstRunState { return _firstRunState; }
+export function getHealthReport(): CantoHealthReport | null { return _healthReport; }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
-export async function initAetherDB(): Promise<AetherFirstRunState> {
+export async function initCantoStore(): Promise<CantoFirstRunState> {
   if (_initialized) return _firstRunState;
   _initialized = true;
 
@@ -78,10 +78,10 @@ export async function initAetherDB(): Promise<AetherFirstRunState> {
     _healthReport = await buildHealthReport(dbHealthy);
 
     const elapsed = performance.now() - t0;
-    console.log(`[AetherDB] Initialized in ${elapsed.toFixed(1)}ms — state: ${_firstRunState}`);
+    console.log(`[CantoStore] Initialized in ${elapsed.toFixed(1)}ms — state: ${_firstRunState}`);
 
   } catch (e) {
-    console.error('[AetherDB] Init failed:', e);
+    console.error('[CantoStore] Init failed:', e);
     _firstRunState = 'fresh';
   }
 
@@ -90,8 +90,8 @@ export async function initAetherDB(): Promise<AetherFirstRunState> {
 
 // ─── Health report ────────────────────────────────────────────────────────────
 
-export async function buildHealthReport(dbHealthy = true): Promise<AetherHealthReport> {
-  const layers: AetherLayerStatus[] = [
+export async function buildHealthReport(dbHealthy = true): Promise<CantoHealthReport> {
+  const layers: CantoLayerStatus[] = [
     {
       layer: 1,
       name: 'IndexedDB Cache',
@@ -150,8 +150,9 @@ export async function buildHealthReport(dbHealthy = true): Promise<AetherHealthR
 
 // ─── Re-check health ──────────────────────────────────────────────────────────
 
-export async function refreshHealthReport(): Promise<AetherHealthReport> {
+export async function refreshHealthReport(): Promise<CantoHealthReport> {
   const dbHealthy = await checkDBHealth();
   _healthReport = await buildHealthReport(dbHealthy);
   return _healthReport;
 }
+

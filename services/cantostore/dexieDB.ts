@@ -1,5 +1,5 @@
 /**
- * AetherDB — Layer 1: Dexie.js IndexedDB Cache
+ * CantoStore — Layer 1: Dexie.js IndexedDB Cache
  * Fast working cache. All reads/writes go here first.
  * This is the hot path — target <2ms reads, <5ms writes.
  */
@@ -12,9 +12,9 @@ import type {
   CantoDBFolderEntry,
   CantoDBAnalyticsEntry,
   CantoCodexState,
-  AetherTrashEntry,
-  AetherWriteOp,
-  AetherSnapshot,
+  CantoTrashEntry,
+  CantoWriteOp,
+  CantoSnapshot,
 } from './types';
 
 // ─── Settings / misc store entries ───────────────────────────────────────────
@@ -53,7 +53,7 @@ export interface CollectionEntry {
 
 // ─── Dexie Database ───────────────────────────────────────────────────────────
 
-class AetherDexie extends Dexie {
+class CantoDexie extends Dexie {
   cache!: Table<CantoDBCacheEntry, string>;
   history!: Table<CantoDBHistoryEntry, string>;
   favorites!: Table<CantoDBFavoriteEntry, string>;
@@ -65,12 +65,12 @@ class AetherDexie extends Dexie {
   artHistory!: Table<ArtHistoryEntry, string>;
   collections!: Table<CollectionEntry, string>;
   settings!: Table<SettingsEntry, string>;
-  trash!: Table<AetherTrashEntry, string>;
-  writeQueue!: Table<AetherWriteOp, string>;
-  snapshots!: Table<AetherSnapshot, string>;
+  trash!: Table<CantoTrashEntry, string>;
+  writeQueue!: Table<CantoWriteOp, string>;
+  snapshots!: Table<CantoSnapshot, string>;
 
   constructor() {
-    super('aetherdb_v1');
+    super('cantostore_v1');
 
     this.version(1).stores({
       cache:       'topic, timestamp, folder',
@@ -93,10 +93,10 @@ class AetherDexie extends Dexie {
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-let _db: AetherDexie | null = null;
+let _db: CantoDexie | null = null;
 
-export function getDB(): AetherDexie {
-  if (!_db) _db = new AetherDexie();
+export function getDB(): CantoDexie {
+  if (!_db) _db = new CantoDexie();
   return _db;
 }
 
@@ -212,3 +212,5 @@ export async function clearAllStores(): Promise<void> {
     }
   );
 }
+
+

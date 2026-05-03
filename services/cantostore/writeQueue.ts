@@ -1,5 +1,5 @@
 /**
- * AetherDB — Write Queue & Flush Engine
+ * CantoStore — Write Queue & Flush Engine
  * Every write goes to Dexie immediately (<5ms).
  * Debounced 2-second flush to OPFS + FS Access.
  * Background Sync API integration for tab-close safety.
@@ -17,12 +17,12 @@ import {
   incrementWriteCount, shouldTakeSnapshot,
   runSnapshotCarousel, writeManifest, buildManifest,
 } from './safety';
-import type { AetherStore, AetherWriteOp } from './types';
+import type { CantoStoreKey, CantoWriteOp } from './types';
 
 // ─── Flush state ──────────────────────────────────────────────────────────────
 
 let _flushTimer: ReturnType<typeof setTimeout> | null = null;
-let _pendingStores = new Set<AetherStore>();
+let _pendingStores = new Set<CantoStoreKey>();
 let _deviceId = '';
 let _isFlushing = false;
 const FLUSH_DEBOUNCE_MS = 2000;
@@ -35,7 +35,7 @@ export function initWriteQueue(deviceId: string): void {
 
 // ─── Queue a write ────────────────────────────────────────────────────────────
 
-export function queueFlush(store: AetherStore): void {
+export function queueFlush(store: CantoStoreKey): void {
   _pendingStores.add(store);
   scheduleFlush();
 }
@@ -43,7 +43,7 @@ export function queueFlush(store: AetherStore): void {
 function scheduleFlush(): void {
   if (_flushTimer) clearTimeout(_flushTimer);
   _flushTimer = setTimeout(() => {
-    flushToDisk().catch(e => console.warn('[AetherDB] Flush error:', e));
+    flushToDisk().catch(e => console.warn('[CantoStore] Flush error:', e));
   }, FLUSH_DEBOUNCE_MS);
 }
 
@@ -56,7 +56,7 @@ export async function flushToDisk(force = false): Promise<void> {
   _isFlushing = true;
   const storesToFlush = force
     ? (['cache', 'history', 'favorites', 'folders', 'analytics', 'codex',
-        'notes', 'graphs', 'artHistory', 'collections', 'settings'] as AetherStore[])
+        'notes', 'graphs', 'artHistory', 'collections', 'settings'] as CantoStoreKey[])
     : Array.from(_pendingStores);
 
   _pendingStores.clear();
@@ -114,7 +114,7 @@ export async function flushToDisk(force = false): Promise<void> {
     await db.writeQueue.clear();
 
   } catch (e) {
-    console.warn('[AetherDB] Flush failed:', e);
+    console.warn('[CantoStore] Flush failed:', e);
     // Re-queue failed stores
     for (const s of storesToFlush) _pendingStores.add(s);
   } finally {
@@ -140,7 +140,7 @@ function registerBackgroundSync(): void {
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
     navigator.serviceWorker.ready.then(reg => {
       // Register a sync tag so SW can flush if tab closes
-      (reg as any).sync?.register('aetherdb-flush').catch(() => {});
+      (reg as any).sync?.register('cantostore-flush').catch(() => {});
     }).catch(() => {});
   }
 
@@ -149,7 +149,7 @@ function registerBackgroundSync(): void {
     if (_pendingStores.size > 0) {
       // Use sendBeacon as a last resort signal to SW
       if (navigator.sendBeacon) {
-        navigator.sendBeacon('/api/noop', JSON.stringify({ aetherdb: 'flush' }));
+        navigator.sendBeacon('/api/noop', JSON.stringify({ CantoStore: 'flush' }));
       }
       // Attempt synchronous-ish flush
       flushToDisk(true).catch(() => {});
@@ -167,14 +167,14 @@ function registerBackgroundSync(): void {
 // ─── Write op logging (for audit trail) ──────────────────────────────────────
 
 export async function logWriteOp(
-  store: AetherStore,
+  store: CantoStoreKey,
   key: string,
   data: any,
   operation: 'put' | 'delete'
 ): Promise<void> {
   try {
     const db = getDB();
-    const op: AetherWriteOp = {
+    const op: CantoWriteOp = {
       id: `wop_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       store,
       key,
@@ -185,3 +185,4 @@ export async function logWriteOp(
     await db.writeQueue.put(op);
   } catch {}
 }
+

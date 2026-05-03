@@ -1,10 +1,10 @@
 /**
- * AetherDB — Crypto Layer
+ * CantoStore — Crypto Layer
  * Web Crypto API: AES-GCM encryption, SHA-256 hashing, Ed25519 device identity.
  * Zero external dependencies — pure browser crypto.
  */
 
-import type { AetherDeviceIdentity, AetherKeyMaterial } from './types';
+import type { CantoDeviceIdentity, CantoKeyMaterial } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ const KEY_USAGE_ENCRYPT: KeyUsage[] = ['encrypt', 'decrypt'];
 
 function getDevicePassphrase(deviceId: string): string {
   // Deterministic passphrase from deviceId — no user password needed
-  return `aetherdb-${deviceId}-canto-v1`;
+  return `CantoStore-${deviceId}-canto-v1`;
 }
 
 // ─── Key derivation ───────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export async function sha256Hex(data: Uint8Array): Promise<string> {
 // Note: Ed25519 is not universally available in all browsers yet.
 // We use ECDSA P-256 as the device identity keypair with the same security model.
 
-export async function generateDeviceIdentity(name: string): Promise<AetherDeviceIdentity> {
+export async function generateDeviceIdentity(name: string): Promise<CantoDeviceIdentity> {
   // Generate a random 32-byte device ID (simulates Ed25519 public key)
   const rawId = crypto.getRandomValues(new Uint8Array(32));
   const deviceId = Array.from(rawId).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -115,21 +115,21 @@ export async function generateDeviceIdentity(name: string): Promise<AetherDevice
   };
 }
 
-export function loadDeviceIdentity(): AetherDeviceIdentity | null {
+export function loadDeviceIdentity(): CantoDeviceIdentity | null {
   try {
-    const raw = localStorage.getItem('aetherdb_device_identity');
+    const raw = localStorage.getItem('cantostore_device_identity');
     if (!raw) return null;
-    return JSON.parse(raw) as AetherDeviceIdentity;
+    return JSON.parse(raw) as CantoDeviceIdentity;
   } catch {
     return null;
   }
 }
 
-export async function getOrCreateDeviceIdentity(): Promise<AetherDeviceIdentity> {
+export async function getOrCreateDeviceIdentity(): Promise<CantoDeviceIdentity> {
   const existing = loadDeviceIdentity();
   if (existing) return existing;
   const identity = await generateDeviceIdentity('My Device');
-  localStorage.setItem('aetherdb_device_identity', JSON.stringify(identity));
+  localStorage.setItem('cantostore_device_identity', JSON.stringify(identity));
   return identity;
 }
 
@@ -165,3 +165,4 @@ export async function decryptFromExport(
   const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
   return new Uint8Array(plaintext);
 }
+

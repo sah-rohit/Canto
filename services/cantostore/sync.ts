@@ -1,5 +1,5 @@
 /**
- * AetherDB — Sync Layer
+ * CantoStore — Sync Layer
  * WebRTC DataChannels for LAN P2P sync.
  * Yjs CRDTs for conflict-free merge.
  * Device identity via Ed25519-style keypairs.
@@ -11,7 +11,7 @@ import { getDB, exportAllStores, importAllStores } from './dexieDB';
 import { getOrCreateDeviceIdentity, generatePairingCode } from './crypto';
 import { forceFullFlush } from './writeQueue';
 import type {
-  AetherDeviceIdentity, AetherPeer, AetherSyncLog, AetherStore,
+  CantoDeviceIdentity, CantoPeer, CantoSyncLog, CantoStoreKey,
 } from './types';
 
 // ─── Yjs document (CRDT state) ────────────────────────────────────────────────
@@ -61,18 +61,18 @@ export async function mergeYjsIntoDexie(): Promise<void> {
 
 // ─── Peer registry ────────────────────────────────────────────────────────────
 
-const _peers = new Map<string, AetherPeer>();
-const _syncLogs: AetherSyncLog[] = [];
+const _peers = new Map<string, CantoPeer>();
+const _syncLogs: CantoSyncLog[] = [];
 
-export function getKnownPeers(): AetherPeer[] {
+export function getKnownPeers(): CantoPeer[] {
   return Array.from(_peers.values());
 }
 
-export function getSyncLogs(): AetherSyncLog[] {
+export function getSyncLogs(): CantoSyncLog[] {
   return _syncLogs.slice(-50); // last 50 entries
 }
 
-function logSync(log: Omit<AetherSyncLog, 'id'>): void {
+function logSync(log: Omit<CantoSyncLog, 'id'>): void {
   _syncLogs.push({ id: `sync_${Date.now()}`, ...log });
   if (_syncLogs.length > 100) _syncLogs.shift();
 }
@@ -100,7 +100,7 @@ const RTC_CONFIG: RTCConfiguration = {
 export async function initiateSync(peerId: string): Promise<string> {
   const identity = await getOrCreateDeviceIdentity();
   const conn = new RTCPeerConnection(RTC_CONFIG);
-  const channel = conn.createDataChannel('aetherdb-sync', { ordered: true });
+  const channel = conn.createDataChannel('cantostore-sync', { ordered: true });
 
   const session: RTCSession = { peerId, conn, channel, state: 'connecting' };
   _sessions.set(peerId, session);
@@ -214,7 +214,7 @@ export async function completeSync(peerId: string, answerBase64: string): Promis
 function setupDataChannel(
   channel: RTCDataChannel,
   peerId: string,
-  identity: AetherDeviceIdentity
+  identity: CantoDeviceIdentity
 ): void {
   channel.binaryType = 'arraybuffer';
 
@@ -262,7 +262,7 @@ async function handleSyncMessage(
   msg: any,
   channel: RTCDataChannel,
   peerId: string,
-  identity: AetherDeviceIdentity
+  identity: CantoDeviceIdentity
 ): Promise<void> {
   const doc = getYDoc();
 
@@ -368,3 +368,4 @@ export async function generateQRPayload(): Promise<{ code: string; payload: stri
 export function getConnectedPeerCount(): number {
   return Array.from(_sessions.values()).filter(s => s.state === 'connected').length;
 }
+

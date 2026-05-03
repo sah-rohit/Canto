@@ -1,14 +1,14 @@
 /**
- * AetherDB — Layer 2a: Origin Private File System (OPFS)
+ * CantoStore — Layer 2a: Origin Private File System (OPFS)
  * Hidden backup that survives browser cache clears.
  * Files are compressed + encrypted before writing.
  */
 
 import { compress, decompress, compressJSON, decompressJSON } from './compression';
 import { encrypt, decrypt, packEncrypted, unpackEncrypted, sha256Hex } from './crypto';
-import type { AetherManifest, ManifestEntry, AetherStore } from './types';
+import type { CantoManifest, ManifestEntry, CantoStoreKey } from './types';
 
-const OPFS_ROOT = 'aetherdb';
+const OPFS_ROOT = 'CantoStore';
 const MANIFEST_PATH = 'manifest.json';
 
 // ─── OPFS availability check ──────────────────────────────────────────────────
@@ -112,7 +112,7 @@ export async function estimateOPFSSize(): Promise<number> {
 // ─── Write store data (compressed + encrypted) ───────────────────────────────
 
 export async function opfsWriteStore(
-  store: AetherStore,
+  store: CantoStoreKey,
   key: string,
   data: any,
   deviceId: string
@@ -139,7 +139,7 @@ export async function opfsWriteStore(
 // ─── Read store data (decrypt + decompress) ───────────────────────────────────
 
 export async function opfsReadStore<T = any>(
-  store: AetherStore,
+  store: CantoStoreKey,
   key: string,
   deviceId: string
 ): Promise<T | null> {
@@ -158,7 +158,7 @@ export async function opfsReadStore<T = any>(
 // ─── Write entire store as a single file ─────────────────────────────────────
 
 export async function opfsWriteStoreAll(
-  store: AetherStore,
+  store: CantoStoreKey,
   records: any[],
   deviceId: string
 ): Promise<ManifestEntry> {
@@ -184,7 +184,7 @@ export async function opfsWriteStoreAll(
 // ─── Read entire store ────────────────────────────────────────────────────────
 
 export async function opfsReadStoreAll<T = any>(
-  store: AetherStore,
+  store: CantoStoreKey,
   deviceId: string
 ): Promise<T[] | null> {
   const path = `_stores/${store}.adb`;
@@ -201,18 +201,18 @@ export async function opfsReadStoreAll<T = any>(
 
 // ─── Manifest operations ──────────────────────────────────────────────────────
 
-export async function opfsReadManifest(): Promise<AetherManifest | null> {
+export async function opfsReadManifest(): Promise<CantoManifest | null> {
   const blob = await opfsRead(MANIFEST_PATH);
   if (!blob) return null;
   try {
     const dec = new TextDecoder();
-    return JSON.parse(dec.decode(blob)) as AetherManifest;
+    return JSON.parse(dec.decode(blob)) as CantoManifest;
   } catch {
     return null;
   }
 }
 
-export async function opfsWriteManifest(manifest: AetherManifest): Promise<void> {
+export async function opfsWriteManifest(manifest: CantoManifest): Promise<void> {
   const enc = new TextEncoder();
   await opfsWrite(MANIFEST_PATH, enc.encode(JSON.stringify(manifest, null, 2)));
 }
@@ -263,3 +263,4 @@ export async function verifyFileIntegrity(
 function sanitizeKey(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 100);
 }
+

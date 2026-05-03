@@ -1,6 +1,6 @@
 /**
  * services/dbService.ts — Compatibility shim
- * All exports now come from AetherDB (services/aetherdb/index.ts).
+ * All exports now come from CantoStore (services/cantostore/index.ts).
  * Every existing import in App.tsx, ResearchPanel, CantoCodex, etc. continues to work unchanged.
  */
 export {
@@ -11,9 +11,10 @@ export {
   dbCreateFolder, dbGetFolders, dbDeleteFolder,
   dbRecordAnalytics, dbGetAnalytics,
   dbGetCodex, dbSaveCodex, dbMarkAchievementsSeen,
-} from "./aetherdb/index";
+} from "./cantostore/index";
 
 export type {
   CantoDBCacheEntry, CantoDBHistoryEntry, CantoDBFavoriteEntry,
   CantoDBFolderEntry, CantoDBAnalyticsEntry, CantoCodexState,
-} from "./aetherdb/index";
+} from "./cantostore/index";
+

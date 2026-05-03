@@ -534,6 +534,21 @@ export default defineConfig(({ mode }) => {
         terserOptions: {
           compress: { drop_console: false },
         },
+        chunkSizeWarningLimit: 600,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // React core
+              'vendor-react': ['react', 'react-dom'],
+              // Markdown rendering
+              'vendor-markdown': ['react-markdown', 'remark-gfm'],
+              // Dexie + Yjs (heavy storage/sync libs)
+              'vendor-storage': ['dexie', 'yjs'],
+              // Compression
+              'vendor-compress': ['fflate'],
+            },
+          },
+        },
       },
     };
 });

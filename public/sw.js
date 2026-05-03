@@ -1,4 +1,4 @@
-// Canto Service Worker — AetherDB Background Sync + Offline support
+// Canto Service Worker — CantoStore Background Sync + Offline support
 const CACHE_NAME = "canto-v2";
 const STATIC_ASSETS = ["/", "/canto-icon.svg", "/manifest.json"];
 
@@ -18,13 +18,13 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Background Sync — flush AetherDB write queue when tab closes
+// Background Sync — flush CantoStore write queue when tab closes
 self.addEventListener("sync", (event) => {
-  if (event.tag === "aetherdb-flush") {
+  if (event.tag === "cantostore-flush") {
     event.waitUntil(
       self.clients.matchAll().then((clients) => {
         clients.forEach((client) =>
-          client.postMessage({ type: "AETHERDB_FLUSH_REQUEST" })
+          client.postMessage({ type: "CANTOSTORE_FLUSH_REQUEST" })
         );
       })
     );
@@ -33,8 +33,8 @@ self.addEventListener("sync", (event) => {
 
 // Message handler — receive flush confirmation from app
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "AETHERDB_FLUSH_COMPLETE") {
-    console.log("[SW] AetherDB flush confirmed");
+  if (event.data?.type === "CANTOSTORE_FLUSH_COMPLETE") {
+    console.log("[SW] CantoStore flush confirmed");
   }
 });
 
@@ -60,3 +60,4 @@ self.addEventListener("fetch", (event) => {
       )
   );
 });
+

@@ -1,5 +1,5 @@
 /**
- * AetherDB — Type Definitions
+ * CantoStore — Type Definitions
  * All shared types for the 4-layer persistence system.
  */
 
@@ -64,7 +64,7 @@ export interface CantoCodexState {
   labsDiscovered: string[];
 }
 
-// ─── AetherDB-specific types ──────────────────────────────────────────────────
+// ─── CantoStore-specific types ──────────────────────────────────────────────────
 
 /** A single file entry in the manifest */
 export interface ManifestEntry {
@@ -72,13 +72,13 @@ export interface ManifestEntry {
   hash: string;           // SHA-256 hex of compressed+encrypted content
   size: number;           // bytes
   timestamp: number;      // last modified
-  store: AetherStore;     // which logical store
+  store: CantoStoreKey;     // which logical store
   compressed: boolean;
   encrypted: boolean;
 }
 
 /** The manifest.json tracking all persisted files */
-export interface AetherManifest {
+export interface CantoManifest {
   version: number;
   deviceId: string;
   lastUpdated: number;
@@ -87,19 +87,19 @@ export interface AetherManifest {
 }
 
 /** A snapshot entry in the carousel */
-export interface AetherSnapshot {
+export interface CantoSnapshot {
   id: string;             // e.g. "snap_now", "snap_1h", "snap_1d", "snap_1w", "snap_1m"
   label: string;          // human-readable: "Now", "1 hour ago", etc.
   timestamp: number;
   writeCount: number;
-  stores: AetherStore[];  // which stores are included
+  stores: CantoStoreKey[];  // which stores are included
   sizeBytes: number;
 }
 
 /** Soft-delete trash entry */
-export interface AetherTrashEntry {
+export interface CantoTrashEntry {
   id: string;
-  store: AetherStore;
+  store: CantoStoreKey;
   key: string;
   data: any;
   deletedAt: number;
@@ -107,7 +107,7 @@ export interface AetherTrashEntry {
 }
 
 /** Device identity for P2P sync */
-export interface AetherDeviceIdentity {
+export interface CantoDeviceIdentity {
   deviceId: string;       // Ed25519 public key hex
   privateKeyHex: string;  // Ed25519 private key hex (stored locally only)
   name: string;           // user-friendly device name
@@ -115,7 +115,7 @@ export interface AetherDeviceIdentity {
 }
 
 /** Peer device info for sync */
-export interface AetherPeer {
+export interface CantoPeer {
   deviceId: string;
   name: string;
   lastSeen: number;
@@ -124,24 +124,24 @@ export interface AetherPeer {
 }
 
 /** Sync log entry */
-export interface AetherSyncLog {
+export interface CantoSyncLog {
   id: string;
   timestamp: number;
   peerId: string;
   direction: 'push' | 'pull' | 'merge';
-  storesAffected: AetherStore[];
+  storesAffected: CantoStoreKey[];
   recordCount: number;
   success: boolean;
   error?: string;
 }
 
 /** Storage usage stats */
-export interface AetherStorageStats {
+export interface CantoStorageStats {
   indexedDBBytes: number;
   opfsBytes: number;
   externalBytes: number;
   totalBytes: number;
-  recordCounts: Record<AetherStore, number>;
+  recordCounts: Record<CantoStoreKey, number>;
   lastFlush: number;
   pendingWrites: number;
   snapshotCount: number;
@@ -149,9 +149,9 @@ export interface AetherStorageStats {
 }
 
 /** Write operation for the write queue */
-export interface AetherWriteOp {
+export interface CantoWriteOp {
   id: string;
-  store: AetherStore;
+  store: CantoStoreKey;
   key: string;
   data: any;
   timestamp: number;
@@ -159,13 +159,13 @@ export interface AetherWriteOp {
 }
 
 /** Encryption key material */
-export interface AetherKeyMaterial {
+export interface CantoKeyMaterial {
   salt: Uint8Array;
   iv: Uint8Array;
 }
 
 /** Logical store names */
-export type AetherStore =
+export type CantoStoreKey =
   | 'cache'
   | 'history'
   | 'favorites'
@@ -179,7 +179,7 @@ export type AetherStore =
   | 'settings';
 
 /** Layer status for the dashboard */
-export interface AetherLayerStatus {
+export interface CantoLayerStatus {
   layer: 1 | 2 | 3 | 4;
   name: string;
   available: boolean;
@@ -190,9 +190,9 @@ export interface AetherLayerStatus {
 }
 
 /** Full system health report */
-export interface AetherHealthReport {
+export interface CantoHealthReport {
   healthy: boolean;
-  layers: AetherLayerStatus[];
+  layers: CantoLayerStatus[];
   lastIntegrityCheck: number;
   corruptionDetected: boolean;
   autoRepaired: boolean;
@@ -201,19 +201,20 @@ export interface AetherHealthReport {
 }
 
 /** Export bundle for cold storage */
-export interface AetherExportBundle {
+export interface CantoExportBundle {
   version: number;
   exportedAt: number;
   deviceId: string;
   encrypted: boolean;
   compressed: boolean;
-  stores: Partial<Record<AetherStore, any[]>>;
-  manifest: AetherManifest;
+  stores: Partial<Record<CantoStoreKey, any[]>>;
+  manifest: CantoManifest;
 }
 
 /** First-run state */
-export type AetherFirstRunState =
+export type CantoFirstRunState =
   | 'checking'
   | 'fresh'           // no data anywhere
   | 'restore'         // data found on disk, IndexedDB empty
   | 'ready';          // data in IndexedDB, all good
+
