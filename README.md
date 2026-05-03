@@ -1,17 +1,17 @@
 <div align="center">
 
 ```
-                     ░░░░░░░░░░░                  
-                 ░░░░░░░░░░░░░░░░░                
-              ░░░░░░░░░░░░░░░░░░░░░░              
-           ░░░░░░░░░░░░░░░░░░░░░░░░░░░            
-          ░░░░░░░░░░░▒▒░░░░░░░░░░░░░░░░           
-         ░░░░░░░░░░▒▒▒▒▒░░░░░░░░░░░░░░░░          
-          ░░░░░░░░░░▒▒▒░░░░░░░░░░░░░░░░           
-           ░░░░░░░░░░░░░░░░░░░░░░░░░░░            
-              ░░░░░░░░░░░░░░░░░░░░░░              
-                 ░░░░░░░░░░░░░░░░░                
-                     ░░░░░░░░░░░                  
+                     ░░░░░░░░░░░                
+                 ░░░░░░░░░░░░░░░░░              
+              ░░░░░░░░░░░░░░░░░░░░░░            
+           ░░░░░░░░░░░░░░░░░░░░░░░░░░░          
+          ░░░░░░░░░░░▒▒░░░░░░░░░░░░░░░░         
+         ░░░░░░░░░░▒▒▒▒▒░░░░░░░░░░░░░░░░        
+          ░░░░░░░░░░▒▒▒░░░░░░░░░░░░░░░░         
+           ░░░░░░░░░░░░░░░░░░░░░░░░░░░          
+              ░░░░░░░░░░░░░░░░░░░░░░            
+                 ░░░░░░░░░░░░░░░░░              
+                     ░░░░░░░░░░░                
 ```
 
 # CANTO
@@ -47,28 +47,27 @@
   <br/><em>Personalized Local Library & Favorites</em>
 </div>
 
-
 ## ✨ Features
 
-| Category | Feature |
-|---|---|
-| 🧠 **AI** | 7-provider fallback chain — Groq → GitHub DeepSeek V3 → GitHub Grok mini 3 → CF Gemini Flash → CF Llama 3.3 70B → Ollama Qwen3 80B → Ollama Nemotron 30B |
-| 📚 **Knowledge** | Wikipedia, NASA, CORE Academic, Open Library, Jina/DuckDuckGo web search — all fetched in parallel before generation |
-| 🎨 **ASCII Art** | AI-generated recognizable visual art for every topic |
-| 🧪 **Canto Labs** | Advanced deep exploration suite featuring Evolution & Time, Mind Topology Graphs, Transparency traces (ECDI), Lens/Comparisons, and Study tools |
-| 🔍 **Advanced Search** | Context modifiers for Lenses, variable Search Depth (0.5 to 2 credits), Tone adjustments, Length settings, and Dynamic Source toggling |
-| ◈ **Research** | Inline panel: AI follow-ups, source citations, full-text search, folders, starred entries, 7-day analytics |
-| ⚡ **Streaming** | Token-by-token SSE streaming with smooth CSS fade-in animation |
-| 📖 **Reading** | Distraction-free reading mode, font size slider (80–150%) |
-| 🗄️ **Storage** | IndexedDB v3: cache, history, favorites, folders, analytics — all local, no cloud |
-| 🔗 **Sharing** | Base64-encoded shareable article URLs |
-| 🔀 **Threading & Diffing** | Full side-by-side view comparisons with historical versions, and branching thread paths to track your reading trail |
-| ♿ **Accessibility** | Built-in dyslexia-friendly OpenDyslexic font support and high-contrast theme toggles |
-| 🏷️ **Tagging** | Dynamic customizable article tagging (e.g. `#physics`) for quick lookup and categorization |
-| 🔒 **Security** | Server-side API proxy, IP-based rate limiting (15/day), no client key exposure |
-| 🎭 **Themes** | Classic, Obsidian, Dark Neon, Vintage, High Contrast |
-| 📱 **PWA** | Installable on mobile and desktop, offline caching via service worker |
-| 🔔 **Sound** | Optional Web Audio API sound effects (search complete, word click) |
+| Category                        | Feature                                                                                                                                                         |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧠**AI**                  | 7-provider fallback chain — Groq → GitHub DeepSeek V3 → GitHub Grok mini 3 → CF Gemini Flash → CF Llama 3.3 70B → Ollama Qwen3 80B → Ollama Nemotron 30B |
+| 📚**Knowledge**           | Wikipedia, NASA, CORE Academic, Open Library, Jina/DuckDuckGo web search — all fetched in parallel before generation                                           |
+| 🎨**ASCII Art**           | AI-generated recognizable visual art for every topic                                                                                                            |
+| 🧪**Canto Labs**          | Advanced deep exploration suite featuring Evolution & Time, Mind Topology Graphs, Transparency traces (ECDI), Lens/Comparisons, and Study tools                 |
+| 🔍**Advanced Search**     | Context modifiers for Lenses, variable Search Depth (0.5 to 2 credits), Tone adjustments, Length settings, and Dynamic Source toggling                          |
+| ◈**Research**            | Inline panel: AI follow-ups, source citations, full-text search, folders, starred entries, 7-day analytics                                                      |
+| ⚡**Streaming**           | Token-by-token SSE streaming with smooth CSS fade-in animation                                                                                                  |
+| 📖**Reading**             | Distraction-free reading mode, font size slider (80–150%)                                                                                                      |
+| 🗄️**Storage**           | IndexedDB v3: cache, history, favorites, folders, analytics — all local, no cloud                                                                              |
+| 🔗**Sharing**             | Base64-encoded shareable article URLs                                                                                                                           |
+| 🔀**Threading & Diffing** | Full side-by-side view comparisons with historical versions, and branching thread paths to track your reading trail                                             |
+| ♿**Accessibility**       | Built-in dyslexia-friendly OpenDyslexic font support and high-contrast theme toggles                                                                            |
+| 🏷️**Tagging**           | Dynamic customizable article tagging (e.g.`#physics`) for quick lookup and categorization                                                                     |
+| 🔒**Security**            | Server-side API proxy, IP-based rate limiting (15/day), no client key exposure                                                                                  |
+| 🎭**Themes**              | Classic, Obsidian, Dark Neon, Vintage, High Contrast                                                                                                            |
+| 📱**PWA**                 | Installable on mobile and desktop, offline caching via service worker                                                                                           |
+| 🔔**Sound**               | Optional Web Audio API sound effects (search complete, word click)                                                                                              |
 
 ---
 
@@ -77,17 +76,20 @@
 **Canto Labs** introduces cutting-edge analysis toolsets for deep, analytical topic dissection directly embedded within each article page:
 
 ### 1. Evolution & Time
+
 * **Temporal Viewpoints:** Dive into specific era slices (e.g. Pre-2000, 2000-2015, 2016-Present).
 * **As-of-Year Layer:** Travel back in time via the interactive time slider to see context through historical lenses up to the present day.
 * **Chronological Timelines:** Auto-extract timelines and important event logs.
 * **Future Projections:** Access highly detailed AI extrapolation paths and speculative developments.
 
 ### 2. Mind Graph (Topology)
+
 * **Topology & Genealogies:** Automatically maps out intellectual dependencies, prerequisites, and conceptual theories.
 * **Local Persistence:** Save, export, and load your interactive map structures directly within local storage for instant retrieval.
 * **Interactive Tooltips:** Deep dive via on-hover tooltip explanations for every conceptual node.
 
 ### 3. Transparency & Meta
+
 * **AI Meta-Analysis:** Demystify the reasoning cascade, identifying the underlying analytical process behind the entry.
 * **Academic Citations Trail:** Extract primary sources, authoritative excerpts, and references.
 * **Formal & Mathematical Notations:** Formulate the concept as mathematical equations, formal logic frameworks, regex, or BNF syntax.
@@ -95,6 +97,7 @@
 * **Etymology & Linguistic Roots:** Trace origins and translation sequences across eras.
 
 ### 4. Comparison & Adapt
+
 * **Cross-Topic Comparative Matrix:** Juxtapose the core subject against any custom alternative topic to construct direct analytical tables.
 * **Before & After Lens:** Analyze radical shifts across specific historical breakthrough moments.
 * **Contrasting Viewpoints:** Identify opposing schools of thought or controversial debates.
@@ -102,6 +105,7 @@
 * **Universal Metric/Scaling:** Proportional analogies to simplify vast spatial, physical, or technical metrics.
 
 ### 5. Study Tools
+
 * **Interactive Retention Checks:** Generates 3 customizable questions with an automated scoring and explanation engine.
 * **Sequel Entries:** Learn exactly what occurred directly after the topic's main timeline.
 * **Offline Knowledge Packs:** Archive all generated entries, knowledge graphs, and transparency metrics in persistent JSON format.
@@ -125,15 +129,15 @@ Customize definitions directly from the dynamic search modifier row to fit your 
 
 ## 🤖 AI Provider Chain
 
-| Priority | Provider | Model | Key Variable |
-|---|---|---|---|
-| 1 | **Groq** | `llama-3.1-8b-instant` | `GROQ_API_KEY` |
-| 2 | **GitHub Models** | `DeepSeek-V3` | `GITHUB_DEEPSEEK_KEY` |
-| 3 | **GitHub Models** | `grok-3-mini` | `GITHUB_GROK_KEY` |
-| 4 | **Cloudflare Workers AI** | `@cf/google/gemini-flash-1.5` | `CF_ACCOUNT_1_TOKEN` |
-| 5 | **Cloudflare Workers AI** | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | `CF_ACCOUNT_2_TOKEN` |
-| 6 | **Ollama Cloud** | `qwen3-next:80b-cloud` | `OLLAMA_DEEPSEEK_KEY` |
-| 7 | **Ollama Cloud** | `nemotron-3-nano:30b-cloud` | `OLLAMA_KIMI_KEY` |
+| Priority | Provider                        | Model                                        | Key Variable            |
+| -------- | ------------------------------- | -------------------------------------------- | ----------------------- |
+| 1        | **Groq**                  | `llama-3.1-8b-instant`                     | `GROQ_API_KEY`        |
+| 2        | **GitHub Models**         | `DeepSeek-V3`                              | `GITHUB_DEEPSEEK_KEY` |
+| 3        | **GitHub Models**         | `grok-3-mini`                              | `GITHUB_GROK_KEY`     |
+| 4        | **Cloudflare Workers AI** | `@cf/google/gemini-flash-1.5`              | `CF_ACCOUNT_1_TOKEN`  |
+| 5        | **Cloudflare Workers AI** | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | `CF_ACCOUNT_2_TOKEN`  |
+| 6        | **Ollama Cloud**          | `qwen3-next:80b-cloud`                     | `OLLAMA_DEEPSEEK_KEY` |
+| 7        | **Ollama Cloud**          | `nemotron-3-nano:30b-cloud`                | `OLLAMA_KIMI_KEY`     |
 
 All requests are proxied server-side — API keys are never exposed to the client bundle.
 
@@ -141,13 +145,13 @@ All requests are proxied server-side — API keys are never exposed to the clien
 
 Fetched in parallel before every AI generation:
 
-| Source | Data | Auth |
-|---|---|---|
-| **Wikipedia REST API** | Article summaries (≤1500 chars), citation-stripped | None |
-| **NASA Images API** | Space & science image descriptions | Free key |
-| **CORE Academic** | Open-access paper abstracts (LaTeX-stripped) | Free key |
-| **Open Library / Internet Archive** | Related book titles and authors | None |
-| **Jina AI + DuckDuckGo** | Live web search snippets (boilerplate-filtered) | None |
+| Source                                    | Data                                                | Auth     |
+| ----------------------------------------- | --------------------------------------------------- | -------- |
+| **Wikipedia REST API**              | Article summaries (≤1500 chars), citation-stripped | None     |
+| **NASA Images API**                 | Space & science image descriptions                  | Free key |
+| **CORE Academic**                   | Open-access paper abstracts (LaTeX-stripped)        | Free key |
+| **Open Library / Internet Archive** | Related book titles and authors                     | None     |
+| **Jina AI + DuckDuckGo**            | Live web search snippets (boilerplate-filtered)     | None     |
 
 ## 🏗️ Architecture
 
@@ -196,19 +200,19 @@ npm run build && npm run preview   # production build
 
 ## 🔑 API Keys
 
-| Variable | Service | Purpose | Free? |
-|---|---|---|---|
-| `GROQ_API_KEY` | [Groq](https://console.groq.com) | Primary AI | ✅ |
-| `GITHUB_DEEPSEEK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback | ✅ |
-| `GITHUB_GROK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback | ✅ |
-| `CF_ACCOUNT_1_ID` | [Cloudflare](https://dash.cloudflare.com) | CF account 1 | ✅ |
-| `CF_ACCOUNT_1_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (Gemini Flash) | ✅ |
-| `CF_ACCOUNT_2_ID` | [Cloudflare](https://dash.cloudflare.com) | CF account 2 | ✅ |
-| `CF_ACCOUNT_2_TOKEN` | [Cloudflare](https://dash.cloudflare.com) | AI fallback (Llama 3.3 70B) | ✅ |
-| `OLLAMA_DEEPSEEK_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Qwen3 80B) | Paid |
-| `OLLAMA_KIMI_KEY` | [Ollama Cloud](https://ollama.com) | AI fallback (Nemotron 30B) | Paid |
-| `NASA_API_KEY` | [NASA](https://api.nasa.gov) | Knowledge context | ✅ |
-| `CORE_API_KEY` | [CORE](https://core.ac.uk/services/api) | Academic context | ✅ |
+| Variable                | Service                                             | Purpose                     | Free? |
+| ----------------------- | --------------------------------------------------- | --------------------------- | ----- |
+| `GROQ_API_KEY`        | [Groq](https://console.groq.com)                       | Primary AI                  | ✅    |
+| `GITHUB_DEEPSEEK_KEY` | [GitHub Models](https://github.com/marketplace/models) | AI fallback                 | ✅    |
+| `GITHUB_GROK_KEY`     | [GitHub Models](https://github.com/marketplace/models) | AI fallback                 | ✅    |
+| `CF_ACCOUNT_1_ID`     | [Cloudflare](https://dash.cloudflare.com)              | CF account 1                | ✅    |
+| `CF_ACCOUNT_1_TOKEN`  | [Cloudflare](https://dash.cloudflare.com)              | AI fallback (Gemini Flash)  | ✅    |
+| `CF_ACCOUNT_2_ID`     | [Cloudflare](https://dash.cloudflare.com)              | CF account 2                | ✅    |
+| `CF_ACCOUNT_2_TOKEN`  | [Cloudflare](https://dash.cloudflare.com)              | AI fallback (Llama 3.3 70B) | ✅    |
+| `OLLAMA_DEEPSEEK_KEY` | [Ollama Cloud](https://ollama.com)                     | AI fallback (Qwen3 80B)     | ✅    |
+| `OLLAMA_KIMI_KEY`     | [Ollama Cloud](https://ollama.com)                     | AI fallback (Nemotron 30B)  | ✅    |
+| `NASA_API_KEY`        | [NASA](https://api.nasa.gov)                           | Knowledge context           | ✅    |
+| `CORE_API_KEY`        | [CORE](https://core.ac.uk/services/api)                | Academic context            | ✅    |
 
 Wikipedia, Open Library, Internet Archive, Jina AI, and DuckDuckGo require no authentication.
 
