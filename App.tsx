@@ -1,0 +1,2017 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { streamDefinition, generateAsciiArt, AsciiArtData, getRandomWord } from './services/aiService';
+import { fetchKnowledgeContext } from './services/knowledgeService';
+import { initRateLimit, checkRateLimit, recordSearch, getRemainingSearches } from './services/rateLimitService';
+import ContentDisplay from './components/ContentDisplay';
+import SearchBar from './components/SearchBar';
+import LoadingSkeleton from './components/LoadingSkeleton';
+import AsciiArtDisplay from './components/AsciiArtDisplay';
+import StaticPage from './components/StaticPage';
+import LandingPage from './components/LandingPage';
+import DidYouKnow from './components/DidYouKnow';
+import RelatedTopics from './components/RelatedTopics';
+import ErrorBoundary from './components/ErrorBoundary';
+import ResearchPanel from './components/ResearchPanel';
+// Starfield removed — replaced by static ASCII space art in LandingPage
+import { useToast } from './components/ToastContext';
+import { StartupAnimation } from './components/StartupAnimation';
+import { CantoDialog, CantoSlider } from './components/UIComponents';
+import CantoLabs from './components/CantoLabs';
+import { MultimediaViewer } from './components/MultimediaViewer';
+import FactCheckPanel from './components/FactCheckPanel';
+import CantoCodex from './components/CantoCodex';
+import DataCenter from './components/DataCenter';
+import GuidedTour, { shouldShowTour } from './components/GuidedTour';
+import {
+  dbSaveCache, dbGetCache, dbDeleteCache, dbSaveHistory, dbGetHistory,
+  dbClearHistory, dbSaveFavorite, dbRemoveFavorite, dbGetFavorites, dbRecordAnalytics,
+  dbGetCodex
+} from './services/dbService';
+import { initCantoStore, getFirstRunState } from './services/cantostore';
+import { processCodexEvent, getAchievement } from './services/codexService';
+
+// A curated list of "banger" words and phrases for the random button.
+const PREDEFINED_WORDS = [
+  'Balance', 'Harmony', 'Discord', 'Unity', 'Fragmentation', 'Clarity', 'Ambiguity', 'Presence', 'Absence', 'Creation', 'Destruction', 'Light', 'Shadow', 'Beginning', 'Ending', 'Rising', 'Falling', 'Connection', 'Isolation', 'Hope', 'Despair',
+  'Order and chaos', 'Light and shadow', 'Sound and silence', 'Form and formlessness', 'Being and nonbeing', 'Presence and absence', 'Motion and stillness', 'Unity and multiplicity', 'Finite and infinite', 'Sacred and profane', 'Memory and forgetting', 'Question and answer', 'Search and discovery', 'Journey and destination', 'Dream and reality', 'Time and eternity', 'Self and other', 'Known and unknown', 'Spoken and unspoken', 'Visible and invisible',
+  'Zigzag', 'Waves', 'Spiral', 'Bounce', 'Slant', 'Drip', 'Stretch', 'Squeeze', 'Float', 'Fall', 'Spin', 'Melt', 'Rise', 'Twist', 'Explode', 'Stack', 'Mirror', 'Echo', 'Vibrate',
+  'Gravity', 'Friction', 'Momentum', 'Inertia', 'Turbulence', 'Pressure', 'Tension', 'Oscillate', 'Fractal', 'Quantum', 'Entropy', 'Vortex', 'Resonance', 'Equilibrium', 'Centrifuge', 'Elastic', 'Viscous', 'Refract', 'Diffuse', 'Cascade', 'Levitate', 'Magnetize', 'Polarize', 'Accelerate', 'Compress', 'Undulate',
+  'Liminal', 'Ephemeral', 'Paradox', 'Zeitgeist', 'Metamorphosis', 'Synesthesia', 'Recursion', 'Emergence', 'Dialectic', 'Apophenia', 'Limbo', 'Flux', 'Sublime', 'Uncanny', 'Palimpsest', 'Chimera', 'Void', 'Transcend', 'Ineffable', 'Qualia', 'Gestalt', 'Simulacra', 'Abyssal',
+  'Existential', 'Nihilism', 'Solipsism', 'Phenomenology', 'Hermeneutics', 'Deconstruction', 'Postmodern', 'Absurdism', 'Catharsis', 'Epiphany', 'Melancholy', 'Nostalgia', 'Longing', 'Reverie', 'Pathos', 'Ethos', 'Logos', 'Mythos', 'Anamnesis', 'Intertextuality', 'Metafiction', 'Stream', 'Lacuna', 'Caesura', 'Enjambment'
+];
+const UNIQUE_WORDS = [...new Set(PREDEFINED_WORDS)];
+
+const createFallbackArt = (topic: string): AsciiArtData => {
+  const displayableTopic = topic.length > 20 ? topic.substring(0, 17) + '...' : topic;
+  const paddedTopic = ` ${displayableTopic} `;
+  const topBorder = `┌${'─'.repeat(paddedTopic.length)}┐`;
+  const middle = `│${paddedTopic}│`;
+  const bottomBorder = `└${'─'.repeat(paddedTopic.length)}┘`;
+  return { art: `${topBorder}\n${middle}\n${bottomBorder}` };
+};
+
+// ─── Compare View ─────────────────────────────────────────────────────────────
+interface CompareSlot { topic: string; content: string; label: string; }
+
+const CompareView: React.FC<{
+  slotA: CompareSlot | null;
+  slotB: CompareSlot | null;
+  currentTopic: string;
+  currentContent: string;
+  historyList: string[];
+  historyQuery: string;
+  onHistoryQueryChange: (q: string) => void;
+  pickerSlot: 'A' | 'B' | null;
+  onOpenPicker: (slot: 'A' | 'B') => void;
+  onPickHistory: (topic: string) => void;
+  onPickCurrent: () => void;
+  onPickNew: (topic: string) => void;
+  onPickContent: (slot: { topic: string; content: string; label: string }) => void;
+  onClose: () => void;
+  onWordClick: (w: string) => void;
+  fontSize: number;
+  isReadingMode: boolean;
+  onExplainClick: (action: string, text: string) => void;
+  sources: any;
+}> = ({
+  slotA, slotB, currentTopic, currentContent,
+  historyList, historyQuery, onHistoryQueryChange,
+  pickerSlot, onOpenPicker, onPickHistory, onPickCurrent, onPickNew, onPickContent,
+  onClose, onWordClick, fontSize, isReadingMode, onExplainClick, sources,
+}) => {
+  const [newSearchInput, setNewSearchInput] = React.useState('');
+
+  const filteredHistory = historyQuery.trim()
+    ? historyList.filter(t => t.toLowerCase().includes(historyQuery.toLowerCase()))
+    : historyList;
+
+  const SlotHeader: React.FC<{ slot: CompareSlot | null; id: 'A' | 'B' }> = ({ slot, id }) => (
+    <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'monospace' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.68em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+          Slot {id}
+        </span>
+        <span style={{ fontSize: '0.82em', color: 'var(--text-color)', flex: 1 }}>
+          {slot ? slot.label : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>— not selected —</span>}
+        </span>
+        <button
+          onClick={() => onOpenPicker(id)}
+          style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.72em', textDecoration: 'underline', padding: 0 }}
+        >
+          {pickerSlot === id ? 'cancel' : 'change'}
+        </button>
+      </div>
+
+      {/* Picker */}
+      {pickerSlot === id && (
+        <div style={{ marginTop: '0.6rem', paddingLeft: '0.5rem', borderLeft: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {/* Current article */}
+          <button
+            onClick={onPickCurrent}
+            style={{ background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', textAlign: 'left', padding: '0.2rem 0', textDecoration: 'underline' }}
+          >
+            ◆ Current — {currentTopic}
+          </button>
+
+          {/* Versions of this topic */}
+          {(() => {
+            let versions: any[] = [];
+            try {
+              const savedFull = localStorage.getItem('canto_history_full');
+              if (savedFull) {
+                const full: any[] = JSON.parse(savedFull);
+                versions = full.filter(e => e.topic.toLowerCase() === currentTopic.toLowerCase());
+              }
+            } catch (e) {}
+            if (versions.length > 1) {
+              return (
+                <div style={{ marginTop: '0.4rem', borderTop: '1px dotted var(--border-color)', paddingTop: '0.4rem' }}>
+                  <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+                    Versions of this Topic
+                  </div>
+                  <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                    {versions.map((v, i) => {
+                      const dateStr = new Date(v.timestamp).toLocaleString();
+                      return (
+                        <button key={i}
+                          onClick={() => {
+                            const slotData = {
+                              topic: v.topic,
+                              content: v.content,
+                              label: `Version ${versions.length - i} (${dateStr}) — ${v.topic}`
+                            };
+                            onPickContent(slotData);
+                          }}
+                          style={{ background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', textAlign: 'left', padding: '0.15rem 0.3rem', textDecoration: 'underline' }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                        >
+                          ◆ Version {versions.length - i} ({dateStr})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* History search */}
+          <div>
+            <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>From History</div>
+            <div style={{ position: 'relative', marginBottom: '0.3rem' }}>
+              <input
+                type="text"
+                value={historyQuery}
+                onChange={e => onHistoryQueryChange(e.target.value)}
+                placeholder="Search history…"
+                autoFocus
+                style={{
+                  width: '100%', padding: '0.25rem 1.4rem 0.25rem 0.4rem',
+                  fontFamily: 'monospace', fontSize: '0.78em',
+                  background: 'var(--input-bg)', border: '1px solid var(--border-color)',
+                  color: 'var(--text-color)', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              {historyQuery && (
+                <button onClick={() => onHistoryQueryChange('')} style={{ position: 'absolute', right: '0.3rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em', padding: 0, lineHeight: 1 }}>×</button>
+              )}
+            </div>
+            <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+              {filteredHistory.slice(0, 20).map((t, i) => (
+                <button key={i} onClick={() => onPickHistory(t)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.78em', textAlign: 'left', padding: '0.15rem 0.3rem', textDecoration: 'underline' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                >
+                  ◇ {t}
+                </button>
+              ))}
+              {filteredHistory.length === 0 && <span style={{ fontSize: '0.75em', color: 'var(--text-muted)' }}>No matches.</span>}
+            </div>
+          </div>
+
+          {/* New search */}
+          <div>
+            <div style={{ fontSize: '0.68em', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>New Search</div>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <input
+                type="text"
+                value={newSearchInput}
+                onChange={e => setNewSearchInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && newSearchInput.trim()) { onPickNew(newSearchInput.trim()); setNewSearchInput(''); } }}
+                placeholder="Enter topic…"
+                style={{
+                  flex: 1, padding: '0.25rem 0.4rem',
+                  fontFamily: 'monospace', fontSize: '0.78em',
+                  background: 'var(--input-bg)', border: '1px solid var(--border-color)',
+                  color: 'var(--text-color)', outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => { if (newSearchInput.trim()) { onPickNew(newSearchInput.trim()); setNewSearchInput(''); } }}
+                style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.75em', padding: '0.2rem 0.5rem' }}
+              >
+                Go
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ fontFamily: 'monospace' }}>
+      {/* Compare header */}
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.8rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <span style={{ fontSize: '0.68em', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>◈ Compare Versions</span>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block' }} />
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.72em', textDecoration: 'underline', padding: 0 }}>
+          close
+        </button>
+      </div>
+
+      {/* Two-column layout */}
+      <div style={{ display: 'flex', gap: '2rem', width: '100%', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <div style={{ width: '50%', borderRight: '1px solid var(--border-color)', paddingRight: '1.5rem', minWidth: 0 }}>
+          <SlotHeader slot={slotA} id="A" />
+          {slotA?.content ? (
+            <ContentDisplay
+              content={slotA.content}
+              isLoading={false}
+              onWordClick={onWordClick}
+              topic={slotA.topic}
+              fontSize={fontSize}
+              isReadingMode={isReadingMode}
+              onExplainClick={onExplainClick}
+              sources={sources}
+            />
+          ) : (
+            <p style={{ fontSize: '0.82em', color: 'var(--text-muted)' }}>Select a version above to compare.</p>
+          )}
+        </div>
+        <div style={{ width: '50%', minWidth: 0 }}>
+          <SlotHeader slot={slotB} id="B" />
+          {slotB?.content ? (
+            <ContentDisplay
+              content={slotB.content}
+              isLoading={false}
+              onWordClick={onWordClick}
+              topic={slotB.topic}
+              fontSize={fontSize}
+              isReadingMode={isReadingMode}
+              onExplainClick={onExplainClick}
+              sources={sources}
+            />
+          ) : (
+            <p style={{ fontSize: '0.82em', color: 'var(--text-muted)' }}>Select a version above to compare.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Versions Section — collapsible tree of regenerated versions ─────────────
+const VersionsSection: React.FC<{
+  versions: any[];
+  currentTopic: string;
+  onNavigate: (t: string) => void;
+  onLoadVersion: (v: { content: string; asciiArt: any }) => void;
+}> = ({ versions, currentTopic, onNavigate, onLoadVersion }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
+
+  return (
+    <div style={{ margin: '0.5rem 0', fontFamily: 'monospace' }}>
+      {/* Section header */}
+      <button
+        onClick={() => setIsOpen(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          fontFamily: 'monospace', fontSize: '0.72em',
+          color: 'var(--text-muted)', padding: '0.6rem 0',
+          width: '100%', textAlign: 'left',
+          letterSpacing: '0.18em', textTransform: 'uppercase',
+          transition: 'color 0.12s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+      >
+        <span style={{ color: isOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+          {isOpen ? '▼' : '▶'}
+        </span>
+        <span>◈</span>
+        <span>Versions — {versions.length} Regeneration{versions.length !== 1 ? 's' : ''}</span>
+        <span style={{ color: 'var(--accent-color)', fontSize: '0.85em', textTransform: 'none', letterSpacing: 0, marginLeft: '0.2rem' }}>
+          [{versions.length}]
+        </span>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+      </button>
+
+      {/* Tree body */}
+      {isOpen && (
+        <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.5rem' }}>
+          <div style={{ fontSize: '0.7em', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+            All saved versions of "{currentTopic}" — newest first
+          </div>
+          {versions.length === 0 ? (
+            <div style={{ fontSize: '0.82em', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.4rem 0' }}>
+              └── No other versions found
+            </div>
+          ) : (
+            versions.map((v, i) => {
+              const dateStr = new Date(v.timestamp).toLocaleString();
+              const wordCount = v.wordCount || (v.content ? v.content.split(/\s+/).filter(Boolean).length : 0);
+              const isExpanded = expandedIdx === i;
+              const isLatest = i === 0;
+              return (
+                <div key={i} style={{ marginBottom: '0.4rem' }}>
+                  {/* Version row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78em', minWidth: '1rem' }}>
+                      {i < versions.length - 1 ? '├──' : '└──'}
+                    </span>
+                    <button
+                      onClick={() => setExpandedIdx(isExpanded ? null : i)}
+                      style={{
+                        background: 'none', border: 'none',
+                        borderLeft: `2px solid ${isExpanded ? 'var(--accent-color)' : 'transparent'}`,
+                        paddingLeft: '0.5rem', paddingTop: '0.2rem', paddingBottom: '0.2rem',
+                        color: isExpanded ? 'var(--accent-color)' : 'var(--text-color)',
+                        cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em',
+                        textAlign: 'left', transition: 'border-color 0.12s, color 0.12s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
+                      onMouseLeave={e => { if (!isExpanded) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                    >
+                      {isExpanded ? '▼' : '▶'} Version {versions.length - i}
+                      {isLatest && <span style={{ color: 'var(--accent-color)', marginLeft: '0.4rem', fontSize: '0.85em' }}>[latest]</span>}
+                    </button>
+                    <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dateStr}</span>
+                    {wordCount > 0 && (
+                      <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{wordCount} words</span>
+                    )}
+                    {/* Load / View actions */}
+                    <button
+                      onClick={() => onLoadVersion({ content: v.content, asciiArt: v.asciiArt })}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.72em', textDecoration: 'underline', padding: 0 }}
+                    >
+                      load
+                    </button>
+                  </div>
+
+                  {/* Expanded preview */}
+                  {isExpanded && v.content && (
+                    <div style={{
+                      marginLeft: '2rem', marginTop: '0.3rem',
+                      borderLeft: '1px solid var(--border-color)', paddingLeft: '0.8rem',
+                      paddingTop: '0.4rem', paddingBottom: '0.4rem',
+                    }}>
+                      <div style={{ fontSize: '0.75em', color: 'var(--text-muted)', fontFamily: 'monospace', marginBottom: '0.3rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        Preview
+                      </div>
+                      <div style={{
+                        fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)',
+                        maxHeight: '120px', overflowY: 'auto', lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                      }}>
+                        {v.content.slice(0, 400)}{v.content.length > 400 ? '…' : ''}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.4rem' }}>
+                        <button
+                          onClick={() => onLoadVersion({ content: v.content, asciiArt: v.asciiArt })}
+                          style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.75em', textDecoration: 'underline', padding: 0 }}
+                        >
+                          ◆ Load this version
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── History dropdown with search — tree monospace style ─────────────────────
+const HistoryDropdown: React.FC<{
+  history: string[];
+  favorites: string[];
+  onNavigate: (t: string) => void;
+  onClear: () => void;
+  onViewLibrary: () => void;
+  inline?: boolean;
+}> = ({ history, favorites, onNavigate, onClear, onViewLibrary, inline }) => {
+  const [q, setQ] = React.useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const filtered = q.trim()
+    ? history.filter(t => t.toLowerCase().includes(q.toLowerCase()))
+    : history;
+
+  React.useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  const highlight = (text: string) => {
+    if (!q.trim()) return <span>{text}</span>;
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return <span>{text}</span>;
+    return (
+      <span>
+        {text.slice(0, idx)}
+        <mark style={{ background: 'var(--accent-color)', color: 'var(--bg-color)', padding: '0 1px' }}>
+          {text.slice(idx, idx + q.length)}
+        </mark>
+        {text.slice(idx + q.length)}
+      </span>
+    );
+  };
+
+  const treeNodeBtn: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    background: 'transparent', border: 'none',
+    borderLeft: '2px solid transparent',
+    paddingLeft: '0.6rem', paddingTop: '0.28rem', paddingBottom: '0.28rem',
+    cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.85em',
+    color: 'var(--text-color)', transition: 'border-color 0.1s, color 0.1s',
+  };
+
+  return (
+    <div className="history-dropdown" style={{
+      fontFamily: 'monospace',
+      position: inline ? 'static' : 'absolute',
+      top: inline ? 'auto' : 'calc(100% + 0.5rem)',
+      right: inline ? 'auto' : 0,
+      width: inline ? '100%' : '320px',
+      background: inline ? 'transparent' : 'rgba(10, 10, 10, 0.98)',
+      backdropFilter: inline ? 'none' : 'blur(8px)',
+      border: inline ? 'none' : '1px solid var(--border-color)',
+      borderTop: inline ? '1px dashed var(--border-color)' : undefined,
+      padding: inline ? '0.6rem 0' : '1rem',
+      boxShadow: inline ? 'none' : '0 8px 32px rgba(0,0,0,0.5)',
+      zIndex: inline ? 'auto' : 1000,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem' }}>
+        <span style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+          ◈ History
+        </span>
+        <button onClick={onClear} style={{ fontSize: '0.7em', letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: 'var(--text-muted)', fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer',
+          transition: 'color 0.12s' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#ff4444'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          Clear
+        </button>
+      </div>
+
+      {/* Search input */}
+      <div style={{ position: 'relative', marginBottom: '0.5rem',
+        borderLeft: '1px solid var(--border-color)', paddingLeft: '0.6rem' }}>
+        <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>⌕ </span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Escape') setQ(''); }}
+          placeholder={`Search ${history.length} topic${history.length !== 1 ? 's' : ''}…`}
+          style={{
+            background: 'transparent', border: 'none',
+            borderBottom: '1px solid var(--border-color)',
+            color: 'var(--text-color)', fontFamily: 'monospace',
+            fontSize: '0.85em', outline: 'none',
+            padding: '0.15rem 1.4rem 0.15rem 0.2rem',
+            width: 'calc(100% - 1.6rem)',
+          }}
+        />
+        {q && (
+          <button onClick={() => setQ('')} style={{ position: 'absolute', right: 0, top: '50%',
+            transform: 'translateY(-50%)', background: 'none', border: 'none',
+            color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace',
+            fontSize: '1em', padding: 0, lineHeight: 1 }}>×</button>
+        )}
+      </div>
+
+      {/* Status line */}
+      {q.trim() && (
+        <div style={{ fontSize: '0.7em', color: 'var(--text-muted)', marginBottom: '0.3rem',
+          paddingLeft: '0.6rem', letterSpacing: '0.05em' }}>
+          {filtered.length === 0 ? 'No results.' : (
+            <>{filtered.length} result{filtered.length !== 1 ? 's' : ''}{' '}
+              <span style={{ color: 'var(--accent-color)' }}>✦ matched</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* History list */}
+      {filtered.length === 0 && !q ? (
+        <p style={{ margin: '0.3rem 0', fontSize: '0.82em', color: 'var(--text-muted)',
+          paddingLeft: '0.6rem', borderLeft: '1px solid var(--border-color)' }}>
+          No history yet.
+        </p>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '180px', overflowY: 'auto',
+          borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem' }}>
+          {filtered.slice(0, 20).map((t, i) => {
+            const topicStr = typeof t === 'object' ? (t as any).topic || String(t) : String(t);
+            return (
+              <li key={i}>
+                <button
+                  onClick={() => onNavigate(topicStr)}
+                  style={treeNodeBtn}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                    e.currentTarget.style.color = 'var(--accent-color)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderLeftColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-color)';
+                  }}
+                >
+                  {highlight(topicStr)}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Favorites */}
+      {favorites.length > 0 && (
+        <div style={{ marginTop: '0.6rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase',
+            color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+            Starred
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0,
+            borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem' }}>
+            {favorites.slice(0, 5).map((t, i) => (
+              <li key={i}>
+                <button
+                  onClick={() => onNavigate(t)}
+                  style={treeNodeBtn}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderLeftColor = 'var(--accent-color)';
+                    e.currentTarget.style.color = 'var(--accent-color)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderLeftColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-color)';
+                  }}
+                >
+                  <span style={{ color: 'var(--accent-color)', marginRight: '0.4rem' }}>◆</span>{t}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* View Library */}
+      <button
+        onClick={onViewLibrary}
+        style={{ width: '100%', marginTop: '0.6rem', padding: '0.35rem 0.6rem',
+          background: 'transparent', border: 'none',
+          borderTop: '1px solid var(--border-color)',
+          cursor: 'pointer', fontSize: '0.75em', fontFamily: 'monospace',
+          color: 'var(--text-muted)', textAlign: 'left',
+          letterSpacing: '0.1em', textTransform: 'uppercase',
+          transition: 'color 0.12s' }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+      >
+        ↗ View Local Library
+      </button>
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  const getTopicFromURL = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('topic') || '';
+  };
+
+  const getPageFromURL = () => {
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get('page');
+    if (!p && !params.get('topic')) return 'landing';
+    if (p && !['about', 'privacy', 'terms', 'landing', 'faq', 'pricing', 'opensource', 'library', 'wiki'].includes(p)) return '404';
+    return p ? p : 'wiki';
+  };
+
+  const [currentTopic, setCurrentTopic] = useState<string>(getTopicFromURL());
+  const [currentPage, setCurrentPage] = useState<string>(getPageFromURL());
+  const [content, setContent] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [asciiArt, setAsciiArt] = useState<AsciiArtData | null>(null);
+  const [generationTime, setGenerationTime] = useState<number | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+  const [history, setHistory] = useState<string[]>([]);
+  const [theme, setTheme] = useState<'classic' | 'dark' | 'vintage' | 'obsidian' | 'high-contrast'>('classic');
+  const [showIntro, setShowIntro] = useState(true);
+  // Rate limit state
+  const [searchesRemaining, setSearchesRemaining] = useState<number | null>(null);
+  const [searchesLimit, setSearchesLimit] = useState<number>(20);
+  const [resetTimer, setResetTimer] = useState<string>('');
+  const [readingTime, setReadingTime] = useState<number | null>(null);
+  const [isReadingMode, setIsReadingMode] = useState(false);
+  const [fontSize, setFontSize] = useState(100); // percentage
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [activeAlert, setActiveAlert] = useState<{ title: string; message: string; onConfirm?: () => void } | null>(null);
+  const [cache, setCache] = useState<Record<string, { content: string, asciiArt: AsciiArtData | null, timestamp: number }>>({});
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const { showToast } = useToast();
+  const [isResearchPanelOpen, setIsResearchPanelOpen] = useState(false);
+  const [isAdvancedLabsOpen, setIsAdvancedLabsOpen] = useState(false);
+  const [isMultimediaOpen, setIsMultimediaOpen] = useState(false);
+  const [isResearchOptionsOpen, setIsResearchOptionsOpen] = useState(false);
+  const [lastSources, setLastSources] = useState<{ wikipedia?: string; wikipediaTitle?: string; nasa?: string; core?: string; internetArchive?: string; crawler?: string }>({});
+
+  const [isCodexOpen, setIsCodexOpen] = useState(false);
+  const [isHistoryInlineOpen, setIsHistoryInlineOpen] = useState(false);
+  const [isDataCenterOpen, setIsDataCenterOpen] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+  const [codexNewCount, setCodexNewCount] = useState(0);
+  const [codexToast, setCodexToast] = useState<string | null>(null);
+  const [codexRank, setCodexRank] = useState('Curious Mind');
+
+  useEffect(() => {
+    dbGetCodex().then(s => {
+      if (s && s.rank) setCodexRank(s.rank);
+    });
+  }, [isCodexOpen]);
+
+  // Compare view state — pick any two slots
+  const [compareSlotA, setCompareSlotA] = useState<{ topic: string; content: string; label: string } | null>(null);
+  const [compareSlotB, setCompareSlotB] = useState<{ topic: string; content: string; label: string } | null>(null);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [comparePickerSlot, setComparePickerSlot] = useState<'A' | 'B' | null>(null);
+  const [compareHistoryList, setCompareHistoryList] = useState<string[]>([]);
+  const [compareHistoryQuery, setCompareHistoryQuery] = useState('');
+
+  // Advanced features state
+  const [depth, setDepth] = useState<'Mini' | 'Standard' | 'Deep'>('Standard');
+  const [activeLens, setActiveLens] = useState<'Standard' | 'Academic' | 'Beginner' | 'Historical' | 'Controversial' | 'Future Implications'>('Standard');
+  const [enabledSources, setEnabledSources] = useState<string[]>(['Wikipedia', 'NASA', 'CORE', 'Web Search']);
+  const [displayedContent, setDisplayedContent] = useState('');
+  const [previousContent, setPreviousContent] = useState('');
+  const [isDiffView, setIsDiffView] = useState(false);
+
+  // New features state
+  const [isDyslexic, setIsDyslexic] = useState<boolean>(false);
+  const [searchTags, setSearchTags] = useState<Record<string, string[]>>({});
+  const [articleTone, setArticleTone] = useState<'Standard' | 'Academic' | 'Simple' | 'Technical'>('Standard');
+  const [articleLength, setArticleLength] = useState<'Full' | 'Summary' | 'Deep Dive'>('Full');
+  const [conversationBranch, setConversationBranch] = useState<string[]>([]);
+  const [personalNotes, setPersonalNotes] = useState<{ id: string; title: string; content: string; timestamp: number }[]>(() => {
+    try {
+      const raw = localStorage.getItem('canto_notes');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get('sharedData');
+    if (shared) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(shared))));
+        if (decoded && decoded.topic && decoded.content) {
+          setCurrentTopic(decoded.topic);
+          setCurrentPage('wiki');
+          setContent(decoded.content);
+          setAsciiArt(decoded.asciiArt || null);
+          setIsLoading(false);
+          setError(null);
+        }
+      } catch (e) {
+        console.error('Failed to parse shared data:', e);
+      }
+    }
+  }, []);
+
+  // Load persisted state on mount
+  useEffect(() => {
+    // ── CantoStore boot (runs first, <100ms target) ──
+    initCantoStore().catch(e => console.warn('[CantoStore] Init error:', e));
+
+    // ── Guided Tour (first-time users only) ──
+    if (shouldShowTour()) {
+      setTimeout(() => setShowTour(true), 1200); // after startup animation
+    }
+
+    try {
+      const savedDys = localStorage.getItem('canto_dyslexic') === 'true';
+      if (savedDys) {
+        setIsDyslexic(true);
+        document.body.classList.add('dyslexic');
+      }
+    } catch (e) {}
+
+    initRateLimit().then(() => {
+      checkRateLimit().then((status) => {
+        setSearchesRemaining(status.remaining);
+        setSearchesLimit(status.limit);
+        setResetTimer(status.timeUntilReset || '');
+      });
+    });
+
+    try {
+      dbGetHistory().then(h => {
+        if (h && h.length > 0) {
+          setHistory(h);
+        } else {
+          const savedHistory = localStorage.getItem('canto_history');
+          if (savedHistory) setHistory(JSON.parse(savedHistory));
+        }
+      });
+
+      dbGetFavorites().then(f => {
+        if (f && f.length > 0) {
+          setFavorites(f);
+        } else {
+          const savedFavs = localStorage.getItem('canto_favs');
+          if (savedFavs) setFavorites(JSON.parse(savedFavs));
+        }
+      });
+
+      const savedTheme = localStorage.getItem('canto_theme');
+      if (savedTheme) {
+        setTheme(savedTheme as 'classic' | 'dark' | 'vintage' | 'obsidian' | 'high-contrast');
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    } catch(e) {}
+
+    const handlePopState = () => {
+      setCurrentTopic(getTopicFromURL());
+      setCurrentPage(getPageFromURL());
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    // Update reset timer every minute
+    const timerInterval = setInterval(() => {
+      checkRateLimit().then((status) => {
+        setResetTimer(status.timeUntilReset || '');
+      });
+    }, 60000);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearInterval(timerInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPage, currentTopic]);
+
+  useEffect(() => {
+    if (content.length > displayedContent.length) {
+      const interval = setInterval(() => {
+        setDisplayedContent(prev => {
+          const nextLen = prev.length + 25; // 25 characters at a time for fast smooth streaming
+          if (nextLen >= content.length) {
+            clearInterval(interval);
+            return content;
+          }
+          return content.slice(0, nextLen);
+        });
+      }, 10);
+      return () => clearInterval(interval);
+    } else if (content.length < displayedContent.length) {
+      setDisplayedContent(content);
+    }
+  }, [content, displayedContent.length]);
+
+  const navigateToTopic = useCallback((newTopic: string) => {
+    const trimmed = newTopic.trim();
+    if (trimmed && (trimmed.toLowerCase() !== currentTopic.toLowerCase() || currentPage !== 'wiki')) {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('topic', trimmed);
+      newUrl.searchParams.delete('page');
+      window.history.pushState({}, '', newUrl);
+
+      setHistory(prev => {
+        const newHistory = [trimmed, ...prev.filter(t => t.toLowerCase() !== trimmed.toLowerCase())].slice(0, 50);
+        try { localStorage.setItem('canto_history', JSON.stringify(newHistory)); } catch(e) {}
+        dbSaveHistory(trimmed);
+        return newHistory;
+      });
+
+      setConversationBranch(prev => {
+        if (trimmed.includes(':')) {
+          return [...prev, trimmed];
+        }
+        return [trimmed];
+      });
+
+      setCurrentTopic(trimmed);
+      setCurrentPage('wiki');
+    }
+  }, [currentTopic, currentPage]);
+
+  const toggleFavorite = useCallback((topic: string) => {
+    setFavorites(prev => {
+      const isFav = prev.includes(topic);
+      const newFavs = isFav ? prev.filter(t => t !== topic) : [...prev, topic];
+      try { localStorage.setItem('canto_favs', JSON.stringify(newFavs)); } catch(e) {}
+      if (isFav) {
+        dbRemoveFavorite(topic);
+      } else {
+        dbSaveFavorite(topic);
+        // Codex: article saved
+        dbGetFavorites().then(favs => {
+          processCodexEvent({ type: 'article_saved', totalSaved: favs.length + 1 });
+        });
+      }
+      showToast(isFav ? 'Removed from favorites' : 'Added to favorites', 'success');
+      return newFavs;
+    });
+  }, [showToast]);
+
+  const handleRegenerate = useCallback(async () => {
+    // Rate limit check — bail early before clearing cache if limit is hit
+    const rlStatus = await checkRateLimit();
+    if (!rlStatus.allowed) {
+      showToast(`Daily search limit reached. API quotas reset at midnight.`, 'warning');
+      return;
+    }
+
+    // Clear all caches so the useEffect fetches fresh content
+    const normalized = currentTopic.toLowerCase().trim();
+    setCache(prev => {
+      const newCache = { ...prev };
+      delete newCache[normalized];
+      try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
+      return newCache;
+    });
+    dbDeleteCache(normalized);
+
+    // Trigger the fetch — the useEffect handles credit charging (single source of truth)
+    setRetryTrigger(prev => prev + 1);
+    showToast('Regenerating content...', 'info');
+  }, [currentTopic, showToast]);
+
+  const navigateToPage = useCallback((page: string) => {
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('page', page);
+    newUrl.searchParams.delete('topic');
+    window.history.pushState({}, '', newUrl);
+    setCurrentPage(page);
+  }, []);
+
+  const fallbackCopyUrl = (text: string) => {
+    const input = document.createElement('input');
+    input.value = text;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(input);
+  };
+
+  const handleShare = useCallback(() => {
+    if (!currentTopic || !content) return;
+    try {
+      const payload = JSON.stringify({ topic: currentTopic, content, asciiArt });
+      const encoded = btoa(unescape(encodeURIComponent(payload)));
+      const sharedUrl = `${window.location.origin}${window.location.pathname}?sharedData=${encodeURIComponent(encoded)}`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(sharedUrl).then(() => {
+          showToast('Share link copied! Can be viewed for free.', 'success');
+        }).catch(() => {
+          fallbackCopyUrl(sharedUrl);
+          showToast('Share link copied! Can be viewed for free.', 'success');
+        });
+      } else {
+        fallbackCopyUrl(sharedUrl);
+        showToast('Share link copied! Can be viewed for free.', 'success');
+      }
+    } catch (e) {
+      console.error('Failed to create shared link', e);
+      showToast('Error creating shared link', 'error');
+    }
+  }, [currentTopic, content, asciiArt, showToast]);
+
+  useEffect(() => {
+    if (currentPage !== 'wiki' || !currentTopic) return;
+
+    let isCancelled = false;
+
+    const fetchContentAndArt = async () => {
+      // ── Check Shared Data Parameter ──────────────────────────────────────
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('sharedData')) {
+        try {
+          const shared = params.get('sharedData');
+          if (shared) {
+            const decoded = JSON.parse(decodeURIComponent(escape(atob(shared))));
+            if (decoded && decoded.topic && decoded.content) {
+              setIsLoading(false);
+              setError(null);
+              setContent(decoded.content);
+              setAsciiArt(decoded.asciiArt || null);
+              setGenerationTime(null);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing shared data', e);
+        }
+      }
+
+      const normalizedTopic = currentTopic.toLowerCase().trim();
+      
+      // ── Check Cache First ──
+      if (cache[normalizedTopic]) {
+        setIsLoading(false);
+        setError(null);
+        setContent(cache[normalizedTopic].content);
+        setAsciiArt(cache[normalizedTopic].asciiArt);
+        setGenerationTime(null);
+        return;
+      }
+
+      const dbCached = await dbGetCache(normalizedTopic);
+      if (dbCached) {
+        setIsLoading(false);
+        setError(null);
+        setContent(dbCached.content);
+        setAsciiArt(dbCached.asciiArt);
+        setGenerationTime(null);
+        setCache(prev => ({ ...prev, [normalizedTopic]: dbCached }));
+        return;
+      }
+
+      // ── Rate limit check ──────────────────────────────────────────────────
+      const rlStatus = await checkRateLimit();
+      if (!rlStatus.allowed) {
+        setActiveAlert({
+          title: 'Limit Reached',
+          message: `Daily search limit reached (${rlStatus.limit} searches). API quotas reset at midnight. Come back tomorrow or reload previous queries to keep exploring!`
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      setPreviousContent(content);
+      setContent('');
+      setAsciiArt(null);
+      setGenerationTime(null);
+      const startTime = performance.now();
+
+      // Record the search with variable cost and update UI counter
+      const cost = depth === 'Mini' ? 0.5 : depth === 'Deep' ? 2 : 1;
+      await recordSearch(cost);
+      const { remaining, limit } = await getRemainingSearches();
+      setSearchesRemaining(remaining);
+      setSearchesLimit(limit);
+
+      if (remaining <= 3 && remaining > 0) {
+        showToast(`Only ${remaining} search${remaining === 1 ? '' : 'es'} left today.`, 'warning');
+      }
+
+      // ASCII art — fire and forget
+      let finalArt: AsciiArtData | null = null;
+      generateAsciiArt(currentTopic)
+        .then(art => { 
+          finalArt = art;
+          if (!isCancelled) setAsciiArt(art); 
+        })
+        .catch(err => {
+          finalArt = createFallbackArt(currentTopic);
+          if (!isCancelled) setAsciiArt(finalArt);
+        });
+
+      // Fetch knowledge sources for Research Panel — fire and forget
+      fetchKnowledgeContext(currentTopic).then(ctx => {
+        if (!isCancelled) setLastSources(ctx);
+      }).catch(() => {});
+
+      // Stream definition
+      let accumulatedContent = '';
+      try {
+        const customQuery = `${currentTopic}${articleTone !== 'Standard' ? ` in a ${articleTone} tone` : ''}${articleLength !== 'Full' ? ` as a ${articleLength}` : ''}`;
+        for await (const chunk of streamDefinition(customQuery, enabledSources, activeLens, depth)) {
+          if (isCancelled) break;
+          if (chunk.startsWith('Error:')) throw new Error(chunk.replace('Error:', '').trim());
+          accumulatedContent += chunk;
+          if (!isCancelled) setContent(accumulatedContent);
+        }
+
+        // Save to cache on success
+        if (!isCancelled && accumulatedContent.length > 50) {
+          const wordCount = accumulatedContent.split(/\s+/).filter(Boolean).length;
+          const tokenEstimate = Math.ceil(accumulatedContent.length / 4);
+          setCache(prev => {
+            const newCache = { 
+              ...prev, 
+              [normalizedTopic]: { 
+                content: accumulatedContent, 
+                asciiArt: finalArt, 
+                timestamp: Date.now() 
+              } 
+            };
+            // Keep cache size reasonable (~30 entries)
+            const keys = Object.keys(newCache);
+            if (keys.length > 30) {
+              delete newCache[keys[0]];
+            }
+            try { localStorage.setItem('canto_cache', JSON.stringify(newCache)); } catch(e) {}
+            try {
+              const fullHistoryEntry = {
+                topic: currentTopic,
+                content: accumulatedContent,
+                asciiArt: finalArt,
+                timestamp: Date.now(),
+                wordCount,
+                tokenEstimate
+              };
+              let existingFull: any[] = [];
+              const savedFull = localStorage.getItem('canto_history_full');
+              if (savedFull) existingFull = JSON.parse(savedFull);
+              existingFull = [fullHistoryEntry, ...existingFull];
+              localStorage.setItem('canto_history_full', JSON.stringify(existingFull));
+            } catch (e) {}
+            dbSaveCache(currentTopic, accumulatedContent, finalArt);
+            dbSaveHistory(currentTopic, { wordCount, tokenEstimate });
+            dbRecordAnalytics(currentTopic, wordCount, tokenEstimate);
+
+            // ── Codex event ──────────────────────────────────────────────
+            processCodexEvent({ type: 'article_generated', topic: currentTopic, wordCount, depth }).then(({ newlyUnlocked }) => {
+              if (newlyUnlocked.length > 0) {
+                setCodexNewCount(c => c + newlyUnlocked.length);
+                const ach = getAchievement(newlyUnlocked[0]);
+                if (ach) setCodexToast(`Unlocked: ${ach.title}`);
+              }
+            });
+            return newCache;
+          });
+        }
+      } catch (e: unknown) {
+        if (!isCancelled) {
+          const msg = e instanceof Error ? e.message : 'An unknown error occurred';
+          setError(msg);
+          setContent('');
+        }
+      } finally {
+        if (!isCancelled) {
+          setGenerationTime(performance.now() - startTime);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchContentAndArt();
+    return () => { isCancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTopic, currentPage, retryTrigger]);
+
+  const handleWordClick = useCallback((word: string) => navigateToTopic(word), [navigateToTopic]);
+  const handleSearch = useCallback((topic: string) => navigateToTopic(topic), [navigateToTopic]);
+  const handleExplainClick = useCallback((action: string, text: string) => {
+    navigateToTopic(`${action}: ${text}`);
+  }, [navigateToTopic]);
+
+  const handleRandom = useCallback(async () => {
+    // Rate limit check before random too
+    const rlStatus = await checkRateLimit();
+    if (!rlStatus.allowed) {
+      showToast(`Daily limit of ${rlStatus.limit} searches reached. Resets at midnight.`, 'warning');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setContent('');
+    setAsciiArt(null);
+
+    try {
+      const randomWord = await getRandomWord();
+      if (randomWord) {
+        navigateToTopic(randomWord);
+      } else {
+        setIsLoading(false);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'ALL_PROVIDERS_FAILED') {
+        setError('All AI providers are currently unavailable. Please try again later.');
+        showToast('All providers unavailable.', 'error');
+      } else {
+        setError('Failed to fetch random word.');
+        showToast('Network error: Could not fetch random topic.', 'error');
+      }
+      setIsLoading(false);
+    }
+  }, [navigateToTopic, showToast]);
+
+  const clearHistory = useCallback(() => {
+    setIsConfirmingClear(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
+    setHistory([]);
+    try { localStorage.removeItem('canto_history'); } catch(e) {}
+    dbClearHistory();
+    setIsConfirmingClear(false);
+    showToast('Browsing history cleared', 'info');
+  }, [showToast]);
+
+  const changeTheme = useCallback((newTheme: 'classic' | 'dark' | 'vintage' | 'obsidian' | 'high-contrast') => {
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    try { localStorage.setItem('canto_theme', newTheme); } catch(e) {}
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        window.history.back();
+      } else if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        handleRandom();
+      } else if (e.altKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        navigateToPage('library');
+      } else if (e.altKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        navigateToPage('landing');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRandom, navigateToPage]);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const searchLimitBadge = searchesRemaining !== null && (
+    <span
+      title={`${searchesRemaining} of ${searchesLimit} daily searches remaining. Resets in ${resetTimer}.`}
+      style={{
+        fontSize: '0.75em',
+        fontFamily: 'monospace',
+        color: searchesRemaining <= 3 ? '#cc6600' : 'var(--text-muted)',
+        cursor: 'default',
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {(() => {
+        const limit = searchesLimit || 20;
+        const rem = searchesRemaining ?? limit;
+        const used = limit - rem;
+        const width = 12;
+        const filled = Math.round((used / limit) * width);
+        const bar = '█'.repeat(filled) + '░'.repeat(width - filled);
+        // Show fractional credits accurately (e.g. 12.5/20 cr)
+        const remDisplay = typeof rem === 'number' ? parseFloat(rem.toFixed(2)) : rem;
+        return `[${bar}] ${remDisplay}/${limit} cr`;
+      })()}
+      {resetTimer && <span className="search-limit-badge-timer"> (resets {resetTimer})</span>}
+    </span>
+  );
+
+  return (
+    <>
+      {showIntro && <StartupAnimation onComplete={() => setShowIntro(false)} />}
+      {showTour && !showIntro && <GuidedTour onDone={() => setShowTour(false)} />}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+
+
+        {/* ── Top nav ── */}
+        {!isReadingMode && (
+          <nav className="top-nav">
+            <div className="top-nav-left">
+              {currentPage !== 'landing' && (
+                <>
+                  <button onClick={() => navigateToPage('landing')} className="nav-btn">
+                    Home
+                  </button>
+                  <button onClick={() => window.history.back()} className="nav-btn">
+                    &larr; Back
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="top-nav-right">
+              {searchLimitBadge}
+
+              {currentPage === 'wiki' && (
+                <button onClick={() => { setCurrentTopic(''); navigateToPage('landing'); }} className="nav-btn">
+                  + New
+                </button>
+              )}
+
+              {/* Codex button removed — Codex is now an inline section in the wiki page */}
+
+              <button onClick={handleShare} className="nav-btn">
+                Share
+              </button>
+            </div>
+          </nav>
+        )}
+
+        <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
+
+        {/* ── All 6 Monospace Tree Dashboards / Settings on Every Page ── */}
+        <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', padding: '0 0.5rem' }}>
+          {/* ── ▶◈ My Data Center ── */}
+          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
+            <button
+              onClick={() => setIsDataCenterOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: '0.72em',
+                color: 'var(--text-muted)', padding: '0.6rem 0',
+                width: '100%', textAlign: 'left',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <span style={{ color: isDataCenterOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                {isDataCenterOpen ? '▼' : '▶'}
+              </span>
+              <span>◈</span>
+              <span>My Data Center</span>
+              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+            </button>
+          </div>
+          {isDataCenterOpen && (
+            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace', fontSize: '0.82em' }}>
+              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem' }}>
+                <DataCenter isOpen={isDataCenterOpen} onToggle={() => setIsDataCenterOpen(v => !v)} hideHeader={true} />
+              </div>
+            </div>
+          )}
+
+          {/* ── ▶◈ Canto Codex — Wandering Sage ── */}
+          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
+            <button
+              onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: '0.72em',
+                color: 'var(--text-muted)', padding: '0.6rem 0',
+                width: '100%', textAlign: 'left',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                {isCodexOpen ? '▼' : '▶'}
+              </span>
+              <span>◈</span>
+              <span>Canto Codex — Wandering Sage</span>
+              {codexNewCount > 0 && (
+                <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em', marginLeft: '0.4rem' }}>
+                  [{codexNewCount} new]
+                </span>
+              )}
+              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+            </button>
+          </div>
+          {isCodexOpen && (
+            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace' }}>
+              <CantoCodex
+                isOpen={isCodexOpen}
+                onToggle={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
+                hideHeader={true}
+              />
+            </div>
+          )}
+
+          {/* ── ▶◈ History — Wandering Sage ── */}
+          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
+            <button
+              onClick={() => setIsHistoryInlineOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: '0.72em',
+                color: 'var(--text-muted)', padding: '0.6rem 0',
+                width: '100%', textAlign: 'left',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <span style={{ color: isHistoryInlineOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                {isHistoryInlineOpen ? '▼' : '▶'}
+              </span>
+              <span>◈</span>
+              <span>History — Wandering Sage</span>
+              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+            </button>
+          </div>
+          {isHistoryInlineOpen && (
+            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace', fontSize: '0.82em' }}>
+              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem' }}>
+                <HistoryDropdown
+                  history={history}
+                  favorites={favorites}
+                  onNavigate={navigateToTopic}
+                  onClear={clearHistory}
+                  onViewLibrary={() => { setIsHistoryInlineOpen(false); navigateToPage('library'); }}
+                  inline={true}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ── ▶◈ Versions ── */}
+          {(() => {
+            let versions: any[] = [];
+            try {
+              const savedFull = localStorage.getItem('canto_history_full');
+              if (savedFull) {
+                const full: any[] = JSON.parse(savedFull);
+                if (currentTopic) {
+                  versions = full.filter(e => e.topic.toLowerCase() === currentTopic.toLowerCase());
+                } else {
+                  versions = full.slice(-5).reverse();
+                }
+              }
+            } catch {}
+            return (
+              <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
+                <VersionsSection
+                  versions={versions}
+                  currentTopic={currentTopic || 'Recent Searches'}
+                  onNavigate={navigateToTopic}
+                  onLoadVersion={(v) => {
+                    setContent(v.content);
+                    if (v.asciiArt) setAsciiArt(v.asciiArt);
+                  }}
+                />
+              </div>
+            );
+          })()}
+
+          {/* ── ▶◈ Research ── */}
+          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
+            <button
+              onClick={() => setIsResearchPanelOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: '0.72em',
+                color: 'var(--text-muted)', padding: '0.6rem 0',
+                width: '100%', textAlign: 'left',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <span style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                {isResearchPanelOpen ? '▼' : '▶'}
+              </span>
+              <span>◈</span>
+              <span>Research</span>
+              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+            </button>
+          </div>
+          {isResearchPanelOpen && (
+            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace' }}>
+              <ResearchPanel
+                topic={currentTopic || ''}
+                content={content || ''}
+                sources={lastSources || {}}
+                onTopicClick={handleWordClick}
+                isOpen={isResearchPanelOpen}
+              />
+            </div>
+          )}
+
+          {/* ── ▶◈ Article Settings ── */}
+          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
+            <button
+              onClick={() => setIsResearchOptionsOpen(!isResearchOptionsOpen)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                fontFamily: 'monospace', fontSize: '0.72em',
+                color: 'var(--text-muted)', padding: '0.6rem 0',
+                width: '100%', textAlign: 'left',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                transition: 'color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              <span style={{ color: isResearchOptionsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                {isResearchOptionsOpen ? '▼' : '▶'}
+              </span>
+              <span>◈</span>
+              <span>Article Settings</span>
+              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+            </button>
+          </div>
+
+          {isResearchOptionsOpen && (
+            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace', fontSize: '0.82em' }}>
+              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+
+                {/* Lens */}
+                <div>
+                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Lens</div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
+                      <button
+                        key={lens}
+                        onClick={() => setActiveLens(lens)}
+                        style={{
+                          background: 'none', border: 'none', padding: '0.2rem 0',
+                          borderLeft: `2px solid ${activeLens === lens ? 'var(--accent-color)' : 'transparent'}`,
+                          paddingLeft: '0.5rem',
+                          color: activeLens === lens ? 'var(--accent-color)' : 'var(--text-muted)',
+                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                          transition: 'border-color 0.12s, color 0.12s',
+                          marginRight: '0.5rem',
+                        }}
+                        onMouseEnter={e => { if (activeLens !== lens) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                        onMouseLeave={e => { if (activeLens !== lens) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                      >
+                        {lens}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Search Depth */}
+                <div>
+                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Search Depth</div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {(['Mini', 'Standard', 'Deep'] as const).map(d => (
+                      <button
+                        key={d}
+                        onClick={() => setDepth(d)}
+                        style={{
+                          background: 'none', border: 'none', padding: '0.2rem 0',
+                          borderLeft: `2px solid ${depth === d ? 'var(--accent-color)' : 'transparent'}`,
+                          paddingLeft: '0.5rem',
+                          color: depth === d ? 'var(--accent-color)' : 'var(--text-muted)',
+                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                          transition: 'border-color 0.12s, color 0.12s',
+                          marginRight: '0.5rem',
+                        }}
+                        onMouseEnter={e => { if (depth !== d) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                        onMouseLeave={e => { if (depth !== d) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                      >
+                        {d}
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', marginLeft: '0.3rem' }}>
+                          {d === 'Mini' ? '(0.5 cr)' : d === 'Deep' ? '(2 cr)' : '(1 cr)'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tone */}
+                <div>
+                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Tone</div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {(['Standard', 'Academic', 'Simple', 'Technical'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setArticleTone(t)}
+                        style={{
+                          background: 'none', border: 'none', padding: '0.2rem 0',
+                          borderLeft: `2px solid ${articleTone === t ? 'var(--accent-color)' : 'transparent'}`,
+                          paddingLeft: '0.5rem',
+                          color: articleTone === t ? 'var(--accent-color)' : 'var(--text-muted)',
+                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                          transition: 'border-color 0.12s, color 0.12s',
+                          marginRight: '0.5rem',
+                        }}
+                        onMouseEnter={e => { if (articleTone !== t) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                        onMouseLeave={e => { if (articleTone !== t) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Length */}
+                <div>
+                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Length</div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {(['Full', 'Summary', 'Deep Dive'] as const).map(l => (
+                      <button
+                        key={l}
+                        onClick={() => setArticleLength(l)}
+                        style={{
+                          background: 'none', border: 'none', padding: '0.2rem 0',
+                          borderLeft: `2px solid ${articleLength === l ? 'var(--accent-color)' : 'transparent'}`,
+                          paddingLeft: '0.5rem',
+                          color: articleLength === l ? 'var(--accent-color)' : 'var(--text-muted)',
+                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                          transition: 'border-color 0.12s, color 0.12s',
+                          marginRight: '0.5rem',
+                        }}
+                        onMouseEnter={e => { if (articleLength !== l) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                        onMouseLeave={e => { if (articleLength !== l) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sources */}
+                <div>
+                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Sources</div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {(['Wikipedia', 'NASA', 'CORE', 'Web Search'] as const).map(src => {
+                      const checked = enabledSources.includes(src);
+                      return (
+                        <button
+                          key={src}
+                          onClick={() => setEnabledSources(prev => checked ? prev.filter(s => s !== src) : [...prev, src])}
+                          style={{
+                            background: 'none', border: 'none', padding: '0.2rem 0',
+                            borderLeft: `2px solid ${checked ? 'var(--accent-color)' : 'transparent'}`,
+                            paddingLeft: '0.5rem',
+                            color: checked ? 'var(--accent-color)' : 'var(--text-muted)',
+                            cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                            textDecoration: checked ? 'none' : 'line-through',
+                            transition: 'border-color 0.12s, color 0.12s',
+                            marginRight: '0.5rem',
+                          }}
+                          onMouseEnter={e => { if (!checked) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                          onMouseLeave={e => { if (!checked) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                        >
+                          {src}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Accessibility */}
+                <div>
+                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Accessibility</div>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {[
+                      {
+                        label: `Dyslexia Font: ${isDyslexic ? 'On' : 'Off'}`,
+                        active: isDyslexic,
+                        onClick: () => {
+                          const next = !isDyslexic;
+                          setIsDyslexic(next);
+                          document.body.classList.toggle('dyslexic', next);
+                          localStorage.setItem('canto_dyslexic', String(next));
+                        },
+                      },
+                      {
+                        label: `High Contrast: ${theme === 'high-contrast' ? 'On' : 'Off'}`,
+                        active: theme === 'high-contrast',
+                        onClick: () => {
+                          const next = theme === 'high-contrast' ? 'classic' : 'high-contrast';
+                          setTheme(next);
+                          document.documentElement.setAttribute('data-theme', next);
+                          localStorage.setItem('canto_theme', next);
+                        },
+                      },
+                    ].map(({ label, active, onClick }) => (
+                      <button
+                        key={label}
+                        onClick={onClick}
+                        style={{
+                          background: 'none', border: 'none', padding: '0.2rem 0',
+                          borderLeft: `2px solid ${active ? 'var(--accent-color)' : 'transparent'}`,
+                          paddingLeft: '0.5rem',
+                          color: active ? 'var(--accent-color)' : 'var(--text-muted)',
+                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
+                          transition: 'border-color 0.12s, color 0.12s',
+                          marginRight: '0.5rem',
+                        }}
+                        onMouseEnter={e => { if (!active) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
+                        onMouseLeave={e => { if (!active) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ── AI Followups as Branching Conversation Tree ── */}
+          {conversationBranch.length > 1 && (
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.3rem' }}>
+              <span>Thread:</span>
+              {conversationBranch.map((branchTopic, idx) => (
+                <React.Fragment key={idx}>
+                  <button
+                    onClick={() => navigateToTopic(branchTopic)}
+                    style={{ background: 'none', border: 'none', textDecoration: 'underline', padding: 0, color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
+                  >
+                    {branchTopic.length > 15 ? branchTopic.slice(0, 12) + '...' : branchTopic}
+                  </button>
+                  {idx < conversationBranch.length - 1 && <span>›</span>}
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
+          {content && currentPage !== 'landing' && (
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: '0.4rem', marginBottom: '1rem' }}>
+              <button
+                onClick={async () => {
+                  if (isCompareOpen) { setIsCompareOpen(false); setIsDiffView(false); return; }
+                  const h = await dbGetHistory();
+                  setCompareHistoryList(h);
+                  setCompareSlotA({ topic: currentTopic, content, label: `Current — ${currentTopic}` });
+                  setCompareSlotB(previousContent ? { topic: currentTopic, content: previousContent, label: `Previous — ${currentTopic}` } : null);
+                  setIsCompareOpen(true);
+                  setIsDiffView(true);
+                }}
+                style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
+              >
+                {isCompareOpen ? 'Hide Comparison' : 'Compare Versions'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {!isReadingMode && currentPage !== 'landing' && (
+          <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', padding: '0 1rem' }}>
+              <h1 style={{ fontSize: '2.8em', fontWeight: 'bold', letterSpacing: '0.2em', color: 'var(--text-color)', fontFamily: 'monospace', margin: 0 }}>
+                CANTO
+              </h1>
+              <p style={{ fontSize: '0.85em', letterSpacing: '0.35em', color: 'var(--text-muted)', fontFamily: 'monospace', margin: '0.4rem 0 0 0', textTransform: 'uppercase' }}>
+                [ AI Galactica Encyclopedia ]
+              </p>
+            </div>
+          </header>
+        )}
+
+        <main className="fade-in" style={{ flex: 1, width: '100%', paddingTop: isReadingMode ? '4rem' : '0' }} key={currentPage + currentTopic}>
+          <ErrorBoundary>
+            {currentPage === 'wiki' ? (
+              <div className="main-layout" style={{ display: 'block', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                <div className="main-content" style={{ width: '100%' }}>
+                  {!isReadingMode && (
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                      <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
+                    <h2 className="wiki-topic-title" style={{ margin: 0, textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
+                      {currentTopic}
+                    </h2>
+                    <span style={{ fontSize: '0.75em', letterSpacing: '0.1em', color: 'var(--accent-color)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                      <FactCheckPanel
+                        topic={currentTopic}
+                        content={content}
+                        sources={lastSources}
+                        onFactCheckComplete={(verified) => {
+                          processCodexEvent({ type: 'fact_check_run', verifiedSources: verified });
+                        }}
+                      />
+                    </span>
+
+                    {/* Tag Manager */}
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginTop: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {searchTags[currentTopic]?.map(tag => (
+                        <span key={tag} style={{ fontSize: '0.75em', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', paddingBottom: '1px' }}>
+                          {tag}
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        placeholder="Add tag (e.g. #physics)"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const val = e.currentTarget.value.trim();
+                            if (val) {
+                              setSearchTags(prev => {
+                                const curr = prev[currentTopic] || [];
+                                const next = curr.includes(val) ? curr : [...curr, val];
+                                return { ...prev, [currentTopic]: next };
+                              });
+                              e.currentTarget.value = '';
+                            }
+                          }
+                        }}
+                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-color)', fontFamily: 'monospace', fontSize: '0.72em', padding: '0.1rem 0.3rem', color: 'var(--text-color)', outline: 'none', width: '130px' }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '0 0.5rem' }}>
+                    {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{readingTime} min read</span>}
+                    <button 
+                      onClick={() => setIsReadingMode(!isReadingMode)}
+                      style={{ background: 'transparent', border: 'none', textDecoration: 'underline', color: isReadingMode ? 'var(--accent-color)' : 'var(--text-muted)', padding: '0.3rem 0.7rem', fontSize: '0.75em', cursor: 'pointer', fontFamily: 'monospace' }}
+                    >
+                      {isReadingMode ? 'Reading Mode: On' : 'Reading Mode: Off'}
+                    </button>
+                    <div style={{ width: '160px', whiteSpace: 'nowrap' }}>
+                      <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
+                    </div>
+                  </div>
+
+                  {/* ── My Data Center — moved to footer area ── */}
+                  {!isLoading && !error && content.length > 0 && (
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                      <button 
+                        onClick={handleRegenerate}
+                        style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em', fontFamily: 'monospace', textDecoration: 'underline' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                      >
+                        Regenerate (Uses {depth === 'Mini' ? '0.5' : depth === 'Deep' ? '2' : '1'} Credit{depth === 'Deep' ? 's' : ''})
+                      </button>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div style={{ border: '1px solid #cc0000', padding: '1rem', color: '#cc0000', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 'bold' }}>An Error Occurred</p>
+                        <p style={{ marginTop: '0.5rem', margin: 0 }}>{error}</p>
+                      </div>
+                      {!error.includes('daily search limit') && (
+                        <button onClick={handleRegenerate} style={{ background: '#cc0000', color: 'white', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', borderRadius: '4px' }}>
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {isLoading && content.length === 0 && !error && <LoadingSkeleton />}
+
+                  {content.length > 0 && !error && (
+                    <>
+                      {isDiffView && isCompareOpen ? (
+                        <CompareView
+                          slotA={compareSlotA}
+                          slotB={compareSlotB}
+                          currentTopic={currentTopic}
+                          currentContent={content}
+                          historyList={compareHistoryList}
+                          historyQuery={compareHistoryQuery}
+                          onHistoryQueryChange={setCompareHistoryQuery}
+                          pickerSlot={comparePickerSlot}
+                          onOpenPicker={setComparePickerSlot}
+                          onPickHistory={async (topic) => {
+                            const cached = await dbGetCache(topic);
+                            const c = cached?.content || '';
+                            const slot = { topic, content: c, label: topic };
+                            if (comparePickerSlot === 'A') setCompareSlotA(slot);
+                            else setCompareSlotB(slot);
+                            setComparePickerSlot(null);
+                          }}
+                          onPickCurrent={() => {
+                            const slot = { topic: currentTopic, content, label: `Current — ${currentTopic}` };
+                            if (comparePickerSlot === 'A') setCompareSlotA(slot);
+                            else setCompareSlotB(slot);
+                            setComparePickerSlot(null);
+                          }}
+                          onPickNew={(newTopic) => {
+                            navigateToTopic(newTopic);
+                            setComparePickerSlot(null);
+                          }}
+                          onPickContent={(slotData) => {
+                            if (comparePickerSlot === 'A') setCompareSlotA(slotData);
+                            else setCompareSlotB(slotData);
+                            setComparePickerSlot(null);
+                          }}
+                          onClose={() => { setIsCompareOpen(false); setIsDiffView(false); }}
+                          onWordClick={handleWordClick}
+                          fontSize={fontSize}
+                          isReadingMode={isReadingMode}
+                          onExplainClick={handleExplainClick}
+                          sources={lastSources}
+                        />
+                      ) : (
+                        <ContentDisplay 
+                          content={displayedContent} 
+                          isLoading={isLoading} 
+                          onWordClick={handleWordClick} 
+                          topic={currentTopic}
+                          isFavorite={favorites.includes(currentTopic)}
+                          onToggleFavorite={() => toggleFavorite(currentTopic)}
+                          fontSize={fontSize}
+                          isReadingMode={isReadingMode}
+                          onExplainClick={handleExplainClick}
+                          sources={lastSources}
+                        />
+                      )}
+                      {!isLoading && (
+                        <>
+                          {content && (
+                            <div style={{ margin: '2rem 0 0.5rem 0', fontFamily: 'monospace' }}>
+                              <button
+                                onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) { setIsMultimediaOpen(false); processCodexEvent({ type: 'lab_discovered', feature: 'labs' }); } }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                  background: 'transparent', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'monospace', fontSize: '0.72em',
+                                  color: 'var(--text-muted)', padding: '0.6rem 0',
+                                  width: '100%', textAlign: 'left',
+                                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                                  transition: 'color 0.12s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <span style={{ color: isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                                  {isAdvancedLabsOpen ? '▼' : '▶'}
+                                </span>
+                                <span>◈</span>
+                                <span>Canto Labs</span>
+                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+                              </button>
+                            </div>
+                          )}
+                          {isAdvancedLabsOpen && <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />}
+
+                          {content && (
+                            <div style={{ margin: '1rem 0 0.5rem 0', fontFamily: 'monospace' }}>
+                              <button
+                                onClick={() => { setIsMultimediaOpen(v => !v); if (!isMultimediaOpen) setIsAdvancedLabsOpen(false); }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                  background: 'transparent', border: 'none', cursor: 'pointer',
+                                  fontFamily: 'monospace', fontSize: '0.72em',
+                                  color: 'var(--text-muted)', padding: '0.6rem 0',
+                                  width: '100%', textAlign: 'left',
+                                  letterSpacing: '0.18em', textTransform: 'uppercase',
+                                  transition: 'color 0.12s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                <span style={{ color: isMultimediaOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                                  {isMultimediaOpen ? '▼' : '▶'}
+                                </span>
+                                <span>◈</span>
+                                <span>Multimedia</span>
+                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
+                              </button>
+                            </div>
+                          )}
+                          {isMultimediaOpen && <MultimediaViewer topic={currentTopic} content={content} sources={lastSources} />}
+                          <DidYouKnow topic={currentTopic} />
+                          <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {!isLoading && !error && content.length === 0 && (
+                    <div style={{ color: 'var(--text-muted)', padding: '2rem 0' }}>
+                      <p>Content could not be generated.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : currentPage === 'landing' ? (
+              <LandingPage onWordClick={handleWordClick} onConfigureClick={() => setIsDataCenterOpen(true)} />
+            ) : currentPage === '404' ? (
+              <div style={{ maxWidth: '800px', margin: '4rem auto', textAlign: 'center', fontFamily: 'monospace' }}>
+                <h1 style={{ fontSize: '3.5em', fontWeight: 'bold', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem', letterSpacing: '0.1em' }}>404</h1>
+                <p style={{ margin: '1.5rem 0', fontSize: '1.1em', color: 'var(--text-color)' }}>This page could not be located in the AI Galactica archives.</p>
+                <button
+                  onClick={() => navigateToPage('landing')}
+                  style={{
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--accent-color)',
+                    padding: '0.6rem 1.2rem',
+                    cursor: 'pointer',
+                    fontFamily: 'monospace',
+                    fontSize: '1em',
+                    borderRadius: '2px',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  Return to Landing Page
+                </button>
+              </div>
+            ) : (
+              <StaticPage 
+                pageId={currentPage} 
+                history={history} 
+                favorites={favorites} 
+                onTopicClick={handleWordClick} 
+              />
+            )}
+          </ErrorBoundary>
+        </main>
+
+        <footer style={{ marginTop: '4rem', padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85em', fontFamily: 'monospace' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+            <button onClick={() => changeTheme('classic')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'classic' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'classic' ? 'underline' : 'none' }}>Classic</button>
+            <button onClick={() => changeTheme('obsidian')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'obsidian' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'obsidian' ? 'underline' : 'none' }}>Obsidian</button>
+            <button onClick={() => changeTheme('dark')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'dark' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'dark' ? 'underline' : 'none' }}>Dark Neon</button>
+            <button onClick={() => changeTheme('vintage')} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8em', fontFamily: 'monospace', border: 'none', background: 'transparent', cursor: 'pointer', color: theme === 'vintage' ? 'var(--accent-color)' : 'var(--text-muted)', textDecoration: theme === 'vintage' ? 'underline' : 'none' }}>Vintage</button>
+          </div>
+          <p>© {new Date().getFullYear()} Canto · Crafted by Sonata Interactive as a solo project</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+            <button onClick={() => navigateToPage('about')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>About</button>
+            <button onClick={() => navigateToPage('library')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Library</button>
+            <button onClick={() => navigateToPage('pricing')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Pricing</button>
+            <button onClick={() => navigateToPage('opensource')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Open Source</button>
+            <button onClick={() => navigateToPage('faq')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>FAQ</button>
+            <button onClick={() => navigateToPage('privacy')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Privacy</button>
+            <button onClick={() => navigateToPage('terms')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>Terms</button>
+            <button onClick={() => navigateToPage('cantostore')} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1em', fontFamily: 'inherit', textDecoration: 'underline' }}>CantoStore</button>
+          </div>
+          {generationTime && currentPage === 'wiki' && (
+            <p style={{ marginTop: '1.5rem', opacity: 0.6 }}>
+              Generated in {Math.round(generationTime)}ms
+            </p>
+          )}
+        </footer>
+        
+        {isConfirmingClear && (
+          <CantoDialog 
+            title="Clear History"
+            message="Are you sure you want to delete all browsing history? This action cannot be undone."
+            type="confirm"
+            confirmLabel="Clear All"
+            onConfirm={handleConfirmClear}
+            onCancel={() => setIsConfirmingClear(false)}
+          />
+        )}
+
+        {activeAlert && (
+          <CantoDialog 
+            title={activeAlert.title}
+            message={activeAlert.message}
+            type="alert"
+            confirmLabel="OK"
+            onConfirm={() => {
+              if (activeAlert.onConfirm) activeAlert.onConfirm();
+              setActiveAlert(null);
+            }}
+          />
+        )}
+
+        {/* Achievement unlock toast */}
+        {codexToast && (
+          <div
+            style={{
+              position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)',
+              background: 'var(--bg-color)', border: '1px solid var(--accent-color)',
+              padding: '0.5rem 1.2rem', fontFamily: 'monospace', fontSize: '0.82em',
+              color: 'var(--accent-color)', zIndex: 20000, pointerEvents: 'none',
+              animation: 'fade-in 0.2s ease',
+              whiteSpace: 'nowrap',
+            }}
+            ref={el => { if (el) setTimeout(() => setCodexToast(null), 3500); }}
+          >
+            {codexToast}
+          </div>
+        )}
+
+      </div>
+    </>
+  );
+};
+
+export default App;
+

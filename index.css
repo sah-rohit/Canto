@@ -1,0 +1,205 @@
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-color);
+}
+
+/* Dyslexic font family if enabled */
+.dyslexic, .dyslexic * {
+  font-family: 'OpenDyslexic', sans-serif !important;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* High Contrast Theme support */
+[data-theme='high-contrast'] {
+  --bg-color: #000000 !important;
+  --text-color: #ffffff !important;
+  --accent-color: #ffff00 !important;
+  --text-muted: #e0e0e0 !important;
+  --border-color: #ffffff !important;
+  --input-bg: #111111 !important;
+}
+
+/* ── Hover tooltip fade-in animation ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Interactive word hover highlight ── */
+.interactive-word.clickable-any-word:hover {
+  color: var(--accent-color);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* ── Print View ── */
+.print-view {
+  font-size: 1.05em;
+  line-height: 2;
+  color: #111 !important;
+  background: #fff !important;
+}
+
+@media print {
+  .content-actions,
+  .sticky,
+  [role="tooltip"] {
+    display: none !important;
+  }
+  .print-view {
+    font-size: 12pt;
+    line-height: 1.8;
+  }
+}
+
+/* ── Panel / Tree Section Styles ── */
+
+/* Collapsible section toggle buttons */
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 0.72em;
+  color: var(--text-muted);
+  padding: 0.6rem 0;
+  width: 100%;
+  text-align: left;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: color 0.12s;
+}
+.section-toggle:hover {
+  color: var(--text-color);
+}
+
+/* Tree-style left-border indented content */
+.tree-body {
+  border-left: 1px solid var(--border-color);
+  margin-left: 0.5rem;
+  padding-left: 1rem;
+  padding-bottom: 0.8rem;
+}
+
+/* Tree node buttons (items inside tree-body) */
+.tree-node {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  padding-left: 0.6rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 0.88em;
+  color: var(--text-color);
+  transition: border-color 0.12s, color 0.12s;
+  margin-bottom: 0.15rem;
+}
+.tree-node:hover,
+.tree-node.active {
+  border-left-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* Section sub-label */
+.section-label {
+  font-size: 0.7em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: monospace;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ── Mobile Optimizations ── */
+
+/* Tighter touch targets on mobile */
+@media (max-width: 600px) {
+  /* Increase tap target size for tree nodes and buttons */
+  .tree-node,
+  .section-toggle {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    min-height: 2.5rem;
+  }
+
+  /* Article meta bar wraps cleanly */
+  .content-actions {
+    gap: 0.6rem;
+  }
+
+  /* Reduce scrollbar width on mobile */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  /* Prevent horizontal overflow in source URLs */
+  a[href] {
+    word-break: break-all;
+  }
+}
+
+/* ── Tablet adjustments ── */
+@media (min-width: 601px) and (max-width: 999px) {
+  .tree-node {
+    font-size: 0.9em;
+  }
+}
+
+/* ── Streaming animation ── */
+@keyframes streaming-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.streaming-active::after {
+  content: '▌';
+  display: inline-block;
+  animation: streaming-pulse 0.8s ease-in-out infinite;
+  color: var(--accent-color);
+  margin-left: 2px;
+}
+
+/* ── Focus visible for keyboard nav ── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 1px solid var(--accent-color);
+  outline-offset: 2px;
+}

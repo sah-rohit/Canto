@@ -1,0 +1,347 @@
+/**
+ * CantoStore — Layer 2b + Layer 3: File System Access API
+ * User-picked folder on device (survives browser uninstall).
+ * Also serves as Layer 3 external backup (Dropbox/Drive/USB folder).
+ */
+
+import { compressJSON, decompressJSON } from './compression';
+import { encrypt, decrypt, packEncrypted, unpackEncrypted, sha256Hex } from './crypto';
+import type { CantoManifest, ManifestEntry, CantoStoreKey } from './types';
+
+const FS_HANDLE_KEY = 'cantostore_fs_handle';
+
+// ─── Availability check ───────────────────────────────────────────────────────
+
+export function isFSAccessAvailable(): boolean {
+  return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+}
+
+// ─── Persist and retrieve directory handle ────────────────────────────────────
+
+let _dirHandle: FileSystemDirectoryHandle | null = null;
+
+export async function initializeVaultStructure(handle: FileSystemDirectoryHandle): Promise<void> {
+  const enc = new TextEncoder();
+  const folders = [
+    'encyclopedia/entries',
+    'encyclopedia/contexts',
+    'encyclopedia/media',
+    'user-data',
+    'sync/device-keys',
+    'sync/snapshots',
+    'temp'
+  ];
+  for (const f of folders) {
+    let dir = handle;
+    for (const part of f.split('/')) {
+      dir = await dir.getDirectoryHandle(part, { create: true });
+    }
+  }
+
+  // Create config file
+  const config = {
+    version: "1.0.0",
+    createdAt: Date.now(),
+    deviceId: localStorage.getItem('canto_device_id') || 'unknown'
+  };
+  await fsWrite('.vault-config.json', enc.encode(JSON.stringify(config, null, 2)), handle).catch(() => {});
+
+  // Create README.txt
+  const readme = `Welcome to CantoStore Vault\n----------------------------\nThis folder contains your full AI Galactica Encyclopedia and personalized user data.`;
+  await fsWrite('README.txt', enc.encode(readme), handle).catch(() => {});
+
+  // Create index files
+  await fsWrite('encyclopedia/index.json', enc.encode('[]'), handle).catch(() => {});
+  await fsWrite('user-data/preferences.json', enc.encode('{}'), handle).catch(() => {});
+  await fsWrite('user-data/search-history.jsonl', enc.encode(''), handle).catch(() => {});
+  await fsWrite('user-data/bookmarks.json', enc.encode('[]'), handle).catch(() => {});
+  await fsWrite('user-data/custom-notes.json', enc.encode('[]'), handle).catch(() => {});
+  await fsWrite('sync/sync-log.jsonl', enc.encode(''), handle).catch(() => {});
+}
+
+export async function requestFolderAccess(): Promise<FileSystemDirectoryHandle | null> {
+  if (!isFSAccessAvailable()) return null;
+  try {
+    const handle = await (window as any).showDirectoryPicker({
+      id: 'cantostore-storage',
+      mode: 'readwrite',
+      startIn: 'documents',
+    });
+    _dirHandle = handle;
+    await initializeVaultStructure(handle);
+    await persistHandle(handle);
+    return handle;
+  } catch {
+    return null;
+  }
+}
+
+export async function getStoredFolderHandle(): Promise<FileSystemDirectoryHandle | null> {
+  if (_dirHandle) {
+    try {
+      // Verify permission is still granted
+      const perm = await (_dirHandle as any).queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') return _dirHandle;
+    } catch {}
+  }
+  // Try to restore from IndexedDB
+  const handle = await loadPersistedHandle();
+  if (!handle) return null;
+  try {
+    const perm = await (handle as any).queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      _dirHandle = handle;
+      return handle;
+    }
+    // Request permission again
+    const newPerm = await (handle as any).requestPermission({ mode: 'readwrite' });
+    if (newPerm === 'granted') {
+      _dirHandle = handle;
+      return handle;
+    }
+  } catch {}
+  return null;
+}
+
+export function clearFolderHandle(): void {
+  _dirHandle = null;
+  clearPersistedHandle();
+}
+
+// ─── Persist handle in IndexedDB (handles can't go in localStorage) ───────────
+
+async function persistHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('cantostore_handles', 1);
+    req.onupgradeneeded = (e: any) => {
+      e.target.result.createObjectStore('handles', { keyPath: 'key' });
+    };
+    req.onsuccess = (e: any) => {
+      const db = e.target.result;
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').put({ key: FS_HANDLE_KEY, handle });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    };
+    req.onerror = () => resolve();
+  });
+}
+
+async function loadPersistedHandle(): Promise<FileSystemDirectoryHandle | null> {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('cantostore_handles', 1);
+    req.onupgradeneeded = (e: any) => {
+      e.target.result.createObjectStore('handles', { keyPath: 'key' });
+    };
+    req.onsuccess = (e: any) => {
+      const db = e.target.result;
+      const tx = db.transaction('handles', 'readonly');
+      const r = tx.objectStore('handles').get(FS_HANDLE_KEY);
+      r.onsuccess = () => resolve(r.result?.handle ?? null);
+      r.onerror = () => resolve(null);
+    };
+    req.onerror = () => resolve(null);
+  });
+}
+
+function clearPersistedHandle(): void {
+  const req = indexedDB.open('cantostore_handles', 1);
+  req.onsuccess = (e: any) => {
+    const db = e.target.result;
+    try {
+      const tx = db.transaction('handles', 'readwrite');
+      tx.objectStore('handles').delete(FS_HANDLE_KEY);
+    } catch {}
+  };
+}
+
+// ─── File operations ──────────────────────────────────────────────────────────
+
+async function getOrCreateSubDir(
+  root: FileSystemDirectoryHandle,
+  name: string
+): Promise<FileSystemDirectoryHandle> {
+  return root.getDirectoryHandle(name, { create: true });
+}
+
+export async function fsWrite(
+  path: string,
+  data: Uint8Array,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<boolean> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return false;
+  try {
+    const parts = path.split('/');
+    const fileName = parts.pop()!;
+    let current = dir;
+    for (const part of parts) {
+      current = await getOrCreateSubDir(current, part);
+    }
+    const fh = await current.getFileHandle(fileName, { create: true });
+    const writable = await (fh as any).createWritable();
+    await writable.write(data);
+    await writable.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function fsRead(
+  path: string,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<Uint8Array | null> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return null;
+  try {
+    const parts = path.split('/');
+    const fileName = parts.pop()!;
+    let current = dir;
+    for (const part of parts) {
+      current = await current.getDirectoryHandle(part, { create: false });
+    }
+    const fh = await current.getFileHandle(fileName, { create: false });
+    const file = await fh.getFile();
+    return new Uint8Array(await file.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+export async function fsDelete(
+  path: string,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<void> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return;
+  try {
+    const parts = path.split('/');
+    const fileName = parts.pop()!;
+    let current = dir;
+    for (const part of parts) {
+      current = await current.getDirectoryHandle(part, { create: false });
+    }
+    await current.removeEntry(fileName);
+  } catch {}
+}
+
+// ─── Write store (compressed + encrypted) ────────────────────────────────────
+
+export async function fsWriteStore(
+  store: CantoStoreKey,
+  records: any[],
+  deviceId: string,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<ManifestEntry | null> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return null;
+
+  const compressed = await compressJSON(records);
+  const { ciphertext, salt, iv } = await encrypt(compressed, deviceId);
+  const blob = packEncrypted(salt, iv, ciphertext);
+  const hash = await sha256Hex(blob);
+  const path = `CantoStore/_stores/${store}.adb`;
+
+  const ok = await fsWrite(path, blob, dir);
+  if (!ok) return null;
+
+  return {
+    path,
+    hash,
+    size: blob.length,
+    timestamp: Date.now(),
+    store,
+    compressed: true,
+    encrypted: true,
+  };
+}
+
+// ─── Read store ───────────────────────────────────────────────────────────────
+
+export async function fsReadStore<T = any>(
+  store: CantoStoreKey,
+  deviceId: string,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<T[] | null> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return null;
+
+  const blob = await fsRead(`CantoStore/_stores/${store}.adb`, dir);
+  if (!blob) return null;
+  try {
+    const { salt, iv, ciphertext } = unpackEncrypted(blob);
+    const compressed = await decrypt(ciphertext, salt, iv, deviceId);
+    return await decompressJSON<T[]>(compressed);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Manifest ─────────────────────────────────────────────────────────────────
+
+export async function fsReadManifest(
+  handle?: FileSystemDirectoryHandle | null
+): Promise<CantoManifest | null> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return null;
+  const blob = await fsRead('CantoStore/manifest.json', dir);
+  if (!blob) return null;
+  try {
+    return JSON.parse(new TextDecoder().decode(blob)) as CantoManifest;
+  } catch {
+    return null;
+  }
+}
+
+export async function fsWriteManifest(
+  manifest: CantoManifest,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<void> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return;
+  const enc = new TextEncoder();
+  await fsWrite('CantoStore/manifest.json', enc.encode(JSON.stringify(manifest, null, 2)), dir);
+}
+
+// ─── Snapshot ─────────────────────────────────────────────────────────────────
+
+export async function fsWriteSnapshot(
+  snapshotId: string,
+  stores: Record<string, any[]>,
+  deviceId: string,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<boolean> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return false;
+  const compressed = await compressJSON(stores);
+  const { ciphertext, salt, iv } = await encrypt(compressed, deviceId);
+  const blob = packEncrypted(salt, iv, ciphertext);
+  return fsWrite(`CantoStore/_snapshots/${snapshotId}.snap`, blob, dir);
+}
+
+export async function fsReadSnapshot(
+  snapshotId: string,
+  deviceId: string,
+  handle?: FileSystemDirectoryHandle | null
+): Promise<Record<string, any[]> | null> {
+  const dir = handle ?? await getStoredFolderHandle();
+  if (!dir) return null;
+  const blob = await fsRead(`CantoStore/_snapshots/${snapshotId}.snap`, dir);
+  if (!blob) return null;
+  try {
+    const { salt, iv, ciphertext } = unpackEncrypted(blob);
+    const compressed = await decrypt(ciphertext, salt, iv, deviceId);
+    return await decompressJSON(compressed);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Get folder name for display ──────────────────────────────────────────────
+
+export function getFolderName(handle?: FileSystemDirectoryHandle | null): string {
+  return handle?.name ?? _dirHandle?.name ?? '—';
+}
+
+
