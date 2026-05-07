@@ -203,3 +203,116 @@ input:focus-visible {
   outline: 1px solid var(--accent-color);
   outline-offset: 2px;
 }
+
+/* ── Wiki 3-Column Layout (DeepWiki Style) ── */
+.wiki-layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 1100px) and (max-width: 1299px) {
+  .wiki-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr 280px;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 1300px) and (max-width: 1599px) {
+  .wiki-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 320px;
+    gap: 2.5rem;
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 1600px) {
+  .wiki-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 360px;
+    gap: 3.5rem;
+    align-items: flex-start;
+  }
+}
+
+.wiki-left-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+@media (max-width: 1099px) {
+  .wiki-left-sidebar {
+    position: static;
+    max-height: none;
+    order: 3;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 1.5rem;
+  }
+}
+
+.wiki-center-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 850px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 1099px) {
+  .wiki-center-content {
+    order: 1;
+  }
+}
+
+.wiki-right-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding-left: 0.5rem;
+}
+
+@media (max-width: 1099px) {
+  .wiki-right-sidebar {
+    position: static;
+    max-height: none;
+    order: 2;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 1.5rem;
+  }
+}
+
+/* ── Premium Sidebar Widget Styling ── */
+.sidebar-widget {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  padding: 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sidebar-widget:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 2rem;
+}
+
+

@@ -615,6 +615,24 @@ const InteractiveContent: React.FC<{
     table: ({ children }: any) => <div style={{ overflowX: 'auto', marginBottom: '1rem' }}><table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '1px solid var(--border-color)', fontSize: '0.9em' }}>{children}</table></div>,
     th: ({ children }: any) => <th style={{ borderBottom: '2px solid var(--border-color)', padding: '0.5rem', textAlign: 'left', fontWeight: 'bold' }}>{wrapClickable(children)}</th>,
     td: ({ children }: any) => <td style={{ borderBottom: '1px solid var(--border-color)', padding: '0.5rem' }}>{wrapClickable(children)}</td>,
+    h2: ({ children }: any) => {
+      const text = React.Children.toArray(children).join('');
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      return (
+        <h2 id={id} style={{ fontSize: '1.4em', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginTop: '1.8rem', marginBottom: '1rem', textTransform: 'capitalize' }}>
+          {wrapClickable(children)}
+        </h2>
+      );
+    },
+    h3: ({ children }: any) => {
+      const text = React.Children.toArray(children).join('');
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      return (
+        <h3 id={id} style={{ fontSize: '1.15em', fontWeight: 'bold', marginTop: '1.4rem', marginBottom: '0.8rem', textTransform: 'capitalize' }}>
+          {wrapClickable(children)}
+        </h3>
+      );
+    },
   };
 
   const headers: { level: number; text: string }[] = [];
