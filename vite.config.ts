@@ -3,6 +3,8 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import legacy from '@vitejs/plugin-legacy';
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 // ─── Server-side IP rate limiting store ──────────────────────────────────────
 // KEY: IP address only (cross-browser tracking — all browsers on same IP share the pool)
 const ipRateLimits: Map<string, { count: number; date: string }> = new Map();
@@ -76,469 +78,465 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
-      plugins: [
-        react(),
-        legacy({
-          targets: ['defaults', 'not IE 11', 'safari >= 12', 'chrome >= 70', 'firefox >= 65', 'edge >= 79'],
-          additionalLegacyPolyfills: ['regenerator-runtime/runtime'],
-          renderLegacyChunks: true,
-          modernPolyfills: true,
-        }),
-        {
-          name: 'canto-api-middleware',
-          configureServer(server) {
+      plugins: [react(), legacy({
+        targets: ['defaults', 'not IE 11', 'safari >= 12', 'chrome >= 70', 'firefox >= 65', 'edge >= 79'],
+        additionalLegacyPolyfills: ['regenerator-runtime/runtime'],
+        renderLegacyChunks: true,
+        modernPolyfills: true,
+      }), {
+        name: 'canto-api-middleware',
+        configureServer(server) {
 
-            // ── Security headers on all responses ──
-            server.middlewares.use((req, res, next) => {
-              setSecurityHeaders(res);
-              next();
-            });
+          // ── Security headers on all responses ──
+          server.middlewares.use((req, res, next) => {
+            setSecurityHeaders(res);
+            next();
+          });
 
-            // ═══════════════════════════════════════════════════════════════════
-            //  /api/rate-limit — Server-side IP-only rate limiting
-            //  IP is the sole key — switching browsers does NOT reset credits
-            // ═══════════════════════════════════════════════════════════════════
-            server.middlewares.use('/api/rate-limit', async (req, res) => {
-              if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
-              setCors(res);
+          // ═══════════════════════════════════════════════════════════════════
+          //  /api/rate-limit — Server-side IP-only rate limiting
+          //  IP is the sole key — switching browsers does NOT reset credits
+          // ═══════════════════════════════════════════════════════════════════
+          server.middlewares.use('/api/rate-limit', async (req, res) => {
+            if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
+            setCors(res);
 
-              const ip = getClientIP(req);
-              const status = checkIPRateLimit(ip);
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify(status));
-            });
+            const ip = getClientIP(req);
+            const status = checkIPRateLimit(ip);
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(status));
+          });
 
-            // ═══════════════════════════════════════════════════════════════════
-            //  /api/rate-limit-record — Record a search (IP-keyed)
-            // ═══════════════════════════════════════════════════════════════════
-            server.middlewares.use('/api/rate-limit-record', async (req, res) => {
-              if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
-              setCors(res);
+          // ═══════════════════════════════════════════════════════════════════
+          //  /api/rate-limit-record — Record a search (IP-keyed)
+          // ═══════════════════════════════════════════════════════════════════
+          server.middlewares.use('/api/rate-limit-record', async (req, res) => {
+            if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
+            setCors(res);
 
-              const ip = getClientIP(req);
-              let cost = 1;
-              try {
-                const body = await readBody(req);
-                const data = JSON.parse(body);
-                if (data && typeof data.cost === 'number') {
-                  cost = data.cost;
-                }
-              } catch {}
-
-              recordIPSearch(ip, cost);
-              const status = checkIPRateLimit(ip);
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ ok: true, ...status }));
-            });
-
-            // ═══════════════════════════════════════════════════════════════════
-            //  /api/knowledge — Multi-source knowledge aggregation
-            // ═══════════════════════════════════════════════════════════════════
-            server.middlewares.use('/api/knowledge', async (req, res) => {
-              if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
-              if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
-              setCors(res);
-              res.setHeader('Content-Type', 'application/json');
-
+            const ip = getClientIP(req);
+            let cost = 1;
+            try {
               const body = await readBody(req);
-              let topic = '';
-              try {
-                topic = JSON.parse(body).topic;
-              } catch {
-                res.statusCode = 400; res.end('{}'); return;
+              const data = JSON.parse(body);
+              if (data && typeof data.cost === 'number') {
+                cost = data.cost;
               }
+            } catch {}
 
-              if (!topic) { res.end('{}'); return; }
+            recordIPSearch(ip, cost);
+            const status = checkIPRateLimit(ip);
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, ...status }));
+          });
 
-              const encoded = encodeURIComponent(topic);
-              const results: Record<string, string> = {};
+          // ═══════════════════════════════════════════════════════════════════
+          //  /api/knowledge — Multi-source knowledge aggregation
+          // ═══════════════════════════════════════════════════════════════════
+          server.middlewares.use('/api/knowledge', async (req, res) => {
+            if (req.method === 'OPTIONS') { setCors(res); res.statusCode = 204; res.end(); return; }
+            if (req.method !== 'POST') { res.statusCode = 405; res.end('Method not allowed'); return; }
+            setCors(res);
+            res.setHeader('Content-Type', 'application/json');
 
-              const fetchWithTimeout = async (url: string, opts: RequestInit = {}, ms = 5000): Promise<Response> => {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), ms);
+            const body = await readBody(req);
+            let topic = '';
+            try {
+              topic = JSON.parse(body).topic;
+            } catch {
+              res.statusCode = 400; res.end('{}'); return;
+            }
+
+            if (!topic) { res.end('{}'); return; }
+
+            const encoded = encodeURIComponent(topic);
+            const results: Record<string, string> = {};
+
+            const fetchWithTimeout = async (url: string, opts: RequestInit = {}, ms = 5000): Promise<Response> => {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), ms);
+              try {
+                return await fetch(url, { ...opts, signal: controller.signal });
+              } finally {
+                clearTimeout(timer);
+              }
+            };
+
+            const tasks = [
+              // ── Wikipedia ────────────────────────────────────────────────
+              (async () => {
                 try {
-                  return await fetch(url, { ...opts, signal: controller.signal });
-                } finally {
-                  clearTimeout(timer);
+                  const wikiRes = await fetchWithTimeout(
+                    `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`,
+                    { headers: { 'User-Agent': 'CantoEncyclopedia/1.0 (contact@sonatainteractive.com)', 'Accept': 'application/json' } }
+                  );
+                  if (wikiRes.ok) {
+                    const data = await wikiRes.json();
+                    if (data.extract) {
+                      results.wikipedia = data.extract.slice(0, 1500);
+                    }
+                  }
+                } catch (e: any) {
+                  console.warn('[Knowledge] Wikipedia failed:', e.message);
                 }
-              };
+              })(),
 
-              const tasks = [
-                // ── Wikipedia ────────────────────────────────────────────────
-                (async () => {
+              // ── Internet Archive (Open Library) ──────────────────────────
+              (async () => {
+                try {
+                  // Try Open Library search first
+                  let iaOk = false;
                   try {
-                    const wikiRes = await fetchWithTimeout(
-                      `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`,
-                      { headers: { 'User-Agent': 'CantoEncyclopedia/1.0 (contact@sonatainteractive.com)', 'Accept': 'application/json' } }
+                    const iaRes = await fetchWithTimeout(
+                      `https://openlibrary.org/search.json?q=${encoded}&limit=3&fields=title,author_name,first_publish_year`,
+                      {
+                        headers: {
+                          'User-Agent': 'CantoEncyclopedia/1.0 (contact@sonatainteractive.com)',
+                          'Accept': 'application/json',
+                        }
+                      },
+                      7000
                     );
-                    if (wikiRes.ok) {
-                      const data = await wikiRes.json();
-                      if (data.extract) {
-                        results.wikipedia = data.extract.slice(0, 1500);
+                    if (iaRes.ok) {
+                      const data = await iaRes.json();
+                      if (data.docs && data.docs.length > 0) {
+                        const summaries = data.docs.slice(0, 3).map((d: any) => {
+                          const author = d.author_name?.[0] || 'Unknown';
+                          const year = d.first_publish_year || 'N/A';
+                          return `"${d.title}" by ${author} (${year})`;
+                        });
+                        results.internetArchive = `Related books: ${summaries.join('; ')}`;
+                        iaOk = true;
                       }
                     }
                   } catch (e: any) {
-                    console.warn('[Knowledge] Wikipedia failed:', e.message);
+                    console.warn('[Knowledge] Open Library failed:', e.message);
                   }
-                })(),
 
-                // ── Internet Archive (Open Library) ──────────────────────────
-                (async () => {
-                  try {
-                    // Try Open Library search first
-                    let iaOk = false;
+                  // Fallback: Internet Archive full-text search
+                  if (!iaOk) {
                     try {
-                      const iaRes = await fetchWithTimeout(
-                        `https://openlibrary.org/search.json?q=${encoded}&limit=3&fields=title,author_name,first_publish_year`,
-                        {
-                          headers: {
-                            'User-Agent': 'CantoEncyclopedia/1.0 (contact@sonatainteractive.com)',
-                            'Accept': 'application/json',
-                          }
-                        },
+                      const iaFtRes = await fetchWithTimeout(
+                        `https://archive.org/advancedsearch.php?q=${encoded}&fl[]=title,creator,year&rows=3&output=json`,
+                        { headers: { 'Accept': 'application/json' } },
                         7000
                       );
-                      if (iaRes.ok) {
-                        const data = await iaRes.json();
-                        if (data.docs && data.docs.length > 0) {
-                          const summaries = data.docs.slice(0, 3).map((d: any) => {
-                            const author = d.author_name?.[0] || 'Unknown';
-                            const year = d.first_publish_year || 'N/A';
-                            return `"${d.title}" by ${author} (${year})`;
-                          });
-                          results.internetArchive = `Related books: ${summaries.join('; ')}`;
-                          iaOk = true;
+                      if (iaFtRes.ok) {
+                        const data = await iaFtRes.json();
+                        const docs = data?.response?.docs;
+                        if (docs && docs.length > 0) {
+                          const summaries = docs.slice(0, 3).map((d: any) =>
+                            `"${d.title}" by ${d.creator || 'Unknown'} (${d.year || 'N/A'})`
+                          );
+                          results.internetArchive = `Related works: ${summaries.join('; ')}`;
                         }
                       }
                     } catch (e: any) {
-                      console.warn('[Knowledge] Open Library failed:', e.message);
+                      console.warn('[Knowledge] Internet Archive fallback failed:', e.message);
                     }
+                  }
+                } catch (e: any) {
+                  console.warn('[Knowledge] Internet Archive failed:', e.message);
+                }
+              })(),
 
-                    // Fallback: Internet Archive full-text search
-                    if (!iaOk) {
-                      try {
-                        const iaFtRes = await fetchWithTimeout(
-                          `https://archive.org/advancedsearch.php?q=${encoded}&fl[]=title,creator,year&rows=3&output=json`,
-                          { headers: { 'Accept': 'application/json' } },
-                          7000
+              // ── NASA ─────────────────────────────────────────────────────
+              (async () => {
+                try {
+                  const nasaRes = await fetchWithTimeout(
+                    `https://images-api.nasa.gov/search?q=${encoded}&media_type=image&page_size=3`
+                  );
+                  if (nasaRes.ok) {
+                    const data = await nasaRes.json();
+                    const items = data?.collection?.items;
+                    if (items && items.length > 0) {
+                      const descriptions = items.slice(0, 2).map((item: any) => {
+                        const desc: string = item?.data?.[0]?.description || '';
+                        // Strip file paths, IDs, and metadata codes that appear in NASA descriptions
+                        return desc
+                          .replace(/\b[A-Z0-9]{6,}\b/g, '')       // strip NASA IDs like "GSFC2023-1234"
+                          .replace(/https?:\/\/\S+/g, '')           // strip URLs
+                          .replace(/\s{2,}/g, ' ')
+                          .trim()
+                          .slice(0, 250);
+                      }).filter((d: string) => d.length > 30);
+                      if (descriptions.length > 0) {
+                        results.nasa = descriptions.join(' | ');
+                      }
+                    }
+                  }
+                } catch (e: any) {
+                  console.warn('[Knowledge] NASA failed:', e.message);
+                }
+              })(),
+
+              // ── CORE (academic papers) ───────────────────────────────────
+              (async () => {
+                try {
+                  const coreKey = env.CORE_API_KEY;
+                  if (!coreKey) return;
+                  const coreRes = await fetchWithTimeout(
+                    `https://api.core.ac.uk/v3/search/works?q=${encoded}&limit=3`,
+                    { headers: { 'Authorization': `Bearer ${coreKey}`, 'Accept': 'application/json' } }
+                  );
+                  if (coreRes.ok) {
+                    const data = await coreRes.json();
+                    if (data.results && data.results.length > 0) {
+                      const papers = data.results.slice(0, 3).map((p: any) => {
+                        const authors = p.authors?.map((a: any) => a.name).join(', ') || 'Unknown';
+                        // Strip LaTeX, citation markers, and academic formatting noise
+                        const abstract = (p.abstract || '')
+                          .replace(/\$[^$]*\$/g, '')               // strip LaTeX math
+                          .replace(/\\[a-zA-Z]+\{[^}]*\}/g, '')    // strip LaTeX commands
+                          .replace(/\[\d+\]/g, '')                  // strip citation markers [1]
+                          .replace(/\s{2,}/g, ' ')
+                          .trim()
+                          .slice(0, 180);
+                        return `"${p.title}" (${authors})${abstract ? ': ' + abstract : ''}`;
+                      });
+                      results.core = papers.join('\n');
+                    }
+                  }
+                } catch (e: any) {
+                  console.warn('[Knowledge] CORE failed:', e.message);
+                }
+              })(),
+
+              // ── Crawl4AI Mode / Web Scraper ────────────────────────────
+              (async () => {
+                try {
+                  const snippets: string[] = [];
+
+                  // Jina reader on DuckDuckGo HTML — extract only meaningful result snippets
+                  try {
+                    const jinaRes = await fetchWithTimeout(
+                      `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${encoded}`,
+                      { headers: { 'Accept': 'text/plain', 'X-Return-Format': 'text' } },
+                      6000
+                    );
+                    if (jinaRes.ok) {
+                      const text = await jinaRes.text();
+                      const lines = text.split('\n')
+                        .map(l => l.trim())
+                        // Keep only lines that look like real sentences:
+                        // - 40–400 chars (filters nav links and raw URLs)
+                        // - contain at least one space (not a single token)
+                        // - don't start with common boilerplate patterns
+                        .filter(l =>
+                          l.length >= 40 &&
+                          l.length <= 400 &&
+                          l.includes(' ') &&
+                          !/^(https?:|www\.|javascript:|#|<|>|\[|\]|\{|\}|Cookie|Privacy|Terms|Sign in|Log in|Search|Menu|Navigation|Skip|©|All rights)/i.test(l) &&
+                          !/^\d+$/.test(l)
                         );
-                        if (iaFtRes.ok) {
-                          const data = await iaFtRes.json();
-                          const docs = data?.response?.docs;
-                          if (docs && docs.length > 0) {
-                            const summaries = docs.slice(0, 3).map((d: any) =>
-                              `"${d.title}" by ${d.creator || 'Unknown'} (${d.year || 'N/A'})`
-                            );
-                            results.internetArchive = `Related works: ${summaries.join('; ')}`;
-                          }
-                        }
-                      } catch (e: any) {
-                        console.warn('[Knowledge] Internet Archive fallback failed:', e.message);
-                      }
+                      if (lines.length > 0) snippets.push(...lines.slice(0, 5));
                     }
-                  } catch (e: any) {
-                    console.warn('[Knowledge] Internet Archive failed:', e.message);
-                  }
-                })(),
+                  } catch {}
 
-                // ── NASA ─────────────────────────────────────────────────────
-                (async () => {
-                  try {
-                    const nasaRes = await fetchWithTimeout(
-                      `https://images-api.nasa.gov/search?q=${encoded}&media_type=image&page_size=3`
-                    );
-                    if (nasaRes.ok) {
-                      const data = await nasaRes.json();
-                      const items = data?.collection?.items;
-                      if (items && items.length > 0) {
-                        const descriptions = items.slice(0, 2).map((item: any) => {
-                          const desc: string = item?.data?.[0]?.description || '';
-                          // Strip file paths, IDs, and metadata codes that appear in NASA descriptions
-                          return desc
-                            .replace(/\b[A-Z0-9]{6,}\b/g, '')       // strip NASA IDs like "GSFC2023-1234"
-                            .replace(/https?:\/\/\S+/g, '')           // strip URLs
-                            .replace(/\s{2,}/g, ' ')
-                            .trim()
-                            .slice(0, 250);
-                        }).filter((d: string) => d.length > 30);
-                        if (descriptions.length > 0) {
-                          results.nasa = descriptions.join(' | ');
-                        }
-                      }
-                    }
-                  } catch (e: any) {
-                    console.warn('[Knowledge] NASA failed:', e.message);
-                  }
-                })(),
-
-                // ── CORE (academic papers) ───────────────────────────────────
-                (async () => {
-                  try {
-                    const coreKey = env.CORE_API_KEY;
-                    if (!coreKey) return;
-                    const coreRes = await fetchWithTimeout(
-                      `https://api.core.ac.uk/v3/search/works?q=${encoded}&limit=3`,
-                      { headers: { 'Authorization': `Bearer ${coreKey}`, 'Accept': 'application/json' } }
-                    );
-                    if (coreRes.ok) {
-                      const data = await coreRes.json();
-                      if (data.results && data.results.length > 0) {
-                        const papers = data.results.slice(0, 3).map((p: any) => {
-                          const authors = p.authors?.map((a: any) => a.name).join(', ') || 'Unknown';
-                          // Strip LaTeX, citation markers, and academic formatting noise
-                          const abstract = (p.abstract || '')
-                            .replace(/\$[^$]*\$/g, '')               // strip LaTeX math
-                            .replace(/\\[a-zA-Z]+\{[^}]*\}/g, '')    // strip LaTeX commands
-                            .replace(/\[\d+\]/g, '')                  // strip citation markers [1]
-                            .replace(/\s{2,}/g, ' ')
-                            .trim()
-                            .slice(0, 180);
-                          return `"${p.title}" (${authors})${abstract ? ': ' + abstract : ''}`;
-                        });
-                        results.core = papers.join('\n');
-                      }
-                    }
-                  } catch (e: any) {
-                    console.warn('[Knowledge] CORE failed:', e.message);
-                  }
-                })(),
-
-                // ── Crawl4AI Mode / Web Scraper ────────────────────────────
-                (async () => {
-                  try {
-                    const snippets: string[] = [];
-
-                    // Jina reader on DuckDuckGo HTML — extract only meaningful result snippets
+                  // Fallback: DuckDuckGo lite — parse result-snippet spans only
+                  if (snippets.length === 0) {
                     try {
-                      const jinaRes = await fetchWithTimeout(
-                        `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${encoded}`,
-                        { headers: { 'Accept': 'text/plain', 'X-Return-Format': 'text' } },
+                      const ddgRes = await fetchWithTimeout(
+                        `https://lite.duckduckgo.com/lite/?q=${encoded}`,
+                        { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CantoBot/1.0)' } },
                         6000
                       );
-                      if (jinaRes.ok) {
-                        const text = await jinaRes.text();
-                        const lines = text.split('\n')
-                          .map(l => l.trim())
-                          // Keep only lines that look like real sentences:
-                          // - 40–400 chars (filters nav links and raw URLs)
-                          // - contain at least one space (not a single token)
-                          // - don't start with common boilerplate patterns
-                          .filter(l =>
-                            l.length >= 40 &&
-                            l.length <= 400 &&
-                            l.includes(' ') &&
-                            !/^(https?:|www\.|javascript:|#|<|>|\[|\]|\{|\}|Cookie|Privacy|Terms|Sign in|Log in|Search|Menu|Navigation|Skip|©|All rights)/i.test(l) &&
-                            !/^\d+$/.test(l)
-                          );
-                        if (lines.length > 0) snippets.push(...lines.slice(0, 5));
+                      if (ddgRes.ok) {
+                        const text = await ddgRes.text();
+                        const matches = text.matchAll(/class="result-snippet"[^>]*>(.*?)<\/td>/gi);
+                        for (const match of matches) {
+                          const s = match[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+                          if (s && s.length >= 30) snippets.push(s);
+                        }
                       }
                     } catch {}
-
-                    // Fallback: DuckDuckGo lite — parse result-snippet spans only
-                    if (snippets.length === 0) {
-                      try {
-                        const ddgRes = await fetchWithTimeout(
-                          `https://lite.duckduckgo.com/lite/?q=${encoded}`,
-                          { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CantoBot/1.0)' } },
-                          6000
-                        );
-                        if (ddgRes.ok) {
-                          const text = await ddgRes.text();
-                          const matches = text.matchAll(/class="result-snippet"[^>]*>(.*?)<\/td>/gi);
-                          for (const match of matches) {
-                            const s = match[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
-                            if (s && s.length >= 30) snippets.push(s);
-                          }
-                        }
-                      } catch {}
-                    }
-
-                    if (snippets.length > 0) {
-                      results.crawler = snippets.slice(0, 4).join('\n\n');
-                    }
-                  } catch (e: any) {
-                    console.warn('[Crawl4AI] Error in Web Crawling:', e.message);
                   }
-                })(),
-              ];
 
-              await Promise.allSettled(tasks);
-              res.end(JSON.stringify(results));
-            });
+                  if (snippets.length > 0) {
+                    results.crawler = snippets.slice(0, 4).join('\n\n');
+                  }
+                } catch (e: any) {
+                  console.warn('[Crawl4AI] Error in Web Crawling:', e.message);
+                }
+              })(),
+            ];
+
+            await Promise.allSettled(tasks);
+            res.end(JSON.stringify(results));
+          });
 
 
 
-            // ═══════════════════════════════════════════════════════════════════
-            //  /api/ai — AI provider proxy (Groq, Ollama, HuggingFace, Gemini)
-            // ═══════════════════════════════════════════════════════════════════
-            server.middlewares.use('/api/ai', async (req, res) => {
-              if (req.method === 'OPTIONS') {
-                setCors(res);
-                res.setHeader('Access-Control-Max-Age', '86400');
-                res.statusCode = 204;
-                res.end();
-                return;
-              }
-
-              if (req.method !== 'POST') {
-                res.statusCode = 405;
-                res.end('Method not allowed');
-                return;
-              }
-
+          // ═══════════════════════════════════════════════════════════════════
+          //  /api/ai — AI provider proxy (Groq, Ollama, HuggingFace, Gemini)
+          // ═══════════════════════════════════════════════════════════════════
+          server.middlewares.use('/api/ai', async (req, res) => {
+            if (req.method === 'OPTIONS') {
               setCors(res);
+              res.setHeader('Access-Control-Max-Age', '86400');
+              res.statusCode = 204;
+              res.end();
+              return;
+            }
 
-              const body = await readBody(req);
-              let data;
-              try {
-                data = JSON.parse(body);
-              } catch {
-                res.statusCode = 400;
-                res.end('Invalid JSON');
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.end('Method not allowed');
+              return;
+            }
+
+            setCors(res);
+
+            const body = await readBody(req);
+            let data;
+            try {
+              data = JSON.parse(body);
+            } catch {
+              res.statusCode = 400;
+              res.end('Invalid JSON');
+              return;
+            }
+
+            const { provider, model, messages, stream } = data;
+
+            let endpoint = '';
+            let apiKey = '';
+            let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            let requestBody: Record<string, unknown> = {};
+
+            if (provider === 'ollama') {
+              apiKey = model.includes('nemotron') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
+              const isSiliconFlow = apiKey?.startsWith('ae3a') || apiKey?.startsWith('9c99') || apiKey?.startsWith('sk-');
+              if (isSiliconFlow) {
+                endpoint = 'https://api.siliconflow.cn/v1/chat/completions';
+                const mappedModel = model.includes('nemotron') ? 'deepseek-ai/DeepSeek-V3' : 'Qwen/Qwen2.5-7B-Instruct';
+                headers['Authorization'] = `Bearer ${apiKey}`;
+                requestBody = { model: mappedModel, messages, temperature: 0.7, max_tokens: 1024, stream };
+              } else {
+                endpoint = 'https://ollama.com/v1/chat/completions';
+                if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+                requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
+              }
+            } else if (provider === 'groq') {
+              endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+              apiKey = env.GROQ_API_KEY;
+              headers['Authorization'] = `Bearer ${apiKey}`;
+              requestBody = { model, messages, temperature: 0.7, max_tokens: 800, stream };
+            } else if (provider === 'github') {
+              endpoint = 'https://models.inference.ai.azure.com/chat/completions';
+              apiKey = model.toLowerCase().includes('grok')
+                ? env.GITHUB_GROK_KEY
+                : env.GITHUB_DEEPSEEK_KEY;
+              headers['Authorization'] = `Bearer ${apiKey}`;
+              let mappedModel = model;
+              if (model.toLowerCase().includes('grok') || model.toLowerCase().includes('deepseek')) {
+                mappedModel = 'DeepSeek-V3';
+              } else if (model.toLowerCase().includes('gpt-4o-mini')) {
+                mappedModel = 'gpt-4o-mini';
+              } else if (model.toLowerCase().includes('r1')) {
+                mappedModel = 'DeepSeek-R1';
+              } else {
+                mappedModel = 'DeepSeek-V3';
+              }
+              requestBody = { model: mappedModel, messages, temperature: 0.7, max_tokens: 1024, stream };
+            } else if (provider === 'cloudflare') {
+              const CF_MODEL_MAP: Record<string, { accountKey: 'CF_ACCOUNT_1' | 'CF_ACCOUNT_2'; cfId: string }> = {
+                'google/gemini-3.1-flash-lite': { accountKey: 'CF_ACCOUNT_1', cfId: '@cf/meta/llama-3.1-8b-instruct' },
+                'openai/gpt-4.1-mini':          { accountKey: 'CF_ACCOUNT_2', cfId: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+              };
+              const mapped = CF_MODEL_MAP[model];
+              const cfAccountId = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_ID : env.CF_ACCOUNT_1_ID;
+              const cfToken     = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_TOKEN : env.CF_ACCOUNT_1_TOKEN;
+              const cfModelId   = mapped?.cfId ?? (model.startsWith('@') ? model : `@cf/meta/llama-3.1-8b-instruct`);
+              endpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModelId}`;
+              apiKey = cfToken;
+              headers['Authorization'] = `Bearer ${apiKey}`;
+              requestBody = { messages, max_tokens: 1024 };
+            } else if (provider === 'huggingface') {
+              endpoint = `https://router.huggingface.co/hf-inference/models/${model}/v1/chat/completions`;
+              apiKey = env.HUGGINGFACE_KEY || '';
+              if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+              requestBody = { model, messages, temperature: 0.7, max_tokens: 512, stream: false };
+            } else if (provider === 'gemini') {
+              endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${env.GEMINI_KEY || env.API_KEY}`;
+              apiKey = '';
+              headers = { 'Content-Type': 'application/json' };
+              const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop();
+              requestBody = {
+                contents: [{ role: 'user', parts: [{ text: lastUserMsg?.content || messages[messages.length - 1]?.content || '' }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+              };
+            }
+
+            if (stream && provider !== 'cloudflare') {
+              res.setHeader('Content-Type', 'text/event-stream');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.setHeader('Connection', 'keep-alive');
+            }
+
+            try {
+              const apiRes = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestBody) });
+
+              if (!apiRes.ok) {
+                const errText = await apiRes.text();
+                res.statusCode = apiRes.status;
+                res.end(errText);
                 return;
               }
 
-              const { provider, model, messages, stream } = data;
-
-              let endpoint = '';
-              let apiKey = '';
-              let headers: Record<string, string> = { 'Content-Type': 'application/json' };
-              let requestBody: Record<string, unknown> = {};
-
-              if (provider === 'ollama') {
-                apiKey = model.includes('nemotron') ? env.OLLAMA_KIMI_KEY : env.OLLAMA_DEEPSEEK_KEY;
-                const isSiliconFlow = apiKey?.startsWith('ae3a') || apiKey?.startsWith('9c99') || apiKey?.startsWith('sk-');
-                if (isSiliconFlow) {
-                  endpoint = 'https://api.siliconflow.cn/v1/chat/completions';
-                  const mappedModel = model.includes('nemotron') ? 'deepseek-ai/DeepSeek-V3' : 'Qwen/Qwen2.5-7B-Instruct';
-                  headers['Authorization'] = `Bearer ${apiKey}`;
-                  requestBody = { model: mappedModel, messages, temperature: 0.7, max_tokens: 1024, stream };
-                } else {
-                  endpoint = 'https://ollama.com/v1/chat/completions';
-                  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-                  requestBody = { model, messages, temperature: 0.7, max_tokens: 1024, stream };
-                }
-              } else if (provider === 'groq') {
-                endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-                apiKey = env.GROQ_API_KEY;
-                headers['Authorization'] = `Bearer ${apiKey}`;
-                requestBody = { model, messages, temperature: 0.7, max_tokens: 800, stream };
-              } else if (provider === 'github') {
-                endpoint = 'https://models.inference.ai.azure.com/chat/completions';
-                apiKey = model.toLowerCase().includes('grok')
-                  ? env.GITHUB_GROK_KEY
-                  : env.GITHUB_DEEPSEEK_KEY;
-                headers['Authorization'] = `Bearer ${apiKey}`;
-                let mappedModel = model;
-                if (model.toLowerCase().includes('grok') || model.toLowerCase().includes('deepseek')) {
-                  mappedModel = 'DeepSeek-V3';
-                } else if (model.toLowerCase().includes('gpt-4o-mini')) {
-                  mappedModel = 'gpt-4o-mini';
-                } else if (model.toLowerCase().includes('r1')) {
-                  mappedModel = 'DeepSeek-R1';
-                } else {
-                  mappedModel = 'DeepSeek-V3';
-                }
-                requestBody = { model: mappedModel, messages, temperature: 0.7, max_tokens: 1024, stream };
-              } else if (provider === 'cloudflare') {
-                const CF_MODEL_MAP: Record<string, { accountKey: 'CF_ACCOUNT_1' | 'CF_ACCOUNT_2'; cfId: string }> = {
-                  'google/gemini-3.1-flash-lite': { accountKey: 'CF_ACCOUNT_1', cfId: '@cf/meta/llama-3.1-8b-instruct' },
-                  'openai/gpt-4.1-mini':          { accountKey: 'CF_ACCOUNT_2', cfId: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-                };
-                const mapped = CF_MODEL_MAP[model];
-                const cfAccountId = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_ID : env.CF_ACCOUNT_1_ID;
-                const cfToken     = mapped?.accountKey === 'CF_ACCOUNT_2' ? env.CF_ACCOUNT_2_TOKEN : env.CF_ACCOUNT_1_TOKEN;
-                const cfModelId   = mapped?.cfId ?? (model.startsWith('@') ? model : `@cf/meta/llama-3.1-8b-instruct`);
-                endpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModelId}`;
-                apiKey = cfToken;
-                headers['Authorization'] = `Bearer ${apiKey}`;
-                requestBody = { messages, max_tokens: 1024 };
-              } else if (provider === 'huggingface') {
-                endpoint = `https://router.huggingface.co/hf-inference/models/${model}/v1/chat/completions`;
-                apiKey = env.HUGGINGFACE_KEY || '';
-                if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-                requestBody = { model, messages, temperature: 0.7, max_tokens: 512, stream: false };
-              } else if (provider === 'gemini') {
-                endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${env.GEMINI_KEY || env.API_KEY}`;
-                apiKey = '';
-                headers = { 'Content-Type': 'application/json' };
-                const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop();
-                requestBody = {
-                  contents: [{ role: 'user', parts: [{ text: lastUserMsg?.content || messages[messages.length - 1]?.content || '' }] }],
-                  generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-                };
-              }
-
-              if (stream && provider !== 'cloudflare') {
-                res.setHeader('Content-Type', 'text/event-stream');
-                res.setHeader('Cache-Control', 'no-cache');
-                res.setHeader('Connection', 'keep-alive');
-              }
-
-              try {
-                const apiRes = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(requestBody) });
-
-                if (!apiRes.ok) {
-                  const errText = await apiRes.text();
-                  res.statusCode = apiRes.status;
-                  res.end(errText);
-                  return;
-                }
-
-                // Cloudflare Workers AI always returns JSON (no SSE streaming)
-                // Emit the full response as a single SSE chunk so the client stream parser works
-                if (provider === 'cloudflare') {
-                  const json = await apiRes.json();
-                  const content = json?.result?.response ?? json?.choices?.[0]?.message?.content ?? '';
-                  if (!content) { res.statusCode = 502; res.end('Empty CF response'); return; }
-                  if (stream) {
-                    // Wrap as a single OpenAI-compatible SSE event then [DONE]
-                    const chunk = JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] });
-                    res.setHeader('Content-Type', 'text/event-stream');
-                    res.setHeader('Cache-Control', 'no-cache');
-                    res.write(`data: ${chunk}\n\n`);
-                    res.write('data: [DONE]\n\n');
-                    res.end();
-                  } else {
-                    res.end(JSON.stringify({ choices: [{ message: { content } }] }));
-                  }
-                  return;
-                }
-
+              // Cloudflare Workers AI always returns JSON (no SSE streaming)
+              // Emit the full response as a single SSE chunk so the client stream parser works
+              if (provider === 'cloudflare') {
+                const json = await apiRes.json();
+                const content = json?.result?.response ?? json?.choices?.[0]?.message?.content ?? '';
+                if (!content) { res.statusCode = 502; res.end('Empty CF response'); return; }
                 if (stream) {
-                  const reader = apiRes.body?.getReader();
-                  const decoder = new TextDecoder();
-                  if (reader) {
-                    let buffer = '';
-                    while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      buffer += decoder.decode(value, { stream: true });
-                      const lines = buffer.split('\n');
-                      buffer = lines.pop() || '';
-                      for (const line of lines) {
-                        if (line.trim()) res.write(line + '\n');
-                      }
-                    }
-                  }
+                  // Wrap as a single OpenAI-compatible SSE event then [DONE]
+                  const chunk = JSON.stringify({ choices: [{ delta: { content }, finish_reason: null }] });
+                  res.setHeader('Content-Type', 'text/event-stream');
+                  res.setHeader('Cache-Control', 'no-cache');
+                  res.write(`data: ${chunk}\n\n`);
+                  res.write('data: [DONE]\n\n');
                   res.end();
                 } else {
-                  const json = await apiRes.json();
-                  let transformed = json;
-                  if (provider === 'huggingface') {
-                    const content = json?.choices?.[0]?.message?.content;
-                    if (content) transformed = { message: { content } };
-                  }
-                  res.end(JSON.stringify(transformed));
+                  res.end(JSON.stringify({ choices: [{ message: { content } }] }));
                 }
-              } catch (err: any) {
-                res.statusCode = 500;
-                res.end(JSON.stringify({ error: err.message }));
+                return;
               }
-            });
-          },
+
+              if (stream) {
+                const reader = apiRes.body?.getReader();
+                const decoder = new TextDecoder();
+                if (reader) {
+                  let buffer = '';
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (const line of lines) {
+                      if (line.trim()) res.write(line + '\n');
+                    }
+                  }
+                }
+                res.end();
+              } else {
+                const json = await apiRes.json();
+                let transformed = json;
+                if (provider === 'huggingface') {
+                  const content = json?.choices?.[0]?.message?.content;
+                  if (content) transformed = { message: { content } };
+                }
+                res.end(JSON.stringify(transformed));
+              }
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
         },
-      ],
+      }, cloudflare()],
       // SECURITY: No API keys exposed to client bundle
       define: {
         'process.env.API_KEY': JSON.stringify('SERVER_SIDE_ONLY'),

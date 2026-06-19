@@ -1208,495 +1208,76 @@ const App: React.FC = () => {
 
         {/* ── Top nav ── */}
         {!isReadingMode && (
-          <nav className="top-nav">
-            <div className="top-nav-left">
+          <nav className="top-nav" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1.5rem' }}>
+            <div className="top-nav-left" style={{ gap: '1rem' }}>
+              <button onClick={() => navigateToPage('landing')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.25em', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'var(--text-color)' }}>CANTO</span>
+              </button>
               {currentPage !== 'landing' && (
-                <>
-                  <button onClick={() => navigateToPage('landing')} className="nav-btn">
-                    Home
-                  </button>
-                  <button onClick={() => window.history.back()} className="nav-btn">
-                    &larr; Back
-                  </button>
-                </>
+                <button onClick={() => window.history.back()} className="nav-btn" style={{ textDecoration: 'none' }}>
+                  &larr; back
+                </button>
               )}
             </div>
 
-            <div className="top-nav-right">
+            <div className="top-nav-right" style={{ gap: '1rem' }}>
               {searchLimitBadge}
-
-              {currentPage === 'wiki' && (
-                <button onClick={() => { setCurrentTopic(''); navigateToPage('landing'); }} className="nav-btn">
-                  + New
+              {currentPage !== 'landing' && (
+                <button onClick={() => { setCurrentTopic(''); navigateToPage('landing'); }} className="nav-btn" style={{ textDecoration: 'none' }}>
+                  + new
                 </button>
               )}
-
-              {/* Codex button removed — Codex is now an inline section in the wiki page */}
-
-              <button onClick={handleShare} className="nav-btn">
-                Share
+              <button onClick={handleShare} className="nav-btn" style={{ textDecoration: 'none' }}>
+                share
               </button>
             </div>
           </nav>
         )}
 
-        <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
-
-        {/* ── All 6 Monospace Tree Dashboards / Settings on Every Page ── */}
-        <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', padding: '0 0.5rem' }}>
-          {/* ── ▶◈ My Data Center ── */}
-          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
-            <button
-              onClick={() => setIsDataCenterOpen(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: '0.72em',
-                color: 'var(--text-muted)', padding: '0.6rem 0',
-                width: '100%', textAlign: 'left',
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                transition: 'color 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-            >
-              <span style={{ color: isDataCenterOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                {isDataCenterOpen ? '▼' : '▶'}
-              </span>
-              <span>◈</span>
-              <span>My Data Center</span>
-              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-            </button>
-          </div>
-          {isDataCenterOpen && (
-            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace', fontSize: '0.82em' }}>
-              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem' }}>
-                <DataCenter isOpen={isDataCenterOpen} onToggle={() => setIsDataCenterOpen(v => !v)} hideHeader={true} />
-              </div>
-            </div>
-          )}
-
-          {/* ── ▶◈ Canto Codex — Wandering Sage ── */}
-          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
-            <button
-              onClick={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: '0.72em',
-                color: 'var(--text-muted)', padding: '0.6rem 0',
-                width: '100%', textAlign: 'left',
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                transition: 'color 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-            >
-              <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                {isCodexOpen ? '▼' : '▶'}
-              </span>
-              <span>◈</span>
-              <span>Canto Codex — Wandering Sage</span>
-              {codexNewCount > 0 && (
-                <span style={{ color: 'var(--accent-color)', letterSpacing: '0.05em', textTransform: 'none', fontSize: '0.95em', marginLeft: '0.4rem' }}>
-                  [{codexNewCount} new]
-                </span>
-              )}
-              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-            </button>
-          </div>
-          {isCodexOpen && (
-            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace' }}>
-              <CantoCodex
-                isOpen={isCodexOpen}
-                onToggle={() => { setIsCodexOpen(v => !v); setCodexNewCount(0); }}
-                hideHeader={true}
-              />
-            </div>
-          )}
-
-          {/* ── ▶◈ History — Wandering Sage ── */}
-          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
-            <button
-              onClick={() => setIsHistoryInlineOpen(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: '0.72em',
-                color: 'var(--text-muted)', padding: '0.6rem 0',
-                width: '100%', textAlign: 'left',
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                transition: 'color 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-            >
-              <span style={{ color: isHistoryInlineOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                {isHistoryInlineOpen ? '▼' : '▶'}
-              </span>
-              <span>◈</span>
-              <span>History — Wandering Sage</span>
-              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-            </button>
-          </div>
-          {isHistoryInlineOpen && (
-            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace', fontSize: '0.82em' }}>
-              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem' }}>
-                <HistoryDropdown
-                  history={history}
-                  favorites={favorites}
-                  onNavigate={navigateToTopic}
-                  onClear={clearHistory}
-                  onViewLibrary={() => { setIsHistoryInlineOpen(false); navigateToPage('library'); }}
-                  inline={true}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ── ▶◈ Versions ── */}
-          {(() => {
-            let versions: any[] = [];
-            try {
-              const savedFull = localStorage.getItem('canto_history_full');
-              if (savedFull) {
-                const full: any[] = JSON.parse(savedFull);
-                if (currentTopic) {
-                  versions = full.filter(e => e.topic.toLowerCase() === currentTopic.toLowerCase());
-                } else {
-                  versions = full.slice(-5).reverse();
-                }
-              }
-            } catch {}
-            return (
-              <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
-                <VersionsSection
-                  versions={versions}
-                  currentTopic={currentTopic || 'Recent Searches'}
-                  onNavigate={navigateToTopic}
-                  onLoadVersion={(v) => {
-                    setContent(v.content);
-                    if (v.asciiArt) setAsciiArt(v.asciiArt);
-                  }}
-                />
-              </div>
-            );
-          })()}
-
-          {/* ── ▶◈ Research ── */}
-          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
-            <button
-              onClick={() => setIsResearchPanelOpen(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: '0.72em',
-                color: 'var(--text-muted)', padding: '0.6rem 0',
-                width: '100%', textAlign: 'left',
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                transition: 'color 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-            >
-              <span style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                {isResearchPanelOpen ? '▼' : '▶'}
-              </span>
-              <span>◈</span>
-              <span>Research</span>
-              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-            </button>
-          </div>
-          {isResearchPanelOpen && (
-            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace' }}>
-              <ResearchPanel
-                topic={currentTopic || ''}
-                content={content || ''}
-                sources={lastSources || {}}
-                onTopicClick={handleWordClick}
-                isOpen={isResearchPanelOpen}
-              />
-            </div>
-          )}
-
-          {/* ── ▶◈ Article Settings ── */}
-          <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'monospace' }}>
-            <button
-              onClick={() => setIsResearchOptionsOpen(!isResearchOptionsOpen)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                fontFamily: 'monospace', fontSize: '0.72em',
-                color: 'var(--text-muted)', padding: '0.6rem 0',
-                width: '100%', textAlign: 'left',
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                transition: 'color 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-            >
-              <span style={{ color: isResearchOptionsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                {isResearchOptionsOpen ? '▼' : '▶'}
-              </span>
-              <span>◈</span>
-              <span>Article Settings</span>
-              <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-            </button>
-          </div>
-
-          {isResearchOptionsOpen && (
-            <div style={{ maxWidth: '800px', margin: '0 auto 1.5rem auto', fontFamily: 'monospace', fontSize: '0.82em' }}>
-              <div style={{ borderLeft: '1px solid var(--border-color)', marginLeft: '0.5rem', paddingLeft: '1rem', paddingBottom: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-
-                {/* Lens */}
-                <div>
-                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Lens</div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
-                      <button
-                        key={lens}
-                        onClick={() => setActiveLens(lens)}
-                        style={{
-                          background: 'none', border: 'none', padding: '0.2rem 0',
-                          borderLeft: `2px solid ${activeLens === lens ? 'var(--accent-color)' : 'transparent'}`,
-                          paddingLeft: '0.5rem',
-                          color: activeLens === lens ? 'var(--accent-color)' : 'var(--text-muted)',
-                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
-                          transition: 'border-color 0.12s, color 0.12s',
-                          marginRight: '0.5rem',
-                        }}
-                        onMouseEnter={e => { if (activeLens !== lens) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
-                        onMouseLeave={e => { if (activeLens !== lens) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
-                      >
-                        {lens}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Search Depth */}
-                <div>
-                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Search Depth</div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {(['Mini', 'Standard', 'Deep'] as const).map(d => (
-                      <button
-                        key={d}
-                        onClick={() => setDepth(d)}
-                        style={{
-                          background: 'none', border: 'none', padding: '0.2rem 0',
-                          borderLeft: `2px solid ${depth === d ? 'var(--accent-color)' : 'transparent'}`,
-                          paddingLeft: '0.5rem',
-                          color: depth === d ? 'var(--accent-color)' : 'var(--text-muted)',
-                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
-                          transition: 'border-color 0.12s, color 0.12s',
-                          marginRight: '0.5rem',
-                        }}
-                        onMouseEnter={e => { if (depth !== d) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
-                        onMouseLeave={e => { if (depth !== d) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
-                      >
-                        {d}
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8em', marginLeft: '0.3rem' }}>
-                          {d === 'Mini' ? '(0.5 cr)' : d === 'Deep' ? '(2 cr)' : '(1 cr)'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tone */}
-                <div>
-                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Tone</div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {(['Standard', 'Academic', 'Simple', 'Technical'] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => setArticleTone(t)}
-                        style={{
-                          background: 'none', border: 'none', padding: '0.2rem 0',
-                          borderLeft: `2px solid ${articleTone === t ? 'var(--accent-color)' : 'transparent'}`,
-                          paddingLeft: '0.5rem',
-                          color: articleTone === t ? 'var(--accent-color)' : 'var(--text-muted)',
-                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
-                          transition: 'border-color 0.12s, color 0.12s',
-                          marginRight: '0.5rem',
-                        }}
-                        onMouseEnter={e => { if (articleTone !== t) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
-                        onMouseLeave={e => { if (articleTone !== t) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Length */}
-                <div>
-                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Length</div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {(['Full', 'Summary', 'Deep Dive'] as const).map(l => (
-                      <button
-                        key={l}
-                        onClick={() => setArticleLength(l)}
-                        style={{
-                          background: 'none', border: 'none', padding: '0.2rem 0',
-                          borderLeft: `2px solid ${articleLength === l ? 'var(--accent-color)' : 'transparent'}`,
-                          paddingLeft: '0.5rem',
-                          color: articleLength === l ? 'var(--accent-color)' : 'var(--text-muted)',
-                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
-                          transition: 'border-color 0.12s, color 0.12s',
-                          marginRight: '0.5rem',
-                        }}
-                        onMouseEnter={e => { if (articleLength !== l) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
-                        onMouseLeave={e => { if (articleLength !== l) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
-                      >
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Sources */}
-                <div>
-                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Sources</div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {(['Wikipedia', 'NASA', 'CORE', 'Web Search'] as const).map(src => {
-                      const checked = enabledSources.includes(src);
-                      return (
-                        <button
-                          key={src}
-                          onClick={() => setEnabledSources(prev => checked ? prev.filter(s => s !== src) : [...prev, src])}
-                          style={{
-                            background: 'none', border: 'none', padding: '0.2rem 0',
-                            borderLeft: `2px solid ${checked ? 'var(--accent-color)' : 'transparent'}`,
-                            paddingLeft: '0.5rem',
-                            color: checked ? 'var(--accent-color)' : 'var(--text-muted)',
-                            cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
-                            textDecoration: checked ? 'none' : 'line-through',
-                            transition: 'border-color 0.12s, color 0.12s',
-                            marginRight: '0.5rem',
-                          }}
-                          onMouseEnter={e => { if (!checked) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
-                          onMouseLeave={e => { if (!checked) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
-                        >
-                          {src}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Accessibility */}
-                <div>
-                  <div style={{ fontSize: '0.7em', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Accessibility</div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {[
-                      {
-                        label: `Dyslexia Font: ${isDyslexic ? 'On' : 'Off'}`,
-                        active: isDyslexic,
-                        onClick: () => {
-                          const next = !isDyslexic;
-                          setIsDyslexic(next);
-                          document.body.classList.toggle('dyslexic', next);
-                          localStorage.setItem('canto_dyslexic', String(next));
-                        },
-                      },
-                      {
-                        label: `High Contrast: ${theme === 'high-contrast' ? 'On' : 'Off'}`,
-                        active: theme === 'high-contrast',
-                        onClick: () => {
-                          const next = theme === 'high-contrast' ? 'classic' : 'high-contrast';
-                          setTheme(next);
-                          document.documentElement.setAttribute('data-theme', next);
-                          localStorage.setItem('canto_theme', next);
-                        },
-                      },
-                    ].map(({ label, active, onClick }) => (
-                      <button
-                        key={label}
-                        onClick={onClick}
-                        style={{
-                          background: 'none', border: 'none', padding: '0.2rem 0',
-                          borderLeft: `2px solid ${active ? 'var(--accent-color)' : 'transparent'}`,
-                          paddingLeft: '0.5rem',
-                          color: active ? 'var(--accent-color)' : 'var(--text-muted)',
-                          cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.9em',
-                          transition: 'border-color 0.12s, color 0.12s',
-                          marginRight: '0.5rem',
-                        }}
-                        onMouseEnter={e => { if (!active) { e.currentTarget.style.borderLeftColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--text-color)'; } }}
-                        onMouseLeave={e => { if (!active) { e.currentTarget.style.borderLeftColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; } }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* ── AI Followups as Branching Conversation Tree ── */}
-          {conversationBranch.length > 1 && (
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.3rem' }}>
-              <span>Thread:</span>
-              {conversationBranch.map((branchTopic, idx) => (
-                <React.Fragment key={idx}>
-                  <button
-                    onClick={() => navigateToTopic(branchTopic)}
-                    style={{ background: 'none', border: 'none', textDecoration: 'underline', padding: 0, color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
-                  >
-                    {branchTopic.length > 15 ? branchTopic.slice(0, 12) + '...' : branchTopic}
-                  </button>
-                  {idx < conversationBranch.length - 1 && <span>›</span>}
-                </React.Fragment>
-              ))}
-            </div>
-          )}
-
-          {content && currentPage !== 'landing' && (
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', marginTop: '0.4rem', marginBottom: '1rem' }}>
-              <button
-                onClick={async () => {
-                  if (isCompareOpen) { setIsCompareOpen(false); setIsDiffView(false); return; }
-                  const h = await dbGetHistory();
-                  setCompareHistoryList(h);
-                  setCompareSlotA({ topic: currentTopic, content, label: `Current — ${currentTopic}` });
-                  setCompareSlotB(previousContent ? { topic: currentTopic, content: previousContent, label: `Previous — ${currentTopic}` } : null);
-                  setIsCompareOpen(true);
-                  setIsDiffView(true);
-                }}
-                style={{ background: 'none', border: 'none', padding: 0, textDecoration: 'underline', color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.82em' }}
-              >
-                {isCompareOpen ? 'Hide Comparison' : 'Compare Versions'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {!isReadingMode && currentPage !== 'landing' && (
-          <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', padding: '0 1rem' }}>
-              <h1 style={{ fontSize: '2.8em', fontWeight: 'bold', letterSpacing: '0.2em', color: 'var(--text-color)', fontFamily: 'monospace', margin: 0 }}>
-                CANTO
-              </h1>
-              <p style={{ fontSize: '0.85em', letterSpacing: '0.35em', color: 'var(--text-muted)', fontFamily: 'monospace', margin: '0.4rem 0 0 0', textTransform: 'uppercase' }}>
-                [ AI Galactica Encyclopedia ]
-              </p>
-            </div>
-          </header>
+        {currentPage !== 'landing' && (
+          <SearchBar onSearch={handleSearch} onRandom={handleRandom} isLoading={isLoading && currentPage === 'wiki'} predefinedWords={PREDEFINED_WORDS} />
         )}
 
         <main className="fade-in" style={{ flex: 1, width: '100%', paddingTop: isReadingMode ? '4rem' : '0' }} key={currentPage + currentTopic}>
           <ErrorBoundary>
             {currentPage === 'wiki' ? (
-              <div className="main-layout" style={{ display: 'block', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                <div className="main-content" style={{ width: '100%' }}>
+              <div className="wiki-layout">
+                
+                {/* ── Left Sidebar (Navigation & Discovery) ── */}
+                {!isReadingMode && (
+                  <aside className="wiki-left-sidebar">
+                    {/* Breadcrumbs / Wiki Navigation */}
+                    <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '0.5rem', fontFamily: 'monospace' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.78em' }}>CANTO</span>
+                      <span style={{ color: 'var(--text-muted)', margin: '0 0.4rem', fontSize: '0.78em' }}>/</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.78em' }}>wiki</span>
+                      <span style={{ color: 'var(--text-muted)', margin: '0 0.4rem', fontSize: '0.78em' }}>/</span>
+                      <span style={{ color: 'var(--accent-color)', fontWeight: 'bold', fontSize: '0.78em' }}>{currentTopic}</span>
+                    </div>
+
+                    {/* Inline History & Starred (HistoryDropdown) */}
+                    <HistoryDropdown
+                      history={history}
+                      favorites={favorites}
+                      onNavigate={navigateToTopic}
+                      onClear={clearHistory}
+                      onViewLibrary={() => navigateToPage('library')}
+                      inline={true}
+                    />
+
+                    {/* Related Topics */}
+                    <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
+                  </aside>
+                )}
+
+                {/* ── Center Column (Main Content Area) ── */}
+                <div className="wiki-center-content" style={{ minHeight: '70vh', transition: 'all 0.3s ease' }}>
                   {!isReadingMode && (
-                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                       <AsciiArtDisplay artData={asciiArt} topic={currentTopic} onWordClick={handleWordClick} />
                     </div>
                   )}
+
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
                     <h2 className="wiki-topic-title" style={{ margin: 0, textTransform: 'capitalize', fontSize: '2em', fontWeight: 'bold', textAlign: 'center' }}>
                       {currentTopic}
@@ -1739,6 +1320,8 @@ const App: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Reading Settings / Controls */}
                   <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '0 0.5rem' }}>
                     {readingTime && <span style={{ fontSize: '0.8em', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{readingTime} min read</span>}
                     <button 
@@ -1750,11 +1333,45 @@ const App: React.FC = () => {
                     <div style={{ width: '160px', whiteSpace: 'nowrap' }}>
                       <CantoSlider value={fontSize} min={80} max={150} onChange={setFontSize} label="Font Size" />
                     </div>
+                    {content && (
+                      <button
+                        onClick={async () => {
+                          if (isCompareOpen) { setIsCompareOpen(false); setIsDiffView(false); return; }
+                          const h = await dbGetHistory();
+                          setCompareHistoryList(h);
+                          setCompareSlotA({ topic: currentTopic, content, label: `Current — ${currentTopic}` });
+                          setCompareSlotB(previousContent ? { topic: currentTopic, content: previousContent, label: `Previous — ${currentTopic}` } : null);
+                          setIsCompareOpen(true);
+                          setIsDiffView(true);
+                        }}
+                        style={{ background: 'none', border: 'none', textDecoration: 'underline', color: isCompareOpen ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.75em', padding: '0.3rem 0.7rem' }}
+                      >
+                        {isCompareOpen ? 'Hide Comparison' : 'Compare Versions'}
+                      </button>
+                    )}
                   </div>
 
-                  {/* ── My Data Center — moved to footer area ── */}
+                  {/* Thread Branching */}
+                  {conversationBranch.length > 1 && (
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1rem', fontFamily: 'monospace', fontSize: '0.82em' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Thread:</span>
+                      {conversationBranch.map((branchTopic, idx) => (
+                        <React.Fragment key={idx}>
+                          <button
+                            onClick={() => navigateToTopic(branchTopic)}
+                            style={{ background: 'none', border: 'none', textDecoration: 'underline', padding: 0, color: 'var(--accent-color)', cursor: 'pointer', fontFamily: 'monospace' }}
+                          >
+                            {branchTopic.length > 15 ? branchTopic.slice(0, 12) + '...' : branchTopic}
+                          </button>
+                          {idx < conversationBranch.length - 1 && <span style={{ color: 'var(--text-muted)' }}>›</span>}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Regenerate Action */}
                   {!isLoading && !error && content.length > 0 && (
-                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                       <button 
                         onClick={handleRegenerate}
                         style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em', fontFamily: 'monospace', textDecoration: 'underline' }}
@@ -1766,6 +1383,7 @@ const App: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Errors */}
                   {error && (
                     <div style={{ border: '1px solid #cc0000', padding: '1rem', color: '#cc0000', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                       <div>
@@ -1780,6 +1398,7 @@ const App: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Loading / Article Content */}
                   {isLoading && content.length === 0 && !error && <LoadingSkeleton />}
 
                   {content.length > 0 && !error && (
@@ -1839,66 +1458,62 @@ const App: React.FC = () => {
                           sources={lastSources}
                         />
                       )}
-                      {!isLoading && (
-                        <>
-                          {content && (
-                            <div style={{ margin: '2rem 0 0.5rem 0', fontFamily: 'monospace' }}>
-                              <button
-                                onClick={() => { setIsAdvancedLabsOpen(v => !v); if (!isAdvancedLabsOpen) { setIsMultimediaOpen(false); processCodexEvent({ type: 'lab_discovered', feature: 'labs' }); } }}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                  background: 'transparent', border: 'none', cursor: 'pointer',
-                                  fontFamily: 'monospace', fontSize: '0.72em',
-                                  color: 'var(--text-muted)', padding: '0.6rem 0',
-                                  width: '100%', textAlign: 'left',
-                                  letterSpacing: '0.18em', textTransform: 'uppercase',
-                                  transition: 'color 0.12s',
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                              >
-                                <span style={{ color: isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                                  {isAdvancedLabsOpen ? '▼' : '▶'}
-                                </span>
-                                <span>◈</span>
-                                <span>Canto Labs</span>
-                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-                              </button>
-                            </div>
-                          )}
-                          {isAdvancedLabsOpen && <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />}
-
-                          {content && (
-                            <div style={{ margin: '1rem 0 0.5rem 0', fontFamily: 'monospace' }}>
-                              <button
-                                onClick={() => { setIsMultimediaOpen(v => !v); if (!isMultimediaOpen) setIsAdvancedLabsOpen(false); }}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                  background: 'transparent', border: 'none', cursor: 'pointer',
-                                  fontFamily: 'monospace', fontSize: '0.72em',
-                                  color: 'var(--text-muted)', padding: '0.6rem 0',
-                                  width: '100%', textAlign: 'left',
-                                  letterSpacing: '0.18em', textTransform: 'uppercase',
-                                  transition: 'color 0.12s',
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-color)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
-                              >
-                                <span style={{ color: isMultimediaOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
-                                  {isMultimediaOpen ? '▼' : '▶'}
-                                </span>
-                                <span>◈</span>
-                                <span>Multimedia</span>
-                                <span style={{ flex: 1, height: '1px', background: 'var(--border-color)', display: 'inline-block', marginLeft: '0.4rem' }} />
-                              </button>
-                            </div>
-                          )}
-                          {isMultimediaOpen && <MultimediaViewer topic={currentTopic} content={content} sources={lastSources} />}
-                          <DidYouKnow topic={currentTopic} />
-                          <RelatedTopics topic={currentTopic} onWordClick={handleWordClick} />
-                        </>
-                      )}
                     </>
+                  )}
+
+                  {/* Floating Ask Canto Prompt Input (DeepWiki Style) */}
+                  {!isLoading && !error && content.length > 0 && (
+                    <div style={{
+                      marginTop: '2.5rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      padding: '1.25rem',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      fontFamily: 'monospace'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                        <span style={{ fontSize: '0.72em', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>◈ Ask Canto about {currentTopic}</span>
+                      </div>
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        const input = (e.currentTarget.elements.namedItem('followup') as HTMLInputElement);
+                        const val = input.value.trim();
+                        if (val) {
+                          navigateToTopic(`${currentTopic}: ${val}`);
+                          input.value = '';
+                        }
+                      }} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <input
+                          name="followup"
+                          type="text"
+                          placeholder={`Ask follow-up question or explore a sub-topic...`}
+                          style={{
+                            flex: 1,
+                            padding: '0.6rem 0.8rem',
+                            fontFamily: 'monospace',
+                            fontSize: '0.9em',
+                            background: 'var(--input-bg)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-color)',
+                            borderRadius: '4px',
+                            outline: 'none'
+                          }}
+                        />
+                        <button type="submit" style={{
+                          background: 'none',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--accent-color)',
+                          cursor: 'pointer',
+                          padding: '0.6rem 1rem',
+                          borderRadius: '4px',
+                          fontSize: '0.85em',
+                          fontFamily: 'monospace',
+                          fontWeight: 'bold'
+                        }}>
+                          Ask &rarr;
+                        </button>
+                      </form>
+                    </div>
                   )}
 
                   {!isLoading && !error && content.length === 0 && (
@@ -1907,9 +1522,237 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* ── Right Sidebar (Page Structure & Multi-Modal Utilities) ── */}
+                {!isReadingMode && (
+                  <aside className="wiki-right-sidebar">
+                    
+                    {/* Dynamic Table of Contents ("On this page") */}
+                    {(() => {
+                      const headers: { level: number; text: string }[] = [];
+                      content.split('\n').forEach(line => {
+                        const match = line.match(/^(##|###) (.+)/);
+                        if (match) {
+                          headers.push({ level: match[1].length, text: match[2].replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') });
+                        }
+                      });
+                      if (headers.length === 0) return null;
+                      return (
+                        <div className="sidebar-widget" style={{ position: 'sticky', top: '0', zIndex: 10, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                            <span style={{ color: 'var(--accent-color)', fontSize: '0.8em' }}>◈</span>
+                            <span style={{ fontFamily: 'monospace', fontSize: '0.8em', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>On this page</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.2rem' }}>
+                            {headers.map((h, i) => (
+                              <a
+                                key={i}
+                                href={`#${h.text.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                                style={{
+                                  display: 'block',
+                                  fontSize: '0.82em',
+                                  fontFamily: 'monospace',
+                                  color: 'var(--text-muted)',
+                                  textDecoration: 'none',
+                                  paddingLeft: h.level === 3 ? '0.8rem' : '0',
+                                  transition: 'color 0.12s'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-color)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                              >
+                                {h.level === 3 ? '└─ ' : '├─ '}{h.text}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    
+                    {/* Collapsible Article Settings */}
+                    <div className="sidebar-widget">
+                      <button
+                        onClick={() => setIsResearchOptionsOpen(!isResearchOptionsOpen)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}
+                      >
+                        <span style={{ color: isResearchOptionsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isResearchOptionsOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈ Article Settings</span>
+                      </button>
+                      {isResearchOptionsOpen && (
+                        <div style={{ marginTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.7rem', fontSize: '0.82em', fontFamily: 'monospace' }}>
+                          <div>
+                            <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Lens</div>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {(['Standard', 'Academic', 'Beginner', 'Historical', 'Controversial', 'Future Implications'] as const).map(lens => (
+                                <button key={lens} onClick={() => setActiveLens(lens)} style={{ background: 'none', border: 'none', padding: '0.1rem 0.3rem', borderBottom: `2px solid ${activeLens === lens ? 'var(--accent-color)' : 'transparent'}`, color: activeLens === lens ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em' }}>{lens}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Search Depth</div>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {(['Mini', 'Standard', 'Deep'] as const).map(d => (
+                                <button key={d} onClick={() => setDepth(d)} style={{ background: 'none', border: 'none', padding: '0.1rem 0.3rem', borderBottom: `2px solid ${depth === d ? 'var(--accent-color)' : 'transparent'}`, color: depth === d ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em' }}>{d}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Tone</div>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {(['Standard', 'Academic', 'Simple', 'Technical'] as const).map(t => (
+                                <button key={t} onClick={() => setArticleTone(t)} style={{ background: 'none', border: 'none', padding: '0.1rem 0.3rem', borderBottom: `2px solid ${articleTone === t ? 'var(--accent-color)' : 'transparent'}`, color: articleTone === t ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em' }}>{t}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72em', color: 'var(--text-muted)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Length</div>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {(['Full', 'Summary', 'Deep Dive'] as const).map(l => (
+                                <button key={l} onClick={() => setArticleLength(l)} style={{ background: 'none', border: 'none', padding: '0.1rem 0.3rem', borderBottom: `2px solid ${articleLength === l ? 'var(--accent-color)' : 'transparent'}`, color: articleLength === l ? 'var(--accent-color)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85em' }}>{l}</button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Research Papers context */}
+                    <div className="sidebar-widget">
+                      <button
+                        onClick={() => setIsResearchPanelOpen(!isResearchPanelOpen)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}
+                      >
+                        <span style={{ color: isResearchPanelOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isResearchPanelOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈ Research Papers</span>
+                      </button>
+                      {isResearchPanelOpen && (
+                        <div style={{ marginTop: '0.8rem' }}>
+                          <ResearchPanel topic={currentTopic} content={content} sources={lastSources} onTopicClick={handleWordClick} isOpen={isResearchPanelOpen} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Canto Labs */}
+                    {content && (
+                      <div className="sidebar-widget">
+                        <button
+                          onClick={() => { setIsAdvancedLabsOpen(!isAdvancedLabsOpen); if (!isAdvancedLabsOpen) setIsMultimediaOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}
+                        >
+                          <span style={{ color: isAdvancedLabsOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                            {isAdvancedLabsOpen ? '▼' : '▶'}
+                          </span>
+                          <span>◈ Canto Labs</span>
+                        </button>
+                        {isAdvancedLabsOpen && (
+                          <div style={{ marginTop: '0.8rem' }}>
+                            <CantoLabs topic={currentTopic} content={content} onWordClick={handleWordClick} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Multimedia Explorer */}
+                    {content && (
+                      <div className="sidebar-widget">
+                        <button
+                          onClick={() => { setIsMultimediaOpen(!isMultimediaOpen); if (!isMultimediaOpen) setIsAdvancedLabsOpen(false); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}
+                        >
+                          <span style={{ color: isMultimediaOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                            {isMultimediaOpen ? '▼' : '▶'}
+                          </span>
+                          <span>◈ Multimedia</span>
+                        </button>
+                        {isMultimediaOpen && (
+                          <div style={{ marginTop: '0.8rem' }}>
+                            <MultimediaViewer topic={currentTopic} content={content} sources={lastSources} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* My Data Center */}
+                    <div className="sidebar-widget">
+                      <button
+                        onClick={() => setIsDataCenterOpen(!isDataCenterOpen)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}
+                      >
+                        <span style={{ color: isDataCenterOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isDataCenterOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈ My Data Center</span>
+                      </button>
+                      {isDataCenterOpen && (
+                        <div style={{ marginTop: '0.8rem' }}>
+                          <DataCenter isOpen={isDataCenterOpen} onToggle={() => setIsDataCenterOpen(!isDataCenterOpen)} hideHeader={true} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Canto Codex achievements */}
+                    <div className="sidebar-widget">
+                      <button
+                        onClick={() => { setIsCodexOpen(!isCodexOpen); setCodexNewCount(0); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '0.8em', color: 'var(--text-color)', fontWeight: 'bold' }}
+                      >
+                        <span style={{ color: isCodexOpen ? 'var(--accent-color)' : 'var(--text-muted)', fontSize: '0.85em' }}>
+                          {isCodexOpen ? '▼' : '▶'}
+                        </span>
+                        <span>◈ Canto Codex</span>
+                        {codexNewCount > 0 && <span style={{ color: 'var(--accent-color)', fontSize: '0.8em', marginLeft: '0.4rem' }}>[{codexNewCount} new]</span>}
+                      </button>
+                      {isCodexOpen && (
+                        <div style={{ marginTop: '0.8rem' }}>
+                          <CantoCodex isOpen={isCodexOpen} onToggle={() => { setIsCodexOpen(!isCodexOpen); setCodexNewCount(0); }} hideHeader={true} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Versions section */}
+                    {(() => {
+                      let versions: any[] = [];
+                      try {
+                        const savedFull = localStorage.getItem('canto_history_full');
+                        if (savedFull) {
+                          const full: any[] = JSON.parse(savedFull);
+                          versions = full.filter(e => e.topic.toLowerCase() === currentTopic.toLowerCase());
+                        }
+                      } catch {}
+                      if (versions.length > 0) {
+                        return (
+                          <div className="sidebar-widget">
+                            <VersionsSection
+                              versions={versions}
+                              currentTopic={currentTopic}
+                              onNavigate={navigateToTopic}
+                              onLoadVersion={(v) => {
+                                setContent(v.content);
+                                if (v.asciiArt) setAsciiArt(v.asciiArt);
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                  </aside>
+                )}
+
               </div>
             ) : currentPage === 'landing' ? (
-              <LandingPage onWordClick={handleWordClick} onConfigureClick={() => setIsDataCenterOpen(true)} />
+              <LandingPage
+                onWordClick={handleWordClick}
+                onConfigureClick={() => setIsDataCenterOpen(true)}
+                onSearch={handleSearch}
+                onRandom={handleRandom}
+                isLoading={isLoading && currentPage === 'wiki'}
+                predefinedWords={PREDEFINED_WORDS}
+              />
             ) : currentPage === '404' ? (
               <div style={{ maxWidth: '800px', margin: '4rem auto', textAlign: 'center', fontFamily: 'monospace' }}>
                 <h1 style={{ fontSize: '3.5em', fontWeight: 'bold', borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem', letterSpacing: '0.1em' }}>404</h1>
